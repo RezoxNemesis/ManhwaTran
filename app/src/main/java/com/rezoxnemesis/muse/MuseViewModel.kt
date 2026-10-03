@@ -100,6 +100,23 @@ class MuseViewModel(
         initialValue = emptyList(),
     )
 
+    val localTrendingTracks = combine(
+        _libraryState,
+        favoriteIds,
+        preferences.recentTrackIds,
+    ) { library, favourites, recentIds ->
+        val recentRank = recentIds.withIndex().associate { it.value to it.index }
+        library.tracks.sortedWith(
+            compareByDescending<Track> { it.id in favourites }
+                .thenBy { recentRank[it.id] ?: Int.MAX_VALUE }
+                .thenByDescending { it.dateAddedSeconds }
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
     private val _selectedArtist = MutableStateFlow<String?>(null)
     val selectedArtist = _selectedArtist.asStateFlow()
 
