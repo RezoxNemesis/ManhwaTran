@@ -208,6 +208,9 @@ fun MuseApp(
                 composable("liked") {
                     LikedScreen(viewModel, navController)
                 }
+                composable("recent") {
+                    RecentScreen(viewModel, navController)
+                }
                 composable("playlists") {
                     PlaylistsScreen(viewModel, navController)
                 }
@@ -380,7 +383,7 @@ private fun HomeScreen(
                     label = "Recent",
                     icon = Icons.Rounded.AccessTime,
                     modifier = Modifier.weight(1f),
-                    onClick = { navController.navigate("library") },
+                    onClick = { navController.navigate("recent") },
                 )
             }
         }
@@ -444,7 +447,7 @@ private fun ExploreScreen(
     viewModel: MuseViewModel,
     navController: NavHostController,
 ) {
-    val state by viewModel.libraryState.collectAsStateWithLifecycle()
+    val trending by viewModel.localTrendingTracks.collectAsStateWithLifecycle()
     val liked by viewModel.likedTracks.collectAsStateWithLifecycle()
 
     LazyColumn(
@@ -458,7 +461,7 @@ private fun ExploreScreen(
         item {
             SectionTitle("Trending in Your Library", trailing = "Local")
         }
-        items(state.tracks.take(8), key = { it.id }) { track ->
+        items(trending.take(8), key = { it.id }) { track ->
             TrackRow(
                 track = track,
                 favorite = liked.any { it.id == track.id },
@@ -767,6 +770,42 @@ private fun LyricsScreen(
                 title = "No local lyrics found",
                 body = "Muse will use embedded lyrics, local LRC files, or user-imported lyrics. It will not fabricate song lyrics.",
             )
+        }
+    }
+}
+
+@Composable
+private fun RecentScreen(
+    viewModel: MuseViewModel,
+    navController: NavHostController,
+) {
+    val tracks by viewModel.recentTracks.collectAsStateWithLifecycle()
+    val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item { ScreenHeader("Recently Played", { navController.popBackStack() }) }
+        if (tracks.isEmpty()) {
+            item { EmptyCard("No listening history yet", "Tracks you play in Muse will appear here.") }
+        } else {
+            items(tracks, key = { it.id }) { track ->
+                TrackRow(
+                    track = track,
+                    favorite = track.id in favourites,
+                    onPlay = { viewModel.playTrack(track) },
+                    onFavorite = { viewModel.toggleFavorite(track.id) },
+                    onArtist = {
+                        viewModel.selectArtist(track.artist)
+                        navController.navigate("artist")
+                    },
+                    onAlbum = {
+                        viewModel.selectAlbum(track.album)
+                        navController.navigate("album")
+                    },
+                )
+            }
         }
     }
 }
@@ -1135,6 +1174,7 @@ private fun MoreOptionsScreen(
 ) {
     val track by viewModel.currentTrack.collectAsStateWithLifecycle()
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -1153,6 +1193,23 @@ private fun MoreOptionsScreen(
                     title = if (track!!.id in favourites) "Remove from Liked Songs" else "Add to Liked Songs",
                     onClick = { viewModel.toggleFavorite(track!!.id) },
                 )
+                if (playlists.isEmpty()) {
+                    OptionRow(
+                        icon = Icons.Rounded.PlaylistPlay,
+                        title = "Create a Playlist",
+                        subtitle = "Create one before adding this track",
+                        onClick = { navController.navigate("playlists") },
+                    )
+                } else {
+                    playlists.forEach { playlist ->
+                        OptionRow(
+                            icon = Icons.Rounded.PlaylistPlay,
+                            title = "Add to ${playlist.name}",
+                            subtitle = "${playlist.trackIds.size} songs",
+                            onClick = { viewModel.addTrackToPlaylist(playlist.id, track!!.id) },
+                        )
+                    }
+                }
                 OptionRow(
                     icon = Icons.Rounded.Album,
                     title = "View Album",
