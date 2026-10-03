@@ -77,6 +77,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -301,6 +304,7 @@ private fun HomeScreen(
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filtered by viewModel.filteredTracks.collectAsStateWithLifecycle()
+    val recent by viewModel.recentTracks.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -393,12 +397,16 @@ private fun HomeScreen(
                 )
             }
         } else {
+            val homeTracks = recent.ifEmpty { state.tracks }
             item {
-                SectionTitle("Recently Played", trailing = "${state.tracks.size} local tracks")
+                SectionTitle(
+                    if (recent.isEmpty()) "Recently Added" else "Recently Played",
+                    trailing = "${homeTracks.size} local tracks",
+                )
             }
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(state.tracks.take(8), key = { it.id }) { track ->
+                    items(homeTracks.take(8), key = { it.id }) { track ->
                         TrackPoster(
                             track = track,
                             favorite = track.id in favourites,
@@ -566,7 +574,7 @@ private fun NowPlayingScreen(
     ) {
         ScreenHeader(
             title = "Now Playing",
-            onBack = navController::popBackStack,
+            onBack = { navController.popBackStack() },
             action = {
                 IconButton(onClick = { navController.navigate("more") }) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
@@ -698,7 +706,7 @@ private fun QueueScreen(
         item {
             ScreenHeader(
                 title = "Play Queue",
-                onBack = navController::popBackStack,
+                onBack = { navController.popBackStack() },
                 action = {
                     IconButton(onClick = viewModel.playback::clearQueue) {
                         Icon(Icons.Rounded.Clear, contentDescription = "Clear queue")
@@ -748,7 +756,7 @@ private fun LyricsScreen(
     navController: NavHostController,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader(title = "Lyrics", onBack = navController::popBackStack)
+        ScreenHeader(title = "Lyrics", onBack = { navController.popBackStack() })
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -774,7 +782,7 @@ private fun LikedScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { ScreenHeader("Liked Songs", navController::popBackStack) }
+        item { ScreenHeader("Liked Songs", { navController.popBackStack() }) }
         if (tracks.isEmpty()) {
             item { EmptyCard("No liked songs", "Tap the heart on a track to keep it here.") }
         } else {
@@ -804,12 +812,38 @@ private fun PlaylistsScreen(
     navController: NavHostController,
 ) {
     val liked by viewModel.likedTracks.collectAsStateWithLifecycle()
-    Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("Playlists", navController::popBackStack)
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    var name by remember { mutableStateOf("") }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { ScreenHeader("Playlists", { navController.popBackStack() }) }
+
+        item {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("New playlist") },
+                placeholder = { Text("Playlist name") },
+                trailingIcon = {
+                    TextButton(
+                        enabled = name.isNotBlank(),
+                        onClick = {
+                            viewModel.createPlaylist(name)
+                            name = ""
+                        },
+                    ) { Text("Create") }
+                },
+                shape = RoundedCornerShape(20.dp),
+            )
+        }
+
+        item {
             GlassCard(
                 modifier = Modifier.clickable { navController.navigate("liked") },
             ) {
@@ -821,16 +855,49 @@ private fun PlaylistsScreen(
                 ) {
                     Icon(Icons.Rounded.Favorite, contentDescription = null, tint = MuseGreen)
                     Spacer(Modifier.size(14.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text("Liked Songs", fontWeight = FontWeight.SemiBold)
                         Text("${liked.size} songs", color = MuseMuted)
                     }
                 }
             }
-            EmptyCard(
-                title = "User playlists are not created yet",
-                body = "The persistent playlist editor is the next organisation milestone. Muse does not show fake playlists.",
-            )
+        }
+
+        if (playlists.isEmpty()) {
+            item {
+                EmptyCard(
+                    title = "No playlists yet",
+                    body = "Create a playlist above. Muse stores it locally on this device.",
+                )
+            }
+        } else {
+            items(playlists, key = { it.id }) { playlist ->
+                val tracks = viewModel.playlistTracks(playlist)
+                GlassCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.PlaylistPlay, contentDescription = null, tint = MuseGreen)
+                        Spacer(Modifier.size(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(playlist.name, fontWeight = FontWeight.SemiBold)
+                            Text("${tracks.size} songs", color = MuseMuted)
+                        }
+                        IconButton(
+                            enabled = tracks.isNotEmpty(),
+                            onClick = { viewModel.playTracks(tracks) },
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = "Play playlist")
+                        }
+                        IconButton(onClick = { viewModel.deletePlaylist(playlist.id) }) {
+                            Icon(Icons.Rounded.Delete, contentDescription = "Delete playlist")
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -847,7 +914,7 @@ private fun ArtistScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { ScreenHeader(artist ?: "Artist", navController::popBackStack) }
+        item { ScreenHeader(artist ?: "Artist", { navController.popBackStack() }) }
         item {
             Text(
                 "${tracks.size} local tracks",
@@ -894,7 +961,7 @@ private fun AlbumScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { ScreenHeader(album ?: "Album", navController::popBackStack) }
+        item { ScreenHeader(album ?: "Album", { navController.popBackStack() }) }
         item {
             Text(
                 "${tracks.size} tracks",
@@ -934,7 +1001,7 @@ private fun DownloadsScreen(
     navController: NavHostController,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("Downloads", navController::popBackStack)
+        ScreenHeader("Downloads", { navController.popBackStack() })
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -963,7 +1030,7 @@ private fun SleepTimerScreen(
             .padding(horizontal = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ScreenHeader("Sleep Timer", navController::popBackStack)
+        ScreenHeader("Sleep Timer", { navController.popBackStack() })
         Spacer(Modifier.height(36.dp))
         Surface(
             modifier = Modifier.size(240.dp),
@@ -1021,7 +1088,7 @@ private fun SettingsScreen(
 ) {
     val state by viewModel.libraryState.collectAsStateWithLifecycle()
     Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("Settings", navController::popBackStack)
+        ScreenHeader("Settings", { navController.popBackStack() })
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1044,12 +1111,19 @@ private fun SettingsScreen(
                 subtitle = "Capability-aware processing",
                 onClick = { navController.navigate("equalizer") },
             )
-            SettingsRow(
-                icon = Icons.Rounded.Info,
-                title = "About",
-                subtitle = "Muse 0.1.0 • local-first • no account required",
-                onClick = {},
-            )
+            GlassCard {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Info, contentDescription = null, tint = MuseGreen)
+                    Spacer(Modifier.size(14.dp))
+                    Column {
+                        Text("About", fontWeight = FontWeight.Medium)
+                        Text("Muse 0.1.0 • local-first • no account required", color = MuseMuted)
+                    }
+                }
+            }
         }
     }
 }
@@ -1064,7 +1138,7 @@ private fun MoreOptionsScreen(
     val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("More Options", navController::popBackStack)
+        ScreenHeader("More Options", { navController.popBackStack() })
         if (track == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyCard("Nothing playing", "Start a track to see song actions.")
@@ -1107,15 +1181,26 @@ private fun MoreOptionsScreen(
                         context.startActivity(Intent.createChooser(intent, "Share with"))
                     },
                 )
-                OptionRow(
-                    icon = Icons.Rounded.Info,
-                    title = "Song Info",
-                    subtitle = buildString {
-                        append(track!!.album)
-                        track!!.mimeType?.let { append(" • $it") }
-                    },
-                    onClick = {},
-                )
+                GlassCard {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.Info, contentDescription = null, tint = MuseGreen)
+                        Spacer(Modifier.size(14.dp))
+                        Column {
+                            Text("Song Info")
+                            Text(
+                                buildString {
+                                    append(track!!.album)
+                                    track!!.mimeType?.let { append(" • $it") }
+                                },
+                                color = MuseMuted,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
