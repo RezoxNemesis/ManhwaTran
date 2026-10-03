@@ -20,9 +20,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+data class QueueUiItem(
+    val mediaId: Long?,
+    val title: String,
+    val artist: String,
+)
+
 data class PlaybackUiState(
     val connected: Boolean = false,
     val currentMediaId: Long? = null,
+    val currentIndex: Int = -1,
     val title: String = "",
     val artist: String = "",
     val isPlaying: Boolean = false,
@@ -30,6 +37,7 @@ data class PlaybackUiState(
     val durationMs: Long = 0L,
     val shuffleEnabled: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    val queue: List<QueueUiItem> = emptyList(),
 )
 
 class MusePlaybackController(
@@ -111,6 +119,27 @@ class MusePlaybackController(
         }
     }
 
+    fun removeQueueItem(index: Int) {
+        controller?.let { player ->
+            if (index in 0 until player.mediaItemCount) player.removeMediaItem(index)
+        }
+    }
+
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        controller?.let { player ->
+            if (
+                fromIndex in 0 until player.mediaItemCount &&
+                toIndex in 0 until player.mediaItemCount
+            ) {
+                player.moveMediaItem(fromIndex, toIndex)
+            }
+        }
+    }
+
+    fun clearQueue() {
+        controller?.clearMediaItems()
+    }
+
     fun release() {
         tickerJob?.cancel()
         controller?.removeListener(listener)
@@ -131,9 +160,22 @@ class MusePlaybackController(
 
     private fun syncFrom(player: Player) {
         val metadata = player.mediaMetadata
+        val queue = buildList {
+            repeat(player.mediaItemCount) { index ->
+                val item = player.getMediaItemAt(index)
+                add(
+                    QueueUiItem(
+                        mediaId = item.mediaId.toLongOrNull(),
+                        title = item.mediaMetadata.title?.toString().orEmpty(),
+                        artist = item.mediaMetadata.artist?.toString().orEmpty(),
+                    )
+                )
+            }
+        }
         _state.value = PlaybackUiState(
             connected = true,
             currentMediaId = player.currentMediaItem?.mediaId?.toLongOrNull(),
+            currentIndex = player.currentMediaItemIndex,
             title = metadata.title?.toString().orEmpty(),
             artist = metadata.artist?.toString().orEmpty(),
             isPlaying = player.isPlaying,
@@ -141,6 +183,7 @@ class MusePlaybackController(
             durationMs = player.duration.takeIf { it > 0L } ?: 0L,
             shuffleEnabled = player.shuffleModeEnabled,
             repeatMode = player.repeatMode,
+            queue = queue,
         )
     }
 
