@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.rezoxnemesis.muse.data.MediaLibraryRepository
 import com.rezoxnemesis.muse.data.MusePreferences
 import com.rezoxnemesis.muse.data.Track
+import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.MusePlaybackController
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -84,6 +85,21 @@ class MuseViewModel(
         initialValue = emptyList(),
     )
 
+    val playlists = preferences.playlists.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
+    val recentTracks = combine(_libraryState, preferences.recentTrackIds) { library, ids ->
+        val byId = library.tracks.associateBy { it.id }
+        ids.mapNotNull(byId::get)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
     private val _selectedArtist = MutableStateFlow<String?>(null)
     val selectedArtist = _selectedArtist.asStateFlow()
 
@@ -120,7 +136,10 @@ class MuseViewModel(
     fun playTrack(track: Track) {
         val tracks = _libraryState.value.tracks
         val index = tracks.indexOfFirst { it.id == track.id }
-        if (index >= 0) playback.playTracks(tracks, index)
+        if (index >= 0) {
+            playback.playTracks(tracks, index)
+            viewModelScope.launch { preferences.recordPlayed(track.id) }
+        }
     }
 
     fun playTracks(tracks: List<Track>, startIndex: Int = 0) {
@@ -129,6 +148,27 @@ class MuseViewModel(
 
     fun toggleFavorite(trackId: Long) {
         viewModelScope.launch { preferences.toggleFavorite(trackId) }
+    }
+
+    fun createPlaylist(name: String) {
+        viewModelScope.launch { preferences.createPlaylist(name) }
+    }
+
+    fun deletePlaylist(playlistId: String) {
+        viewModelScope.launch { preferences.deletePlaylist(playlistId) }
+    }
+
+    fun addTrackToPlaylist(playlistId: String, trackId: Long) {
+        viewModelScope.launch { preferences.addTrackToPlaylist(playlistId, trackId) }
+    }
+
+    fun removeTrackFromPlaylist(playlistId: String, trackId: Long) {
+        viewModelScope.launch { preferences.removeTrackFromPlaylist(playlistId, trackId) }
+    }
+
+    fun playlistTracks(playlist: UserPlaylist): List<Track> {
+        val byId = _libraryState.value.tracks.associateBy { it.id }
+        return playlist.trackIds.mapNotNull(byId::get)
     }
 
     fun selectArtist(name: String) {
