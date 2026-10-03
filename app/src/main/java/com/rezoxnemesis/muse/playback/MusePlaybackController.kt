@@ -93,6 +93,10 @@ class MusePlaybackController(
         }
     }
 
+    fun pause() {
+        controller?.pause()
+    }
+
     fun seekTo(positionMs: Long) {
         controller?.seekTo(positionMs.coerceAtLeast(0L))
     }
