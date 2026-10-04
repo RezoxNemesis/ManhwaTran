@@ -12,7 +12,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -236,7 +236,7 @@ internal fun MuseGlassSurface(
                 shape = shape,
             ),
     ) {
-        Canvas(Modifier.matchParentSize()) {
+        Canvas(Modifier.fillMaxSize()) {
             drawRoundRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -284,7 +284,7 @@ internal fun MuseGlassAction(
         targetValue = if (pressed) 0.965f else 1f,
         animationSpec = spring(
             dampingRatio = 0.58f,
-            stiffness = Spring.StiffnessMediumHigh,
+            stiffness = Spring.StiffnessMedium,
         ),
         label = "MuseGlassPressScale",
     )
