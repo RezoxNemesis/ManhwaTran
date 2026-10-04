@@ -189,6 +189,21 @@ class MusePlaybackController(
         }
     }
 
+    fun playNext(track: Track) {
+        controller?.let { player ->
+            val insertionIndex = if (player.currentMediaItemIndex >= 0) {
+                (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
+            } else {
+                0
+            }
+            player.addMediaItem(insertionIndex, toMediaItem(track))
+        }
+    }
+
+    fun addToQueue(track: Track) {
+        controller?.addMediaItem(toMediaItem(track))
+    }
+
     fun removeQueueItem(index: Int) {
         controller?.let { player ->
             if (index in 0 until player.mediaItemCount) player.removeMediaItem(index)
