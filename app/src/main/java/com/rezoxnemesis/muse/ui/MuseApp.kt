@@ -719,6 +719,7 @@ private fun QueueScreen(
     navController: NavHostController,
 ) {
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
+    var saveName by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -730,8 +731,17 @@ private fun QueueScreen(
                 title = "Play Queue",
                 onBack = { navController.popBackStack() },
                 action = {
-                    IconButton(onClick = viewModel.playback::clearQueue) {
-                        Icon(Icons.Rounded.Clear, contentDescription = "Clear queue")
+                    Row {
+                        IconButton(onClick = viewModel.playback::toggleShuffle) {
+                            Icon(
+                                Icons.Rounded.Shuffle,
+                                contentDescription = "Toggle shuffle",
+                                tint = if (playback.shuffleEnabled) MuseGreen else Color.White,
+                            )
+                        }
+                        IconButton(onClick = viewModel.playback::clearUpcomingQueue) {
+                            Icon(Icons.Rounded.Clear, contentDescription = "Clear upcoming queue")
+                        }
                     }
                 },
             )
@@ -739,6 +749,29 @@ private fun QueueScreen(
         if (playback.queue.isEmpty()) {
             item { EmptyCard("Queue is empty", "Choose a song from your library to start listening.") }
         } else {
+            item {
+                OutlinedTextField(
+                    value = saveName,
+                    onValueChange = { saveName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Save queue as playlist") },
+                    placeholder = { Text("Playlist name") },
+                    trailingIcon = {
+                        TextButton(
+                            enabled = saveName.isNotBlank(),
+                            onClick = {
+                                viewModel.saveCurrentQueueAsPlaylist(saveName)
+                                saveName = ""
+                            },
+                        ) {
+                            Text("Save")
+                        }
+                    },
+                    shape = RoundedCornerShape(18.dp),
+                )
+            }
+
             itemsIndexed(playback.queue, key = { index, item -> "${item.mediaId}:$index" }) { index, item ->
                 GlassCard {
                     Row(
