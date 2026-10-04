@@ -12,6 +12,7 @@ import com.rezoxnemesis.muse.data.LyricsDocument
 import com.rezoxnemesis.muse.data.LyricsRepository
 import com.rezoxnemesis.muse.data.ManagedMediaRepository
 import com.rezoxnemesis.muse.data.MediaLibraryRepository
+import com.rezoxnemesis.muse.data.MuseBackupRepository
 import com.rezoxnemesis.muse.data.MusePreferences
 import com.rezoxnemesis.muse.data.MuseSoundProfile
 import com.rezoxnemesis.muse.data.Track
@@ -57,6 +58,12 @@ data class ManagedMediaUiState(
     val error: String? = null,
 )
 
+data class BackupUiState(
+    val busy: Boolean = false,
+    val message: String? = null,
+    val error: String? = null,
+)
+
 class MuseViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
@@ -64,6 +71,10 @@ class MuseViewModel(
     private val lyricsRepository = LyricsRepository(application)
     private val managedMediaRepository = ManagedMediaRepository(application)
     private val preferences = MusePreferences(application)
+    private val backupRepository = MuseBackupRepository(
+        application,
+        preferences,
+    )
     private var mediaStoreRefreshJob: Job? = null
     private val mediaStoreObserver = object : ContentObserver(
         Handler(Looper.getMainLooper()),
@@ -172,6 +183,9 @@ class MuseViewModel(
 
     private val _managedMediaState = MutableStateFlow(ManagedMediaUiState())
     val managedMediaState = _managedMediaState.asStateFlow()
+
+    private val _backupState = MutableStateFlow(BackupUiState())
+    val backupState = _backupState.asStateFlow()
 
     init {
         application.contentResolver.registerContentObserver(
@@ -293,6 +307,52 @@ class MuseViewModel(
 
     fun clearManagedMediaError() {
         _managedMediaState.value = _managedMediaState.value.copy(error = null)
+    }
+
+    fun exportBackup(destination: Uri) {
+        viewModelScope.launch {
+            _backupState.value = BackupUiState(busy = true)
+            backupRepository.exportBackup(destination)
+                .onSuccess {
+                    _backupState.value = BackupUiState(
+                        message = "Muse backup exported successfully.",
+                    )
+                }
+                .onFailure { error ->
+                    _backupState.value = BackupUiState(
+                        error = error.message ?: "Could not export the Muse backup.",
+                    )
+                }
+        }
+    }
+
+    fun restoreBackup(source: Uri) {
+        viewModelScope.launch {
+            _backupState.value = BackupUiState(busy = true)
+            backupRepository.restoreBackup(source)
+                .onSuccess { summary ->
+                    _backupState.value = BackupUiState(
+                        message = buildString {
+                            append("Restored ")
+                            append(summary.playlists)
+                            append(" playlists, ")
+                            append(summary.soundProfiles)
+                            append(" sound profiles and ")
+                            append(summary.favorites)
+                            append(" favourites.")
+                        },
+                    )
+                }
+                .onFailure { error ->
+                    _backupState.value = BackupUiState(
+                        error = error.message ?: "Could not restore the Muse backup.",
+                    )
+                }
+        }
+    }
+
+    fun clearBackupMessage() {
+        _backupState.value = BackupUiState()
     }
 
     fun setSearchQuery(query: String) {
