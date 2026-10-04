@@ -95,17 +95,24 @@ class MusePlaybackService : MediaSessionService() {
             val defaultResult = super.onConnect(session, controller)
             if (!defaultResult.isAccepted) return defaultResult
 
-            val commands = defaultResult.availableSessionCommands
+            val commandsBuilder = defaultResult
+                .availableSessionCommands
                 .buildUpon()
-                .add(AudioEffectProtocol.GetStateCommand)
-                .add(AudioEffectProtocol.UpdateCommand)
-                .add(SleepTimerProtocol.GetStateCommand)
-                .add(SleepTimerProtocol.StartCommand)
-                .add(SleepTimerProtocol.CancelCommand)
-                .build()
+
+            if (
+                controller.packageName ==
+                this@MusePlaybackService.packageName
+            ) {
+                commandsBuilder
+                    .add(AudioEffectProtocol.GetStateCommand)
+                    .add(AudioEffectProtocol.UpdateCommand)
+                    .add(SleepTimerProtocol.GetStateCommand)
+                    .add(SleepTimerProtocol.StartCommand)
+                    .add(SleepTimerProtocol.CancelCommand)
+            }
 
             return MediaSession.ConnectionResult.accept(
-                commands,
+                commandsBuilder.build(),
                 defaultResult.availablePlayerCommands,
             )
         }
