@@ -2352,40 +2352,181 @@ private fun SettingsScreen(
     navController: NavHostController,
 ) {
     val state by viewModel.libraryState.collectAsStateWithLifecycle()
-    Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("Settings", { navController.popBackStack() })
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    val backup by viewModel.backupState.collectAsStateWithLifecycle()
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        uri?.let(viewModel::exportBackup)
+    }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let(viewModel::restoreBackup)
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            ScreenHeader("Settings", { navController.popBackStack() })
+        }
+
+        item {
             SettingsRow(
                 icon = Icons.Rounded.LibraryMusic,
                 title = "Library",
-                subtitle = "${state.tracks.size} local tracks",
+                subtitle = "${state.tracks.size} local tracks • tap to rescan",
                 onClick = viewModel::refreshLibrary,
             )
+        }
+        item {
             SettingsRow(
                 icon = Icons.Rounded.Timer,
                 title = "Sleep Timer",
-                subtitle = "Listening-session timer",
+                subtitle = "Timer and Sleep Scene playback boundaries",
                 onClick = { navController.navigate("sleep") },
             )
+        }
+        item {
             SettingsRow(
                 icon = Icons.Rounded.Equalizer,
                 title = "Audio Enhancement",
-                subtitle = "Capability-aware processing",
+                subtitle = "Capability-aware EQ, bass, virtualizer and loudness",
                 onClick = { navController.navigate("equalizer") },
             )
+        }
+        item {
+            SettingsRow(
+                icon = Icons.Rounded.Download,
+                title = "Imported Audio",
+                subtitle = "Manage files chosen through Android's secure picker",
+                onClick = { navController.navigate("downloads") },
+            )
+        }
+
+        item {
+            SectionTitle(
+                title = "Backup & Restore",
+                trailing = "Local JSON",
+            )
+        }
+
+        item {
+            SettingsRow(
+                icon = Icons.Rounded.Share,
+                title = "Export Muse Backup",
+                subtitle = "Playlists, favourites, history and sound profiles",
+                onClick = {
+                    if (!backup.busy) {
+                        exportLauncher.launch("Muse-backup.json")
+                    }
+                },
+            )
+        }
+
+        item {
+            SettingsRow(
+                icon = Icons.Rounded.Download,
+                title = "Restore Muse Backup",
+                subtitle = "Restore organisation data from a Muse JSON backup",
+                onClick = {
+                    if (!backup.busy) {
+                        restoreLauncher.launch(arrayOf("application/json", "text/json", "text/plain"))
+                    }
+                },
+            )
+        }
+
+        if (backup.busy) {
+            item {
+                GlassCard {
+                    Text(
+                        "Working on backup…",
+                        color = MuseMuted,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+        }
+
+        if (backup.message != null || backup.error != null) {
+            item {
+                GlassCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            backup.message ?: backup.error.orEmpty(),
+                            color = if (backup.error == null) {
+                                MuseGreen
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = viewModel::clearBackupMessage) {
+                            Text("Dismiss")
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionTitle(title = "Privacy & Storage")
+        }
+
+        item {
+            GlassCard {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.Info,
+                            contentDescription = null,
+                            tint = MuseGreen,
+                        )
+                        Spacer(Modifier.size(14.dp))
+                        Text(
+                            "Local-first by design",
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Text(
+                        "Muse does not require an account or paid cloud service for core playback. Imported-file permissions remain Android-scoped. Backups exclude imported file permissions and audio files.",
+                        color = MuseMuted,
+                    )
+                }
+            }
+        }
+
+        item {
             GlassCard {
                 Row(
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Rounded.Info, contentDescription = null, tint = MuseGreen)
+                    Icon(
+                        Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = MuseGreen,
+                    )
                     Spacer(Modifier.size(14.dp))
                     Column {
                         Text("About", fontWeight = FontWeight.Medium)
-                        Text("Muse 0.1.0 • local-first • no account required", color = MuseMuted)
+                        Text(
+                            "Muse 0.1.0 • local-first • no account required",
+                            color = MuseMuted,
+                        )
                     }
                 }
             }
