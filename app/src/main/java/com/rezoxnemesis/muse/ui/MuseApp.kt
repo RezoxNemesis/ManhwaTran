@@ -2987,6 +2987,7 @@ private fun EqualizerScreen(
 ) {
     val effects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
     val soundProfiles by viewModel.soundProfiles.collectAsStateWithLifecycle()
+    val selectedSoundProfileId by viewModel.selectedSoundProfileId.collectAsStateWithLifecycle()
     var profileName by remember { mutableStateOf("") }
 
     LaunchedEffect(playback.currentMediaId) {
@@ -3068,12 +3069,49 @@ private fun EqualizerScreen(
             item {
                 SectionTitle(
                     title = "Sound Profiles",
-                    trailing = if (soundProfiles.isEmpty()) {
-                        "Local"
-                    } else {
-                        "${soundProfiles.size} saved"
-                    },
+                    trailing = selectedSoundProfileId
+                        ?.let { selectedId ->
+                            soundProfiles
+                                .firstOrNull { it.id == selectedId }
+                                ?.name
+                                ?.let { "Active: $it" }
+                        }
+                        ?: if (soundProfiles.isEmpty()) {
+                            "Local"
+                        } else {
+                            "${soundProfiles.size} saved"
+                        },
                 )
+            }
+
+            if (selectedSoundProfileId != null) {
+                item {
+                    GlassCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Smart Resume",
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    "The active sound profile will be restored when Muse gets a playback audio session.",
+                                    color = MuseMuted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            TextButton(
+                                onClick = viewModel::clearSelectedSoundProfile,
+                            ) {
+                                Text("Stop Auto-Restore")
+                            }
+                        }
+                    }
+                }
             }
 
             item {
@@ -3138,7 +3176,13 @@ private fun EqualizerScreen(
                                     viewModel.applySoundProfile(profile)
                                 },
                             ) {
-                                Text("Apply")
+                                Text(
+                                    if (selectedSoundProfileId == profile.id) {
+                                        "Active"
+                                    } else {
+                                        "Apply"
+                                    }
+                                )
                             }
                             IconButton(
                                 onClick = {
