@@ -1,5 +1,5 @@
 Muse preview release trigger
 
-Requested after successful Muse Android CI #255.
-Purpose: publish an installable preview APK from the latest Muse UI branch state.
-Previous prerelease asset predates the current branch head.
+Requested after high-resolution 15-screen Muse reference loader integration.
+Purpose: build the installable baseline APK that will receive the exact approved visual asset pack.
+Loader commit: 1634e3cdb72b8127de3baf230ad492b3632f9c3b
