@@ -27,6 +27,70 @@ class EmbeddedLyricsReaderTest {
     }
 
     @Test
+    fun readsUtf16UsltWithDescriptor() {
+        val descriptor = byteArrayOf(
+            0xFE.toByte(),
+            0xFF.toByte(),
+            0,
+            'x'.code.toByte(),
+            0,
+            0,
+        )
+        val lyric = "Night song"
+        val lyricBytes = byteArrayOf(
+            0xFE.toByte(),
+            0xFF.toByte(),
+        ) + lyric.toByteArray(Charsets.UTF_16BE)
+        val body = byteArrayOf(1) +
+            "eng".toByteArray(Charsets.ISO_8859_1) +
+            descriptor +
+            lyricBytes
+
+        val tag = id3v23(
+            frame(
+                id = "USLT",
+                body = body,
+            )
+        )
+
+        assertEquals(
+            lyric,
+            EmbeddedLyricsReader.readUnsynchronisedLyrics(tag),
+        )
+    }
+
+    @Test
+    fun readsUtf8UsltFromId3v24() {
+        val lyric = "Version four"
+        val body = byteArrayOf(3) +
+            "eng".toByteArray(Charsets.ISO_8859_1) +
+            byteArrayOf(0) +
+            lyric.toByteArray(Charsets.UTF_8)
+        val frame = frameV24(
+            id = "USLT",
+            body = body,
+        )
+        val size = synchsafe(frame.size)
+        val tag = byteArrayOf(
+            'I'.code.toByte(),
+            'D'.code.toByte(),
+            '3'.code.toByte(),
+            4,
+            0,
+            0,
+            size[0],
+            size[1],
+            size[2],
+            size[3],
+        ) + frame
+
+        assertEquals(
+            lyric,
+            EmbeddedLyricsReader.readUnsynchronisedLyrics(tag),
+        )
+    }
+
+    @Test
     fun skipsNonLyricsFrames() {
         val titleBody = byteArrayOf(3) +
             "A title".toByteArray(Charsets.UTF_8)
@@ -86,6 +150,15 @@ class EmbeddedLyricsReaderTest {
             ) +
             body
     }
+
+    private fun frameV24(
+        id: String,
+        body: ByteArray,
+    ): ByteArray =
+        id.toByteArray(Charsets.ISO_8859_1) +
+            synchsafe(body.size) +
+            byteArrayOf(0, 0) +
+            body
 
     private fun synchsafe(
         value: Int,
