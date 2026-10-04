@@ -3293,6 +3293,7 @@ private fun EqualizerScreen(
     viewModel: MuseViewModel,
     playback: PlaybackUiState,
 ) {
+    val context = LocalContext.current
     val effects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
     val soundProfiles by viewModel.soundProfiles.collectAsStateWithLifecycle()
     val selectedSoundProfileId by viewModel.selectedSoundProfileId.collectAsStateWithLifecycle()
