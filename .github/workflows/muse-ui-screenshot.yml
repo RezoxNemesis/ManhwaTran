@@ -41,6 +41,28 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
 
+      - name: Generate local audio fixture
+        run: |
+          python3 - <<'PY'
+          import math
+          import struct
+          import wave
+
+          rate = 44100
+          seconds = 1.0
+          with wave.open("Muse_Runtime_Demo.wav", "w") as wav:
+              wav.setnchannels(1)
+              wav.setsampwidth(2)
+              wav.setframerate(rate)
+              frames = bytearray()
+              for i in range(int(rate * seconds)):
+                  sample = int(32767 * 0.08 * math.sin(2 * math.pi * 440 * i / rate))
+                  frames.extend(struct.pack("<h", sample))
+              wav.writeframes(bytes(frames))
+          PY
+          test -s Muse_Runtime_Demo.wav
+          file Muse_Runtime_Demo.wav
+
       - name: Free runner disk for Android emulator
         run: |
           set -euxo pipefail
@@ -74,20 +96,7 @@ jobs:
             # not the Android permission/onboarding gate.
             adb shell pm grant com.rezoxnemesis.muse android.permission.READ_MEDIA_AUDIO || true
 
-            # Add one tiny local audio file so runtime Muse exercises its actual
-            # local-library path rather than relying only on mock content.
-            python3 - <<'PY'
-            import math, struct, wave
-            rate = 44100
-            seconds = 1.0
-            with wave.open("Muse_Runtime_Demo.wav", "w") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(rate)
-                for i in range(int(rate * seconds)):
-                    sample = int(32767 * 0.08 * math.sin(2 * math.pi * 440 * i / rate))
-                    wav.writeframesraw(struct.pack("<h", sample))
-            PY
+            # Push the fixture created before the emulator starts.
             adb shell mkdir -p /sdcard/Music
             adb push Muse_Runtime_Demo.wav /sdcard/Music/Muse_Runtime_Demo.wav
             adb shell am broadcast               -a android.intent.action.MEDIA_SCANNER_SCAN_FILE               -d file:///sdcard/Music/Muse_Runtime_Demo.wav || true
