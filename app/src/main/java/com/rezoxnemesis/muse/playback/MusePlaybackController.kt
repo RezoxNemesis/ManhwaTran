@@ -114,6 +114,13 @@ class MusePlaybackController(
             reason: Int,
         ) {
             _state.value = _state.value.copy(errorMessage = null)
+            refreshSleepTimer()
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) {
+                refreshSleepTimer()
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
