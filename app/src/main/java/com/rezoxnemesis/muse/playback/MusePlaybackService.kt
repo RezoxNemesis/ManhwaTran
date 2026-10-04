@@ -130,6 +130,18 @@ class MusePlaybackService : MediaSessionService() {
             command: SessionCommand,
             args: Bundle,
         ): ListenableFuture<SessionResult> {
+            if (
+                controller.packageName !=
+                this@MusePlaybackService.packageName
+            ) {
+                return super.onCustomCommand(
+                    session,
+                    controller,
+                    command,
+                    args,
+                )
+            }
+
             return when (command.customAction) {
                 AudioEffectProtocol.ActionGetState -> {
                     Futures.immediateFuture(
