@@ -1,7 +1,11 @@
 package com.rezoxnemesis.muse
 
 import android.app.Application
+import android.database.ContentObserver
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rezoxnemesis.muse.data.LyricsDocument
@@ -13,6 +17,8 @@ import com.rezoxnemesis.muse.data.MuseSoundProfile
 import com.rezoxnemesis.muse.data.Track
 import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.MusePlaybackController
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +64,14 @@ class MuseViewModel(
     private val lyricsRepository = LyricsRepository(application)
     private val managedMediaRepository = ManagedMediaRepository(application)
     private val preferences = MusePreferences(application)
+    private var mediaStoreRefreshJob: Job? = null
+    private val mediaStoreObserver = object : ContentObserver(
+        Handler(Looper.getMainLooper()),
+    ) {
+        override fun onChange(selfChange: Boolean) {
+            scheduleLibraryRefresh()
+        }
+    }
 
     val playback = MusePlaybackController(application)
 
@@ -158,6 +172,22 @@ class MuseViewModel(
 
     private val _managedMediaState = MutableStateFlow(ManagedMediaUiState())
     val managedMediaState = _managedMediaState.asStateFlow()
+
+    init {
+        application.contentResolver.registerContentObserver(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            true,
+            mediaStoreObserver,
+        )
+    }
+
+    private fun scheduleLibraryRefresh() {
+        mediaStoreRefreshJob?.cancel()
+        mediaStoreRefreshJob = viewModelScope.launch {
+            delay(450L)
+            refreshLibrary()
+        }
+    }
 
     fun refreshLibrary() {
         viewModelScope.launch {
@@ -505,6 +535,10 @@ class MuseViewModel(
     }
 
     override fun onCleared() {
+        mediaStoreRefreshJob?.cancel()
+        getApplication<Application>().contentResolver.unregisterContentObserver(
+            mediaStoreObserver,
+        )
         playback.release()
         super.onCleared()
     }
