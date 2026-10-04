@@ -93,6 +93,10 @@ class MuseViewModel(
     private val museFlowEngine = MuseFlowEngine()
     private var mediaStoreRefreshJob: Job? = null
     private var lastRecordedTrackId: Long? = null
+    private var observedPlaybackTrackId: Long? = null
+    private var lastObservedPositionMs: Long = 0L
+    private var lastObservedDurationMs: Long = 0L
+    private var lastOutcomeRecordedTrackId: Long? = null
     private val mediaStoreObserver = object : ContentObserver(
         Handler(Looper.getMainLooper()),
     ) {
@@ -283,6 +287,50 @@ class MuseViewModel(
         viewModelScope.launch {
             playback.state.collect { state ->
                 val trackId = state.currentMediaId
+                val previousTrackId = observedPlaybackTrackId
+
+                if (trackId != previousTrackId) {
+                    if (
+                        previousTrackId != null &&
+                        trackId != null &&
+                        previousTrackId != lastOutcomeRecordedTrackId &&
+                        lastObservedDurationMs >= MinimumOutcomeDurationMs
+                    ) {
+                        preferences.recordListeningOutcome(
+                            trackId = previousTrackId,
+                            completionFraction =
+                                lastObservedPositionMs.toDouble() /
+                                    lastObservedDurationMs.toDouble(),
+                        )
+                        lastOutcomeRecordedTrackId = previousTrackId
+                    }
+
+                    observedPlaybackTrackId = trackId
+                    lastObservedPositionMs = state.positionMs
+                    lastObservedDurationMs = state.durationMs
+                } else {
+                    lastObservedPositionMs = state.positionMs
+                    if (state.durationMs > 0L) {
+                        lastObservedDurationMs = state.durationMs
+                    }
+                }
+
+                if (
+                    trackId != null &&
+                    trackId != lastOutcomeRecordedTrackId &&
+                    !state.isPlaying &&
+                    state.durationMs >= MinimumOutcomeDurationMs &&
+                    state.positionMs >=
+                        (state.durationMs - CompletionEndToleranceMs)
+                            .coerceAtLeast(0L)
+                ) {
+                    preferences.recordListeningOutcome(
+                        trackId = trackId,
+                        completionFraction = 1.0,
+                    )
+                    lastOutcomeRecordedTrackId = trackId
+                }
+
                 if (
                     state.isPlaying &&
                     trackId != null &&
@@ -705,17 +753,25 @@ class MuseViewModel(
             val queueIds = museFlowEngine.buildQueue(
                 seedId = seed.id,
                 library = library.map { track -> track.toMuseFlowTrack() },
-                signals = MuseFlowSignals(
-                    favoriteIds = preferences.favoriteIds.first(),
-                    recentTrackIds = preferences.recentTrackIds.first(),
-                    playCounts = preferences.playCounts.first(),
-                    sessionTrackIds = playback.state.value.let { state ->
-                        state.queue
-                            .take((state.currentIndex + 1).coerceAtLeast(0))
-                            .takeLast(10)
-                            .mapNotNull { item -> item.mediaId }
-                    },
-                ),
+                signals = preferences.listeningSignals.first().let { listening ->
+                    MuseFlowSignals(
+                        favoriteIds = preferences.favoriteIds.first(),
+                        recentTrackIds = preferences.recentTrackIds.first(),
+                        playCounts = preferences.playCounts.first(),
+                        completionRatios = listening.mapValues { (_, signal) ->
+                            signal.averageCompletionRatio
+                        },
+                        skipRatios = listening.mapValues { (_, signal) ->
+                            signal.skipRatio
+                        },
+                        sessionTrackIds = playback.state.value.let { state ->
+                            state.queue
+                                .take((state.currentIndex + 1).coerceAtLeast(0))
+                                .takeLast(10)
+                                .mapNotNull { item -> item.mediaId }
+                        },
+                    )
+                },
                 limit = 40,
             )
             val byId = library.associateBy(Track::id)
@@ -838,6 +894,11 @@ class MuseViewModel(
                 )
             }
         }
+    }
+
+    private companion object {
+        const val MinimumOutcomeDurationMs = 30_000L
+        const val CompletionEndToleranceMs = 1_500L
     }
 
     override fun onCleared() {
