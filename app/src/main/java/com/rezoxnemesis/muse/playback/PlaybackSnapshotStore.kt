@@ -13,8 +13,10 @@ import org.json.JSONObject
 
 private const val PreferencesName = "muse_playback_session"
 private const val SnapshotKey = "snapshot"
-private const val SnapshotVersion = 2
+private const val SnapshotVersion = 3
 private const val SourceUriExtraKey = "muse.source_uri"
+private const val BitrateExtraKey = "muse.bitrate_bps"
+private const val SampleRateExtraKey = "muse.sample_rate_hz"
 
 class PlaybackSnapshotStore(
     context: Context,
@@ -37,6 +39,20 @@ class PlaybackSnapshotStore(
                     .put("title", item.mediaMetadata.title?.toString().orEmpty())
                     .put("artist", item.mediaMetadata.artist?.toString().orEmpty())
                     .put("album", item.mediaMetadata.albumTitle?.toString().orEmpty())
+                    .put("albumArtist", item.mediaMetadata.albumArtist?.toString().orEmpty())
+                    .put("genre", item.mediaMetadata.genre.orEmpty())
+                    .put(
+                        "bitrateBps",
+                        item.mediaMetadata.extras
+                            ?.getInt(BitrateExtraKey, 0)
+                            ?: 0,
+                    )
+                    .put(
+                        "sampleRateHz",
+                        item.mediaMetadata.extras
+                            ?.getInt(SampleRateExtraKey, 0)
+                            ?: 0,
+                    )
                     .put(
                         "uri",
                         item.mediaMetadata.extras
@@ -97,9 +113,23 @@ class PlaybackSnapshotStore(
                                 .setTitle(item.optString("title"))
                                 .setArtist(item.optString("artist"))
                                 .setAlbumTitle(item.optString("album"))
+                                .setAlbumArtist(
+                                    item.optString("albumArtist")
+                                        .takeIf { it.isNotBlank() }
+                                )
+                                .setGenre(
+                                    item.optString("genre")
+                                        .takeIf { it.isNotBlank() }
+                                )
                                 .setExtras(
                                     Bundle().apply {
                                         putString(SourceUriExtraKey, uri.toString())
+                                        item.optInt("bitrateBps", 0)
+                                            .takeIf { it > 0 }
+                                            ?.let { putInt(BitrateExtraKey, it) }
+                                        item.optInt("sampleRateHz", 0)
+                                            .takeIf { it > 0 }
+                                            ?.let { putInt(SampleRateExtraKey, it) }
                                     }
                                 )
                                 .build()
