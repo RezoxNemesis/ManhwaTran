@@ -1,6 +1,7 @@
 package com.rezoxnemesis.muse
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -49,25 +50,55 @@ import com.rezoxnemesis.muse.ui.theme.MuseGreen
 import com.rezoxnemesis.muse.ui.theme.MuseTheme
 
 class MainActivity : ComponentActivity() {
+    private var requestedRoute by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = false
+        requestedRoute = intent.safeMuseRoute()
 
         setContent {
             MuseTheme {
                 val museViewModel: MuseViewModel = viewModel()
-                PermissionAwareMuse(viewModel = museViewModel)
+                PermissionAwareMuse(
+                    viewModel = museViewModel,
+                    requestedRoute = requestedRoute,
+                    onRouteHandled = { requestedRoute = null },
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        requestedRoute = intent.safeMuseRoute()
+    }
+
+    private fun Intent.safeMuseRoute(): String? =
+        getStringExtra(ExtraOpenRoute)
+            ?.takeIf { it in AllowedExternalRoutes }
+
+    companion object {
+        const val ExtraOpenRoute =
+            "com.rezoxnemesis.muse.extra.OPEN_ROUTE"
+
+        private val AllowedExternalRoutes = setOf(
+            "nowPlaying",
+            "queue",
+            "lyrics",
+        )
     }
 }
 
 @Composable
 private fun PermissionAwareMuse(
     viewModel: MuseViewModel,
+    requestedRoute: String?,
+    onRouteHandled: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -99,7 +130,11 @@ private fun PermissionAwareMuse(
     }
 
     if (granted || continueWithoutLibraryAccess) {
-        MuseApp(viewModel = viewModel)
+        MuseApp(
+            viewModel = viewModel,
+            requestedRoute = requestedRoute,
+            onRouteHandled = onRouteHandled,
+        )
     } else {
         MusicPermissionScreen(
             onRequestPermission = { launcher.launch(permission) },
