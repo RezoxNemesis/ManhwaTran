@@ -210,6 +210,23 @@ fun MuseApp(
     val currentRoute = backStackEntry?.destination?.route
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val visualPreferences = remember(context) {
+        context.getSharedPreferences(
+            "muse_visual_preferences",
+            android.content.Context.MODE_PRIVATE,
+        )
+    }
+    var visualIntensity by remember {
+        mutableStateOf(
+            MuseVisualIntensity.fromStored(
+                visualPreferences.getString(
+                    "visual_intensity",
+                    null,
+                )
+            )
+        )
+    }
     val showPrimaryNav = currentRoute in PrimaryDestinations.map { it.route }
 
     LaunchedEffect(requestedRoute) {
@@ -235,10 +252,12 @@ fun MuseApp(
         ) { referenceScreen ->
             MuseReferenceBackdrop(
                 screen = referenceScreen,
+                intensity = visualIntensity,
             )
         }
         MuseLivingLightOverlay(
             active = playback.isPlaying,
+            intensity = visualIntensity,
         )
 
         Scaffold(
@@ -411,7 +430,20 @@ fun MuseApp(
                     SleepTimerScreen(viewModel, navController)
                 }
                 composable("settings") {
-                    SettingsScreen(viewModel, navController)
+                    SettingsScreen(
+                        viewModel = viewModel,
+                        navController = navController,
+                        visualIntensity = visualIntensity,
+                        onVisualIntensityChange = { next ->
+                            visualIntensity = next
+                            visualPreferences.edit()
+                                .putString(
+                                    "visual_intensity",
+                                    next.storedValue,
+                                )
+                                .apply()
+                        },
+                    )
                 }
                 composable("diagnostics") {
                     DiagnosticsScreen(viewModel, navController)
@@ -4124,6 +4156,8 @@ private fun SleepTimerScreen(
 private fun SettingsScreen(
     viewModel: MuseViewModel,
     navController: NavHostController,
+    visualIntensity: MuseVisualIntensity,
+    onVisualIntensityChange: (MuseVisualIntensity) -> Unit,
 ) {
     val state by viewModel.libraryState.collectAsStateWithLifecycle()
     val backup by viewModel.backupState.collectAsStateWithLifecycle()
