@@ -408,7 +408,6 @@ class MuseViewModel(
         val index = tracks.indexOfFirst { it.id == track.id }
         if (index >= 0) {
             playback.playTracks(tracks, index)
-            viewModelScope.launch { preferences.recordPlayed(track.id) }
         }
     }
 
