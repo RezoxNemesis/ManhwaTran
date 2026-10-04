@@ -124,6 +124,13 @@ private data class PrimaryDestination(
     val icon: ImageVector,
 )
 
+private enum class LibraryTab {
+    Songs,
+    Albums,
+    Artists,
+    Playlists,
+}
+
 private val PrimaryDestinations = listOf(
     PrimaryDestination("home", "Home", Icons.Rounded.Home),
     PrimaryDestination("explore", "Explore", Icons.Rounded.Explore),
@@ -513,6 +520,21 @@ private fun LibraryScreen(
     val tracks by viewModel.filteredTracks.collectAsStateWithLifecycle()
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val liked by viewModel.likedTracks.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableStateOf(LibraryTab.Songs) }
+
+    val albums = tracks
+        .groupBy { it.album }
+        .entries
+        .sortedBy { it.key.lowercase() }
+    val artists = tracks
+        .groupBy { it.artist }
+        .entries
+        .sortedBy { it.key.lowercase() }
+    val visiblePlaylists = playlists.filter { playlist ->
+        query.isBlank() || playlist.name.contains(query.trim(), ignoreCase = true)
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -541,38 +563,232 @@ private fun LibraryScreen(
             )
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = true, onClick = {}, label = { Text("Songs") })
-                FilterChip(
-                    selected = false,
-                    onClick = { navController.navigate("playlists") },
-                    label = { Text("Playlists") },
-                )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(LibraryTab.entries) { tab ->
+                    FilterChip(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        label = { Text(tab.name) },
+                    )
+                }
             }
         }
-        if (tracks.isEmpty()) {
-            item {
-                EmptyCard(
-                    title = "Nothing to show",
-                    body = if (query.isBlank()) "Your local songs will appear here." else "No tracks match your search.",
-                )
+
+        when (selectedTab) {
+            LibraryTab.Songs -> {
+                if (tracks.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "Nothing to show",
+                            body = if (query.isBlank()) {
+                                "Your local songs will appear here."
+                            } else {
+                                "No songs match your search."
+                            },
+                        )
+                    }
+                } else {
+                    items(tracks, key = { it.id }) { track ->
+                        TrackRow(
+                            track = track,
+                            favorite = track.id in favourites,
+                            onPlay = { viewModel.playTrack(track) },
+                            onFavorite = { viewModel.toggleFavorite(track.id) },
+                            onArtist = {
+                                viewModel.selectArtist(track.artist)
+                                navController.navigate("artist")
+                            },
+                            onAlbum = {
+                                viewModel.selectAlbum(track.album)
+                                navController.navigate("album")
+                            },
+                        )
+                    }
+                }
             }
-        } else {
-            items(tracks, key = { it.id }) { track ->
-                TrackRow(
-                    track = track,
-                    favorite = track.id in favourites,
-                    onPlay = { viewModel.playTrack(track) },
-                    onFavorite = { viewModel.toggleFavorite(track.id) },
-                    onArtist = {
-                        viewModel.selectArtist(track.artist)
-                        navController.navigate("artist")
-                    },
-                    onAlbum = {
-                        viewModel.selectAlbum(track.album)
-                        navController.navigate("album")
-                    },
-                )
+
+            LibraryTab.Albums -> {
+                if (albums.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            "No albums found",
+                            if (query.isBlank()) {
+                                "Albums from your local music metadata will appear here."
+                            } else {
+                                "No albums match your search."
+                            },
+                        )
+                    }
+                } else {
+                    items(albums, key = { it.key }) { entry ->
+                        val albumTracks = entry.value
+                        val representative = albumTracks.first()
+                        GlassCard(
+                            modifier = Modifier.clickable {
+                                viewModel.selectAlbum(entry.key)
+                                navController.navigate("album")
+                            },
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TrackArtwork(
+                                    track = representative,
+                                    modifier = Modifier.size(62.dp),
+                                    contentDescription = null,
+                                )
+                                Spacer(Modifier.size(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        entry.key,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        representative.artist,
+                                        color = MuseMuted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        "${albumTracks.size} songs",
+                                        color = MuseMuted.copy(alpha = 0.8f),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            LibraryTab.Artists -> {
+                if (artists.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            "No artists found",
+                            if (query.isBlank()) {
+                                "Artists from your local music metadata will appear here."
+                            } else {
+                                "No artists match your search."
+                            },
+                        )
+                    }
+                } else {
+                    items(artists, key = { it.key }) { entry ->
+                        val artistTracks = entry.value
+                        GlassCard(
+                            modifier = Modifier.clickable {
+                                viewModel.selectArtist(entry.key)
+                                navController.navigate("artist")
+                            },
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Person,
+                                    contentDescription = null,
+                                    tint = MuseGreen,
+                                )
+                                Spacer(Modifier.size(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        entry.key,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        "${artistTracks.size} songs • " +
+                                            "${artistTracks.map { it.album }.distinct().size} albums",
+                                        color = MuseMuted,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            LibraryTab.Playlists -> {
+                item {
+                    GlassCard(
+                        modifier = Modifier.clickable {
+                            navController.navigate("liked")
+                        },
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Favorite,
+                                contentDescription = null,
+                                tint = MuseGreen,
+                            )
+                            Spacer(Modifier.size(14.dp))
+                            Column {
+                                Text("Liked Songs", fontWeight = FontWeight.SemiBold)
+                                Text("${liked.size} songs", color = MuseMuted)
+                            }
+                        }
+                    }
+                }
+
+                if (visiblePlaylists.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            "No playlists found",
+                            if (query.isBlank()) {
+                                "Create a playlist to organise your music."
+                            } else {
+                                "No playlists match your search."
+                            },
+                        )
+                    }
+                } else {
+                    items(visiblePlaylists, key = { it.id }) { playlist ->
+                        val playlistTracks = viewModel.playlistTracks(playlist)
+                        GlassCard(
+                            modifier = Modifier.clickable {
+                                viewModel.selectPlaylist(playlist.id)
+                                navController.navigate("playlistDetail")
+                            },
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.PlaylistPlay,
+                                    contentDescription = null,
+                                    tint = MuseGreen,
+                                )
+                                Spacer(Modifier.size(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        playlist.name,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        "${playlistTracks.size} songs",
+                                        color = MuseMuted,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
