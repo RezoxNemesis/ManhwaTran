@@ -16,7 +16,13 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.rezoxnemesis.muse.MainActivity
+import com.rezoxnemesis.muse.data.MusePreferences
 import com.rezoxnemesis.muse.widget.MuseWidgetUpdater
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MusePlaybackService : MediaSessionService() {
@@ -24,7 +30,11 @@ class MusePlaybackService : MediaSessionService() {
     private lateinit var snapshotStore: PlaybackSnapshotStore
     private lateinit var audioEffects: AudioEffectEngine
     private lateinit var sleepTimer: SleepTimerEngine
+    private lateinit var preferences: MusePreferences
     private val handler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO,
+    )
 
     private val snapshotTicker = object : Runnable {
         override fun run() {
@@ -65,6 +75,16 @@ class MusePlaybackService : MediaSessionService() {
             mediaItem: androidx.media3.common.MediaItem?,
             reason: Int,
         ) {
+            mediaItem
+                ?.mediaId
+                ?.toLongOrNull()
+                ?.takeIf { it != 0L }
+                ?.let { trackId ->
+                    serviceScope.launch {
+                        preferences.recordPlayed(trackId)
+                    }
+                }
+
             val completedNaturally =
                 reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
                     reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
@@ -202,6 +222,7 @@ class MusePlaybackService : MediaSessionService() {
 
         snapshotStore = PlaybackSnapshotStore(this)
         audioEffects = AudioEffectEngine(this)
+        preferences = MusePreferences(this)
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -258,6 +279,7 @@ class MusePlaybackService : MediaSessionService() {
             release()
         }
         mediaSession = null
+        serviceScope.cancel()
         super.onDestroy()
     }
 
