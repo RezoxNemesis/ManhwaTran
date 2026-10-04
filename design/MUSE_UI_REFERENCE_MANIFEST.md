@@ -1,6 +1,6 @@
 # Muse 15-Screen Visual Reference Manifest
 
-This manifest locks the exact high-quality UI references approved for Muse. The original 941×1672 PNGs are retained as task source artifacts and are intentionally **not packaged into the Android APK**. Runtime Muse must reproduce their visual hierarchy with real Compose components and real user/library state rather than rendering the mockups as screenshots.
+This manifest locks the exact high-quality UI references approved for Muse. The original high-quality source images remain the visual authority. Runtime Muse now packages compact, softened derivatives of all 15 approved screens as screen-specific photographic atmosphere, while every readable label, icon, control, list item and action remains native Compose backed by real user/library state. The source mockups are never used as fake clickable screenshots.
 
 The canonical identity is deep forest green / near-black, realistic wet botanical atmosphere, translucent green glass surfaces, controlled luminous-green accents, white high-contrast typography, rounded geometry and album-art contrast. Example mock content in the images is not production data.
 
@@ -24,10 +24,14 @@ The canonical identity is deep forest green / near-black, realistic wet botanica
 
 ## Implementation rules
 
-- Treat the 15 references as visual and interaction targets, not raster UI assets.
+- Treat the 15 references as visual, interaction and feature-density contracts.
+- Package reference-derived photographic atmosphere for all 15 destinations so the wet-leaf/bokeh/artwork character comes from the approved imagery rather than a generic procedural substitute.
+- Never let readable mock text or mock controls become the functional interface. Real Compose controls must sit above the artwork and own all interaction/state.
+- Do not remove a visible reference action merely because it is inconvenient to implement. Implement a real useful behaviour when lawful/platform-feasible; otherwise show a truthful capability-disabled state rather than silently deleting it.
 - Use the exact approved Muse leaf/music-note logo where branding appears.
 - Replace example song titles, listener counts, bitrate labels and other mock data with real local state or intentional empty states.
 - Keep primary navigation geometry close to the references while replacing the unapproved Premium concept with Muse Lab / real tools.
 - Preserve Android accessibility, dynamic type, insets, touch targets and responsive layout even when the reference is visually denser.
+- Text readability is a hard gate: white/high-contrast primary text, deliberate muted secondary text, ellipsis or bounded wrapping for long metadata, no overlapping labels, no clipped headings, and no reference artwork strong enough to swallow live typography.
 - Do not add expensive full-screen blur or continuous animation that damages scrolling, battery life or playback reliability.
 - Screenshot-review each implemented screen against the corresponding numbered reference before release.
