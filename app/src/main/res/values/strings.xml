@@ -2,4 +2,10 @@
 <resources>
     <string name="app_name">Muse</string>
     <string name="tagline">Feel the Music</string>
+
+    <string name="widget_idle">Open Muse to start listening</string>
+    <string name="widget_previous">Previous track</string>
+    <string name="widget_play_pause">Play or pause</string>
+    <string name="widget_next">Next track</string>
+    <string name="widget_description">Muse playback controls</string>
 </resources>
