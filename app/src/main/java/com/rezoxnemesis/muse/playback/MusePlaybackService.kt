@@ -21,6 +21,7 @@ class MusePlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private lateinit var snapshotStore: PlaybackSnapshotStore
     private lateinit var audioEffects: AudioEffectEngine
+    private lateinit var sleepTimer: SleepTimerEngine
     private val handler = Handler(Looper.getMainLooper())
 
     private val snapshotTicker = object : Runnable {
@@ -70,6 +71,9 @@ class MusePlaybackService : MediaSessionService() {
                 .buildUpon()
                 .add(AudioEffectProtocol.GetStateCommand)
                 .add(AudioEffectProtocol.UpdateCommand)
+                .add(SleepTimerProtocol.GetStateCommand)
+                .add(SleepTimerProtocol.StartCommand)
+                .add(SleepTimerProtocol.CancelCommand)
                 .build()
 
             return MediaSession.ConnectionResult.accept(
@@ -103,6 +107,34 @@ class MusePlaybackService : MediaSessionService() {
                     )
                 }
 
+                SleepTimerProtocol.ActionGetState -> {
+                    Futures.immediateFuture(
+                        SessionResult(
+                            SessionResult.RESULT_SUCCESS,
+                            sleepTimer.snapshot(),
+                        )
+                    )
+                }
+
+                SleepTimerProtocol.ActionStart -> {
+                    val minutes = args.getInt(SleepTimerProtocol.KeyMinutes, 30)
+                    Futures.immediateFuture(
+                        SessionResult(
+                            SessionResult.RESULT_SUCCESS,
+                            sleepTimer.start(minutes),
+                        )
+                    )
+                }
+
+                SleepTimerProtocol.ActionCancel -> {
+                    Futures.immediateFuture(
+                        SessionResult(
+                            SessionResult.RESULT_SUCCESS,
+                            sleepTimer.cancel(),
+                        )
+                    )
+                }
+
                 else -> super.onCustomCommand(session, controller, command, args)
             }
         }
@@ -130,6 +162,10 @@ class MusePlaybackService : MediaSessionService() {
         snapshotStore.restore(player)
         player.addListener(playerListener)
         audioEffects.attach(player.audioSessionId)
+        sleepTimer = SleepTimerEngine(this) {
+            player.pause()
+            snapshotStore.save(player)
+        }
 
         val sessionIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -157,6 +193,7 @@ class MusePlaybackService : MediaSessionService() {
             snapshotStore.save(player)
             player.removeListener(playerListener)
             audioEffects.release()
+            sleepTimer.release()
             player.release()
             release()
         }
