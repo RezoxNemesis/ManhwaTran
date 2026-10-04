@@ -107,6 +107,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -151,6 +152,9 @@ import com.rezoxnemesis.muse.ui.theme.MuseBorder
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
 import com.rezoxnemesis.muse.ui.theme.MuseMuted
 import com.rezoxnemesis.muse.ui.theme.MuseSurface
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToLong
 
 private data class PrimaryDestination(
@@ -4702,6 +4706,13 @@ private fun MoreOptionsScreen(
     var ringtoneMessage by remember(track?.id) {
         mutableStateOf<String?>(null)
     }
+    var pendingExportTrack by remember(track?.id) {
+        mutableStateOf<Track?>(null)
+    }
+    var exportMessage by remember(track?.id) {
+        mutableStateOf<String?>(null)
+    }
+    val exportScope = rememberCoroutineScope()
 
     fun applyRingtone(candidate: Track) {
         ringtoneMessage = runCatching {
@@ -4713,6 +4724,36 @@ private fun MoreOptionsScreen(
             "Set “${candidate.title}” as the default ringtone."
         }.getOrElse { error ->
             error.message ?: "Android could not set this track as the ringtone."
+        }
+    }
+
+    val exportCopyLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("audio/*"),
+    ) { destination ->
+        val candidate = pendingExportTrack
+        pendingExportTrack = null
+        if (destination != null && candidate != null) {
+            exportScope.launch {
+                exportMessage = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val resolver = context.contentResolver
+                        resolver.openInputStream(candidate.uri).use { input ->
+                            requireNotNull(input) {
+                                "Muse could not read the source audio."
+                            }
+                            resolver.openOutputStream(destination, "w").use { output ->
+                                requireNotNull(output) {
+                                    "Muse could not open the selected destination."
+                                }
+                                input.copyTo(output)
+                            }
+                        }
+                        "Saved a copy of “${candidate.title}”."
+                    }.getOrElse { error ->
+                        error.message ?: "Muse could not save this audio copy."
+                    }
+                }
+            }
         }
     }
 
@@ -4864,6 +4905,39 @@ private fun MoreOptionsScreen(
 
                 item {
                     OptionRow(
+                        icon = Icons.Rounded.Download,
+                        title = "Download / Save Copy",
+                        subtitle = "Save a user-owned copy through Android's file picker",
+                        onClick = {
+                            pendingExportTrack = activeTrack
+                            val rawName = activeTrack.title
+                                .replace(
+                                    Regex("""[\\/:*?"<>|]"""),
+                                    "_",
+                                )
+                                .trim()
+                                .ifBlank { "Muse track" }
+                            val sourceExtension = activeTrack.uri
+                                .lastPathSegment
+                                ?.substringAfterLast('.', "")
+                                ?.takeIf { extension ->
+                                    extension.length in 2..5 &&
+                                        extension.all { char ->
+                                            char.isLetterOrDigit()
+                                        }
+                                }
+                            val suggestedName = if (sourceExtension == null) {
+                                rawName
+                            } else {
+                                "$rawName.$sourceExtension"
+                            }
+                            exportCopyLauncher.launch(suggestedName)
+                        },
+                    )
+                }
+
+                item {
+                    OptionRow(
                         icon = Icons.Rounded.SkipNext,
                         title = "Play Next",
                         onClick = {
@@ -4885,8 +4959,8 @@ private fun MoreOptionsScreen(
                 item {
                     OptionRow(
                         icon = Icons.Rounded.Tune,
-                        title = "Muse Flow",
-                        subtitle = "Build an adaptive private queue from this track and your local listening signals",
+                        title = "Song Radio",
+                        subtitle = "Uses Muse Flow to build an adaptive private queue from this track and your local listening signals",
                         onClick = {
                             viewModel.playMuseFlow(activeTrack)
                             navController.navigate("nowPlaying") {
@@ -4954,6 +5028,30 @@ private fun MoreOptionsScreen(
                                 }
                             },
                         )
+                    }
+                }
+
+                exportMessage?.let { message ->
+                    item {
+                        GlassCard {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    message,
+                                    color = MuseMuted,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(
+                                    onClick = { exportMessage = null },
+                                ) {
+                                    Text("Dismiss")
+                                }
+                            }
+                        }
                     }
                 }
 
