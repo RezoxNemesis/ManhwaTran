@@ -188,6 +188,14 @@ class MuseViewModel(
         viewModelScope.launch { preferences.createPlaylist(name) }
     }
 
+    fun saveCurrentQueueAsPlaylist(name: String) {
+        val trackIds = playback.state.value.queue.mapNotNull { it.mediaId }
+        if (trackIds.isEmpty()) return
+        viewModelScope.launch {
+            preferences.createPlaylist(name, trackIds)
+        }
+    }
+
     fun deletePlaylist(playlistId: String) {
         viewModelScope.launch { preferences.deletePlaylist(playlistId) }
     }
