@@ -18,6 +18,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.rezoxnemesis.muse.MainActivity
+import com.rezoxnemesis.muse.widget.MuseWidgetUpdater
 
 class MusePlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
@@ -37,6 +38,7 @@ class MusePlaybackService : MediaSessionService() {
 
     private val playerListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
+            MuseWidgetUpdater.updateAll(this@MusePlaybackService, player)
             if (
                 events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) ||
                 events.contains(Player.EVENT_TIMELINE_CHANGED) ||
@@ -211,6 +213,8 @@ class MusePlaybackService : MediaSessionService() {
             .setCallback(sessionCallback)
             .setSessionActivity(sessionActivity)
             .build()
+
+        MuseWidgetUpdater.updateAll(this, player)
     }
 
     override fun onGetSession(
