@@ -2,7 +2,9 @@ package com.rezoxnemesis.muse.data
 
 import android.content.Context
 import android.net.Uri
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -28,12 +30,8 @@ class LyricsRepository(
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val bytes = context.contentResolver.openInputStream(source)?.use { input ->
-                input.readNBytes(MaxLyricsBytes + 1)
+                readLimited(input, MaxLyricsBytes)
             } ?: error("Could not open the selected lyrics file.")
-
-            require(bytes.size <= MaxLyricsBytes) {
-                "Lyrics file is too large."
-            }
 
             val text = bytes.toString(Charsets.UTF_8)
                 .removePrefix("\uFEFF")
@@ -75,6 +73,27 @@ class LyricsRepository(
     private fun fileFor(trackId: Long): File =
         File(lyricsDirectory, "$trackId.lrc")
 
+    private fun readLimited(
+        input: InputStream,
+        maxBytes: Int,
+    ): ByteArray {
+        val output = ByteArrayOutputStream(minOf(maxBytes, 16 * 1024))
+        val buffer = ByteArray(8 * 1024)
+        var total = 0
+
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read
+            require(total <= maxBytes) {
+                "Lyrics file is too large."
+            }
+            output.write(buffer, 0, read)
+        }
+
+        return output.toByteArray()
+    }
+
     companion object {
         private const val MaxLyricsBytes = 2 * 1024 * 1024
 
@@ -85,16 +104,20 @@ class LyricsRepository(
                 .replace('\r', '\n')
                 .lines()
 
-            var offsetMs = 0L
+            val offsetMs = sourceLines.firstNotNullOfOrNull { source ->
+                OffsetRegex.matchEntire(source.trim())
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.toLongOrNull()
+            } ?: 0L
+
             val parsed = mutableListOf<LyricLine>()
             val plain = mutableListOf<LyricLine>()
 
             sourceLines.forEach { source ->
                 val line = source.trimEnd()
 
-                val offsetMatch = OffsetRegex.matchEntire(line.trim())
-                if (offsetMatch != null) {
-                    offsetMs = offsetMatch.groupValues[1].toLongOrNull() ?: offsetMs
+                if (OffsetRegex.matches(line.trim())) {
                     return@forEach
                 }
 
