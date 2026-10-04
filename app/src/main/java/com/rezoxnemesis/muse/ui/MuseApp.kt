@@ -146,6 +146,8 @@ private val PrimaryDestinations = listOf(
 @Composable
 fun MuseApp(
     viewModel: MuseViewModel,
+    requestedRoute: String? = null,
+    onRouteHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -153,6 +155,16 @@ fun MuseApp(
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val showPrimaryNav = currentRoute in PrimaryDestinations.map { it.route }
+
+    LaunchedEffect(requestedRoute) {
+        val route = requestedRoute ?: return@LaunchedEffect
+        if (route != currentRoute) {
+            navController.navigate(route) {
+                launchSingleTop = true
+            }
+        }
+        onRouteHandled()
+    }
 
     Box(
         modifier = Modifier
