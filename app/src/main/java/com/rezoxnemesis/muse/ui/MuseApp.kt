@@ -1719,7 +1719,14 @@ private fun PlaylistsScreen(
 ) {
     val liked by viewModel.likedTracks.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val transfer by viewModel.playlistTransferState.collectAsStateWithLifecycle()
     var name by remember { mutableStateOf("") }
+
+    val importPlaylistLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let(viewModel::importM3uPlaylist)
+    }
     var playlistPendingDelete by remember { mutableStateOf<UserPlaylist?>(null) }
 
     LazyColumn(
@@ -1728,6 +1735,68 @@ private fun PlaylistsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { ScreenHeader("Playlists", { navController.popBackStack() }) }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(
+                    enabled = !transfer.busy,
+                    onClick = {
+                        importPlaylistLauncher.launch(
+                            arrayOf(
+                                "audio/x-mpegurl",
+                                "application/vnd.apple.mpegurl",
+                                "text/plain",
+                            )
+                        )
+                    },
+                ) {
+                    Text(if (transfer.busy) "Working…" else "Import M3U")
+                }
+            }
+        }
+
+        if (transfer.message != null || transfer.error != null) {
+            item {
+                GlassCard {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            transfer.message ?: transfer.error.orEmpty(),
+                            color = if (transfer.error == null) {
+                                MuseGreen
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        )
+                        if (transfer.unresolvedEntries.isNotEmpty()) {
+                            Text(
+                                transfer.unresolvedEntries
+                                    .take(3)
+                                    .joinToString(
+                                        prefix = "Unmatched: ",
+                                        separator = " • ",
+                                    ) { entry ->
+                                        entry.substringAfterLast('/')
+                                            .substringAfterLast('\\')
+                                    },
+                                color = MuseMuted,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        TextButton(
+                            onClick = viewModel::clearPlaylistTransferMessage,
+                        ) {
+                            Text("Dismiss")
+                        }
+                    }
+                }
+            }
+        }
 
         item {
             OutlinedTextField(
@@ -1848,8 +1917,20 @@ private fun PlaylistDetailScreen(
 ) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val selectedId by viewModel.selectedPlaylistId.collectAsStateWithLifecycle()
+    val transfer by viewModel.playlistTransferState.collectAsStateWithLifecycle()
     val playlist = playlists.firstOrNull { it.id == selectedId }
     val tracks = playlist?.let(viewModel::playlistTracks).orEmpty()
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(
+            "application/vnd.apple.mpegurl"
+        ),
+    ) { uri ->
+        val id = playlist?.id
+        if (uri != null && id != null) {
+            viewModel.exportPlaylistM3u(id, uri)
+        }
+    }
     var renameText by remember(playlist?.id, playlist?.name) {
         mutableStateOf(playlist?.name.orEmpty())
     }
@@ -1922,6 +2003,45 @@ private fun PlaylistDetailScreen(
                         color = MuseMuted,
                         modifier = Modifier.align(Alignment.CenterVertically),
                     )
+                    TextButton(
+                        enabled = tracks.isNotEmpty() && !transfer.busy,
+                        onClick = {
+                            val safeName = playlist.name
+                                .replace(Regex("[^A-Za-z0-9._ -]"), "_")
+                                .ifBlank { "Muse-playlist" }
+                            exportLauncher.launch("$safeName.m3u8")
+                        },
+                    ) {
+                        Text("Export")
+                    }
+                }
+            }
+
+            if (transfer.message != null || transfer.error != null) {
+                item {
+                    GlassCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                transfer.message ?: transfer.error.orEmpty(),
+                                color = if (transfer.error == null) {
+                                    MuseGreen
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(
+                                onClick = viewModel::clearPlaylistTransferMessage,
+                            ) {
+                                Text("Dismiss")
+                            }
+                        }
+                    }
                 }
             }
 
