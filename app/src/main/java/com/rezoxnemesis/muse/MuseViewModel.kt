@@ -2,7 +2,6 @@ package com.rezoxnemesis.muse
 
 import android.app.Application
 import android.net.Uri
-import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rezoxnemesis.muse.data.LyricsDocument
@@ -12,8 +11,6 @@ import com.rezoxnemesis.muse.data.MusePreferences
 import com.rezoxnemesis.muse.data.Track
 import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.MusePlaybackController
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,18 +18,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 data class LibraryState(
     val loading: Boolean = false,
     val tracks: List<Track> = emptyList(),
     val error: String? = null,
-)
-
-data class SleepTimerState(
-    val active: Boolean = false,
-    val remainingMs: Long = 0L,
 )
 
 data class LyricsUiState(
@@ -136,10 +127,6 @@ class MuseViewModel(
 
     private val _selectedPlaylistId = MutableStateFlow<String?>(null)
     val selectedPlaylistId = _selectedPlaylistId.asStateFlow()
-
-    private val _sleepTimer = MutableStateFlow(SleepTimerState())
-    val sleepTimer = _sleepTimer.asStateFlow()
-    private var sleepTimerJob: Job? = null
 
     private val _lyricsState = MutableStateFlow(LyricsUiState())
     val lyricsState = _lyricsState.asStateFlow()
@@ -296,31 +283,6 @@ class MuseViewModel(
                 )
             }
         }
-    }
-
-    fun startSleepTimer(minutes: Int) {
-        if (minutes <= 0) return
-        sleepTimerJob?.cancel()
-        val durationMs = minutes * 60_000L
-        val deadline = SystemClock.elapsedRealtime() + durationMs
-        _sleepTimer.value = SleepTimerState(active = true, remainingMs = durationMs)
-        sleepTimerJob = viewModelScope.launch {
-            while (isActive) {
-                val remaining = (deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
-                _sleepTimer.value = SleepTimerState(active = remaining > 0L, remainingMs = remaining)
-                if (remaining <= 0L) {
-                    playback.pause()
-                    break
-                }
-                delay(1_000)
-            }
-        }
-    }
-
-    fun cancelSleepTimer() {
-        sleepTimerJob?.cancel()
-        sleepTimerJob = null
-        _sleepTimer.value = SleepTimerState()
     }
 
     override fun onCleared() {
