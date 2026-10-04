@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.rezoxnemesis.muse.playback
 
 import android.content.ComponentName
