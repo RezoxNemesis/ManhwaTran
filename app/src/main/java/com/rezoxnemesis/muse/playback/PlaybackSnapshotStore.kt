@@ -13,7 +13,7 @@ import org.json.JSONObject
 
 private const val PreferencesName = "muse_playback_session"
 private const val SnapshotKey = "snapshot"
-private const val SnapshotVersion = 3
+private const val SnapshotVersion = 4
 private const val SourceUriExtraKey = "muse.source_uri"
 private const val BitrateExtraKey = "muse.bitrate_bps"
 private const val SampleRateExtraKey = "muse.sample_rate_hz"
@@ -41,6 +41,12 @@ class PlaybackSnapshotStore(
                     .put("album", item.mediaMetadata.albumTitle?.toString().orEmpty())
                     .put("albumArtist", item.mediaMetadata.albumArtist?.toString().orEmpty())
                     .put("genre", item.mediaMetadata.genre?.toString().orEmpty())
+                    .put(
+                        "artworkUri",
+                        item.mediaMetadata.artworkUri
+                            ?.toString()
+                            .orEmpty(),
+                    )
                     .put(
                         "bitrateBps",
                         item.mediaMetadata.extras
@@ -120,6 +126,11 @@ class PlaybackSnapshotStore(
                                 .setGenre(
                                     item.optString("genre")
                                         .takeIf { it.isNotBlank() }
+                                )
+                                .setArtworkUri(
+                                    item.optString("artworkUri")
+                                        .takeIf { it.isNotBlank() }
+                                        ?.let(Uri::parse)
                                 )
                                 .setExtras(
                                     Bundle().apply {
