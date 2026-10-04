@@ -223,7 +223,9 @@ fun MuseApp(
             .testTag("MuseRoot")
             .background(MuseBackground),
     ) {
-        MuseAtmosphere()
+        MuseReferenceBackdrop(
+            screen = MuseReferenceScreen.fromRoute(currentRoute),
+        )
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
