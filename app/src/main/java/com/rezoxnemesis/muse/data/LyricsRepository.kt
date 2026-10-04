@@ -13,9 +13,15 @@ data class LyricLine(
     val text: String,
 )
 
+enum class LyricsSource {
+    Imported,
+    Embedded,
+}
+
 data class LyricsDocument(
     val lines: List<LyricLine>,
     val synced: Boolean,
+    val source: LyricsSource = LyricsSource.Imported,
 )
 
 class LyricsRepository(
@@ -56,13 +62,42 @@ class LyricsRepository(
         }
     }
 
-    suspend fun loadLyrics(trackId: Long): LyricsDocument? = withContext(Dispatchers.IO) {
+    suspend fun loadLyrics(
+        trackId: Long,
+        mediaUri: Uri?,
+    ): LyricsDocument? = withContext(Dispatchers.IO) {
         val file = fileFor(trackId)
-        if (!file.isFile) return@withContext null
-        val text = runCatching {
-            file.readText(Charsets.UTF_8)
-        }.getOrNull() ?: return@withContext null
-        parseLyrics(text)
+        if (file.isFile) {
+            val text = runCatching {
+                file.readText(Charsets.UTF_8)
+            }.getOrNull()
+            if (!text.isNullOrBlank()) {
+                return@withContext parseLyrics(
+                    raw = text,
+                    source = LyricsSource.Imported,
+                )
+            }
+        }
+
+        val uri = mediaUri ?: return@withContext null
+        val embedded = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val prefix = readPrefix(
+                    input = input,
+                    maxBytes = MaxEmbeddedTagBytes,
+                )
+                EmbeddedLyricsReader.readUnsynchronisedLyrics(prefix)
+            }
+        }.getOrNull()
+
+        embedded
+            ?.takeIf { it.isNotBlank() }
+            ?.let { lyric ->
+                parseLyrics(
+                    raw = lyric,
+                    source = LyricsSource.Embedded,
+                )
+            }
     }
 
     suspend fun removeLyrics(trackId: Long): Boolean = withContext(Dispatchers.IO) {
@@ -94,10 +129,39 @@ class LyricsRepository(
         return output.toByteArray()
     }
 
+    private fun readPrefix(
+        input: InputStream,
+        maxBytes: Int,
+    ): ByteArray {
+        val output = ByteArrayOutputStream(
+            minOf(maxBytes, 64 * 1024),
+        )
+        val buffer = ByteArray(8 * 1024)
+        var total = 0
+
+        while (total < maxBytes) {
+            val remaining = maxBytes - total
+            val read = input.read(
+                buffer,
+                0,
+                minOf(buffer.size, remaining),
+            )
+            if (read < 0) break
+            total += read
+            output.write(buffer, 0, read)
+        }
+
+        return output.toByteArray()
+    }
+
     companion object {
         private const val MaxLyricsBytes = 2 * 1024 * 1024
+        private const val MaxEmbeddedTagBytes = 4 * 1024 * 1024
 
-        fun parseLyrics(raw: String): LyricsDocument {
+        fun parseLyrics(
+            raw: String,
+            source: LyricsSource = LyricsSource.Imported,
+        ): LyricsDocument {
             val sourceLines = raw
                 .removePrefix("\uFEFF")
                 .replace("\r\n", "\n")
@@ -154,6 +218,7 @@ class LyricsRepository(
                 return LyricsDocument(
                     lines = parsed.sortedBy { it.timeMs },
                     synced = true,
+                    source = source,
                 )
             }
 
@@ -164,6 +229,7 @@ class LyricsRepository(
                         .map { LyricLine(timeMs = null, text = it) }
                 },
                 synced = false,
+                source = source,
             )
         }
 
