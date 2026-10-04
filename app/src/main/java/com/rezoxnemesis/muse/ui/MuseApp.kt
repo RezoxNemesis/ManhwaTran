@@ -2353,6 +2353,7 @@ private fun SettingsScreen(
 ) {
     val state by viewModel.libraryState.collectAsStateWithLifecycle()
     val backup by viewModel.backupState.collectAsStateWithLifecycle()
+    var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -2363,7 +2364,7 @@ private fun SettingsScreen(
     val restoreLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
-        uri?.let(viewModel::restoreBackup)
+        pendingRestoreUri = uri
     }
 
     LazyColumn(
@@ -2531,6 +2532,35 @@ private fun SettingsScreen(
                 }
             }
         }
+    }
+
+    pendingRestoreUri?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { pendingRestoreUri = null },
+            title = { Text("Restore Muse backup?") },
+            text = {
+                Text(
+                    "Restoring will replace your current favourites, recent history, playlists and saved sound profiles. Imported audio permissions and original music files are not changed."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRestoreUri = null
+                        viewModel.restoreBackup(uri)
+                    },
+                ) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { pendingRestoreUri = null },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
