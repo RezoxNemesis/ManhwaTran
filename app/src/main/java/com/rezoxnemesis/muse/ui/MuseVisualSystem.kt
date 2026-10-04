@@ -11,11 +11,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -25,10 +28,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material3.Icon
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
@@ -66,24 +73,26 @@ internal fun MuseAtmosphere(
         drawLightBloom(
             center = Offset(size.width * 0.67f, size.height * 0.05f),
             radius = size.minDimension * 0.56f,
-            core = Color(0xFFD8FF72).copy(alpha = 0.12f),
+            core = Color(0xFFD8FF72).copy(alpha = 0.21f),
         )
         drawLightBloom(
             center = Offset(size.width * 0.18f, size.height * 0.52f),
             radius = size.minDimension * 0.40f,
-            core = MuseGlow.copy(alpha = 0.055f),
+            core = MuseGlow.copy(alpha = 0.085f),
         )
 
         val bokeh = listOf(
-            Bokeh(0.14f, 0.08f, 0.026f, 0.08f),
-            Bokeh(0.30f, 0.16f, 0.044f, 0.075f),
-            Bokeh(0.57f, 0.10f, 0.060f, 0.095f),
-            Bokeh(0.77f, 0.22f, 0.035f, 0.065f),
-            Bokeh(0.88f, 0.46f, 0.052f, 0.055f),
-            Bokeh(0.43f, 0.39f, 0.028f, 0.045f),
-            Bokeh(0.24f, 0.73f, 0.050f, 0.050f),
-            Bokeh(0.70f, 0.84f, 0.038f, 0.050f),
-            Bokeh(0.90f, 0.91f, 0.060f, 0.040f),
+            Bokeh(0.12f, 0.07f, 0.028f, 0.13f),
+            Bokeh(0.29f, 0.13f, 0.050f, 0.11f),
+            Bokeh(0.55f, 0.075f, 0.066f, 0.15f),
+            Bokeh(0.73f, 0.18f, 0.040f, 0.11f),
+            Bokeh(0.91f, 0.27f, 0.052f, 0.09f),
+            Bokeh(0.84f, 0.50f, 0.036f, 0.08f),
+            Bokeh(0.40f, 0.38f, 0.030f, 0.075f),
+            Bokeh(0.19f, 0.58f, 0.038f, 0.065f),
+            Bokeh(0.26f, 0.75f, 0.052f, 0.075f),
+            Bokeh(0.66f, 0.82f, 0.043f, 0.07f),
+            Bokeh(0.91f, 0.91f, 0.060f, 0.065f),
         )
         bokeh.forEach { dot ->
             val radius = size.minDimension * dot.radiusFraction
@@ -103,44 +112,191 @@ internal fun MuseAtmosphere(
         }
 
         drawMuseLeaf(
-            center = Offset(size.width * -0.015f, size.height * 0.16f),
-            width = size.width * 0.50f,
-            height = size.height * 0.24f,
-            rotationDegrees = -28f,
+            center = Offset(size.width * -0.04f, size.height * 0.14f),
+            width = size.width * 0.34f,
+            height = size.height * 0.20f,
+            rotationDegrees = -30f,
+            alpha = 0.98f,
+            foreground = true,
+        )
+        drawMuseLeaf(
+            center = Offset(size.width * 0.18f, size.height * 0.035f),
+            width = size.width * 0.20f,
+            height = size.height * 0.11f,
+            rotationDegrees = 24f,
+            alpha = 0.84f,
+            foreground = true,
+        )
+        drawMuseLeaf(
+            center = Offset(size.width * 0.98f, size.height * 0.13f),
+            width = size.width * 0.30f,
+            height = size.height * 0.17f,
+            rotationDegrees = 31f,
             alpha = 0.94f,
             foreground = true,
         )
         drawMuseLeaf(
-            center = Offset(size.width * 1.03f, size.height * 0.30f),
-            width = size.width * 0.53f,
-            height = size.height * 0.27f,
-            rotationDegrees = 31f,
-            alpha = 0.80f,
-            foreground = true,
-        )
-        drawMuseLeaf(
-            center = Offset(size.width * 0.03f, size.height * 0.79f),
-            width = size.width * 0.43f,
-            height = size.height * 0.22f,
-            rotationDegrees = 20f,
-            alpha = 0.70f,
-            foreground = false,
-        )
-        drawMuseLeaf(
-            center = Offset(size.width * 0.98f, size.height * 0.89f),
-            width = size.width * 0.47f,
-            height = size.height * 0.23f,
+            center = Offset(size.width * 1.015f, size.height * 0.39f),
+            width = size.width * 0.32f,
+            height = size.height * 0.19f,
             rotationDegrees = -24f,
-            alpha = 0.76f,
+            alpha = 0.82f,
             foreground = true,
         )
         drawMuseLeaf(
-            center = Offset(size.width * 0.83f, size.height * 0.04f),
-            width = size.width * 0.30f,
+            center = Offset(size.width * 0.015f, size.height * 0.48f),
+            width = size.width * 0.25f,
             height = size.height * 0.15f,
-            rotationDegrees = 20f,
-            alpha = 0.66f,
+            rotationDegrees = 18f,
+            alpha = 0.68f,
             foreground = false,
+        )
+        drawMuseLeaf(
+            center = Offset(size.width * -0.015f, size.height * 0.80f),
+            width = size.width * 0.31f,
+            height = size.height * 0.18f,
+            rotationDegrees = 23f,
+            alpha = 0.86f,
+            foreground = true,
+        )
+        drawMuseLeaf(
+            center = Offset(size.width * 0.985f, size.height * 0.86f),
+            width = size.width * 0.33f,
+            height = size.height * 0.19f,
+            rotationDegrees = -23f,
+            alpha = 0.92f,
+            foreground = true,
+        )
+        drawMuseLeaf(
+            center = Offset(size.width * 0.82f, size.height * 0.025f),
+            width = size.width * 0.18f,
+            height = size.height * 0.105f,
+            rotationDegrees = 18f,
+            alpha = 0.78f,
+            foreground = false,
+        )
+    }
+}
+
+@Composable
+fun MuseBrandMark(
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+
+            val leaf = Path().apply {
+                moveTo(w * 0.19f, h * 0.82f)
+                cubicTo(
+                    w * 0.32f, h * 0.34f,
+                    w * 0.61f, h * 0.12f,
+                    w * 0.82f, h * 0.08f,
+                )
+                cubicTo(
+                    w * 0.83f, h * 0.43f,
+                    w * 0.68f, h * 0.76f,
+                    w * 0.24f, h * 0.88f,
+                )
+                cubicTo(
+                    w * 0.21f, h * 0.87f,
+                    w * 0.19f, h * 0.85f,
+                    w * 0.19f, h * 0.82f,
+                )
+                close()
+            }
+
+            drawPath(
+                path = leaf,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFFB8FF64),
+                        Color(0xFF4CC53E),
+                        Color(0xFF0B4B1A),
+                        Color(0xFF06210E),
+                    ),
+                    start = Offset(w * 0.78f, h * 0.08f),
+                    end = Offset(w * 0.20f, h * 0.88f),
+                ),
+            )
+            drawPath(
+                path = leaf,
+                color = Color(0xFFD9FF9C).copy(alpha = 0.72f),
+                style = Stroke(width = 1.3.dp.toPx()),
+            )
+            drawLine(
+                brush = Brush.linearGradient(
+                    listOf(
+                        Color(0xFFE7FFC5),
+                        MuseGreen,
+                        Color(0xFFFFB977),
+                    ),
+                ),
+                start = Offset(w * 0.22f, h * 0.84f),
+                end = Offset(w * 0.74f, h * 0.15f),
+                strokeWidth = 1.7.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+
+            val veins = listOf(
+                0.34f to 0.55f,
+                0.43f to 0.47f,
+                0.52f to 0.39f,
+                0.61f to 0.30f,
+            )
+            veins.forEach { (x, y) ->
+                drawLine(
+                    color = Color.White.copy(alpha = 0.24f),
+                    start = Offset(w * x, h * y),
+                    end = Offset(w * (x + 0.20f), h * (y - 0.08f)),
+                    strokeWidth = 0.8.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+            }
+
+            val barXs = listOf(0.67f, 0.73f, 0.79f, 0.85f)
+            val barHeights = listOf(0.16f, 0.27f, 0.21f, 0.12f)
+            val barColors = listOf(
+                MuseGreen,
+                Color(0xFFFFD26C),
+                Color(0xFFFFA85C),
+                MuseGreen,
+            )
+            barXs.indices.forEach { index ->
+                val bh = h * barHeights[index]
+                drawLine(
+                    color = barColors[index],
+                    start = Offset(w * barXs[index], h * 0.58f - bh / 2f),
+                    end = Offset(w * barXs[index], h * 0.58f + bh / 2f),
+                    strokeWidth = 5.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+            }
+
+            listOf(
+                Offset(w * 0.58f, h * 0.22f),
+                Offset(w * 0.73f, h * 0.32f),
+                Offset(w * 0.36f, h * 0.67f),
+            ).forEachIndexed { index, point ->
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.28f - index * 0.05f),
+                    center = point,
+                    radius = (2.2.dp + index.dp * 0.35f).toPx(),
+                )
+            }
+        }
+
+        Icon(
+            imageVector = Icons.Rounded.MusicNote,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier
+                .size(58.dp)
+                .offset(x = (-13).dp, y = 2.dp),
         )
     }
 }
@@ -378,15 +534,15 @@ private fun DrawScope.drawMuseLeaf(
 
         val leafColors = if (foreground) {
             listOf(
-                Color(0xFF4EBA3D).copy(alpha = alpha),
-                Color(0xFF174F22).copy(alpha = alpha),
-                Color(0xFF06170B).copy(alpha = alpha * 0.98f),
+                Color(0xFF76ED58).copy(alpha = alpha),
+                Color(0xFF2B8737).copy(alpha = alpha),
+                Color(0xFF071D0D).copy(alpha = alpha * 0.98f),
             )
         } else {
             listOf(
-                Color(0xFF2F7B35).copy(alpha = alpha),
-                Color(0xFF10371A).copy(alpha = alpha),
-                Color(0xFF051108).copy(alpha = alpha * 0.98f),
+                Color(0xFF4CAF45).copy(alpha = alpha),
+                Color(0xFF195124).copy(alpha = alpha),
+                Color(0xFF051309).copy(alpha = alpha * 0.98f),
             )
         }
 
@@ -400,15 +556,15 @@ private fun DrawScope.drawMuseLeaf(
         )
         drawPath(
             path = leaf,
-            color = Color(0xFF8CFF7E).copy(alpha = alpha * if (foreground) 0.20f else 0.10f),
+            color = Color(0xFFB2FF86).copy(alpha = alpha * if (foreground) 0.30f else 0.14f),
             style = Stroke(width = if (foreground) 1.2.dp.toPx() else 0.7.dp.toPx()),
         )
 
         drawLine(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color(0xFFCBFF9B).copy(alpha = alpha * 0.58f),
-                    Color(0xFF5DCB5A).copy(alpha = alpha * 0.28f),
+                    Color(0xFFE3FFAE).copy(alpha = alpha * 0.72f),
+                    Color(0xFF72E666).copy(alpha = alpha * 0.38f),
                     Color.Transparent,
                 ),
                 startY = top,
