@@ -114,6 +114,7 @@ jobs:
             sha256sum ui-captures/muse-home-runtime.png
 
       - name: Upload genuine runtime screenshot
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: muse-runtime-ui-home
