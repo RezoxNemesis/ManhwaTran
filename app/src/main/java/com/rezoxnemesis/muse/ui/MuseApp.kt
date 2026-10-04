@@ -102,6 +102,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -165,6 +166,12 @@ private enum class PlaylistTab {
     All,
     Created,
     Liked,
+}
+
+private enum class DownloadTab {
+    Songs,
+    Albums,
+    Playlists,
 }
 
 private val PrimaryDestinations = listOf(
@@ -3250,6 +3257,8 @@ private fun DownloadsScreen(
     navController: NavHostController,
 ) {
     val state by viewModel.managedMediaState.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableStateOf(DownloadTab.Songs) }
     var pendingDelete by remember { mutableStateOf<Track?>(null) }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -3258,9 +3267,25 @@ private fun DownloadsScreen(
         uri?.let(viewModel::importManagedMedia)
     }
 
+    val albumGroups = state.tracks
+        .groupBy { it.album.ifBlank { "Unknown Album" } }
+        .entries
+        .sortedBy { it.key.lowercase() }
+    val managedIds = state.tracks.map { it.id }.toSet()
+    val managedPlaylists = playlists.mapNotNull { playlist ->
+        val managedTracks = viewModel.playlistTracks(playlist)
+            .filter { it.id in managedIds }
+        if (managedTracks.isEmpty()) null else playlist to managedTracks
+    }
+    val totalBytes = state.tracks.mapNotNull { it.sizeBytes }.sum()
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 18.dp,
+            end = 18.dp,
+            bottom = 30.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
@@ -3271,30 +3296,46 @@ private fun DownloadsScreen(
         }
 
         item {
-            GlassCard {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        "Imported Files",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        "Add audio files you already have access to. Muse keeps persistent read access through Android’s document picker and does not bypass protected sources.",
-                        color = MuseMuted,
-                    )
-                    Button(
-                        onClick = { importLauncher.launch(arrayOf("audio/*")) },
-                        enabled = !state.importing,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MuseGreen,
-                            contentColor = MuseBackground,
-                        ),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                DownloadTab.entries.forEach { tab ->
+                    val icon = when (tab) {
+                        DownloadTab.Songs -> Icons.Rounded.MusicNote
+                        DownloadTab.Albums -> Icons.Rounded.Album
+                        DownloadTab.Playlists -> Icons.Rounded.PlaylistPlay
+                    }
+                    MuseGlassAction(
+                        onClick = { selectedTab = tab },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
+                        variant = if (selectedTab == tab) {
+                            MuseGlassVariant.Selected
+                        } else {
+                            MuseGlassVariant.Standard
+                        },
+                        cornerRadius = 20.dp,
                     ) {
-                        Icon(Icons.Rounded.Download, contentDescription = null)
-                        Text(if (state.importing) " Importing…" else " Import Audio")
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                icon,
+                                contentDescription = null,
+                                tint = if (selectedTab == tab) MuseGreen else MuseMuted,
+                            )
+                            Spacer(Modifier.size(5.dp))
+                            Text(
+                                tab.name,
+                                color = if (selectedTab == tab) MuseGreen else Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
                     }
                 }
             }
@@ -3302,7 +3343,10 @@ private fun DownloadsScreen(
 
         if (state.error != null) {
             item {
-                GlassCard {
+                MuseGlassSurface(
+                    variant = MuseGlassVariant.Destructive,
+                    cornerRadius = 20.dp,
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -3325,67 +3369,174 @@ private fun DownloadsScreen(
         if (state.tracks.isEmpty() && !state.importing) {
             item {
                 EmptyCard(
-                    title = "No imported files",
-                    body = "Use Import Audio to add a file through Android’s secure document picker.",
+                    title = "No imported audio yet",
+                    body = "Choose audio you already have access to. Muse keeps Android-scoped persistent access and never pretends protected sources were downloaded.",
                 )
             }
         } else {
-            items(state.tracks, key = { it.id }) { track ->
-                GlassCard {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TrackArtwork(
-                            track = track,
-                            modifier = Modifier.size(60.dp),
-                            contentDescription = null,
-                        )
-                        Spacer(Modifier.size(12.dp))
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { viewModel.playTrack(track) },
+            when (selectedTab) {
+                DownloadTab.Songs -> {
+                    items(state.tracks, key = { it.id }) { track ->
+                        MuseGlassAction(
+                            onClick = { viewModel.playTrack(track) },
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = MuseGlassVariant.Standard,
+                            cornerRadius = 20.dp,
                         ) {
-                            Text(
-                                track.title,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                track.artist,
-                                color = MuseMuted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                listOfNotNull(
-                                    track.sizeBytes?.let(::formatFileSize),
-                                    track.mimeType,
-                                ).joinToString(" • "),
-                                color = MuseMuted.copy(alpha = 0.82f),
-                                style = MaterialTheme.typography.bodySmall,
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TrackArtwork(
+                                    track = track,
+                                    modifier = Modifier.size(68.dp),
+                                    contentDescription = null,
+                                )
+                                Spacer(Modifier.size(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        track.title,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        track.artist,
+                                        color = MuseMuted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        listOfNotNull(
+                                            track.sizeBytes?.let(::formatFileSize),
+                                            track.mimeType,
+                                        ).joinToString(" • "),
+                                        color = MuseMuted.copy(alpha = 0.82f),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                                IconButton(onClick = { pendingDelete = track }) {
+                                    Icon(
+                                        Icons.Rounded.MoreVert,
+                                        contentDescription = "Imported track options",
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                DownloadTab.Albums -> {
+                    if (albumGroups.isEmpty()) {
+                        item {
+                            EmptyCard(
+                                title = "No imported albums",
+                                body = "Album groups appear automatically from real imported track metadata.",
                             )
                         }
-                        IconButton(onClick = { viewModel.playTrack(track) }) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = "Play imported track")
+                    } else {
+                        items(albumGroups, key = { it.key }) { entry ->
+                            val albumTracks = entry.value
+                            MuseGlassAction(
+                                onClick = { viewModel.playTracks(albumTracks) },
+                                modifier = Modifier.fillMaxWidth(),
+                                variant = MuseGlassVariant.Standard,
+                                cornerRadius = 20.dp,
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TrackArtwork(
+                                        track = albumTracks.firstOrNull(),
+                                        modifier = Modifier.size(68.dp),
+                                        contentDescription = null,
+                                    )
+                                    Spacer(Modifier.size(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            entry.key,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            "${albumTracks.size} imported ${if (albumTracks.size == 1) "song" else "songs"}",
+                                            color = MuseMuted,
+                                        )
+                                    }
+                                    Icon(
+                                        Icons.Rounded.PlayArrow,
+                                        contentDescription = "Play imported album",
+                                        tint = MuseGreen,
+                                    )
+                                }
+                            }
                         }
-                        IconButton(onClick = { pendingDelete = track }) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Remove imported track")
+                    }
+                }
+
+                DownloadTab.Playlists -> {
+                    if (managedPlaylists.isEmpty()) {
+                        item {
+                            EmptyCard(
+                                title = "No imported-audio playlists",
+                                body = "Playlists containing Muse-managed files will appear here automatically.",
+                            )
+                        }
+                    } else {
+                        items(managedPlaylists, key = { it.first.id }) { (playlist, playlistTracks) ->
+                            MuseGlassAction(
+                                onClick = { viewModel.playTracks(playlistTracks) },
+                                modifier = Modifier.fillMaxWidth(),
+                                variant = MuseGlassVariant.Standard,
+                                cornerRadius = 20.dp,
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TrackArtwork(
+                                        track = playlistTracks.firstOrNull(),
+                                        modifier = Modifier.size(68.dp),
+                                        contentDescription = null,
+                                    )
+                                    Spacer(Modifier.size(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            playlist.name,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            "${playlistTracks.size} imported ${if (playlistTracks.size == 1) "song" else "songs"}",
+                                            color = MuseMuted,
+                                        )
+                                    }
+                                    Icon(
+                                        Icons.Rounded.PlayArrow,
+                                        contentDescription = "Play imported playlist",
+                                        tint = MuseGreen,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
             item {
-                val totalBytes = state.tracks.mapNotNull { it.sizeBytes }.sum()
                 Text(
                     buildString {
                         append(state.tracks.size)
-                        append(if (state.tracks.size == 1) " file" else " files")
+                        append(if (state.tracks.size == 1) " song" else " songs")
                         if (totalBytes > 0L) {
                             append(" • ")
                             append(formatFileSize(totalBytes))
@@ -3393,8 +3544,39 @@ private fun DownloadsScreen(
                     },
                     color = MuseMuted,
                     modifier = Modifier.fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                 )
+            }
+        }
+
+        item {
+            MuseGlassAction(
+                onClick = { importLauncher.launch(arrayOf("audio/*")) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(66.dp),
+                variant = MuseGlassVariant.Selected,
+                cornerRadius = 28.dp,
+                enabled = !state.importing,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.Download,
+                        contentDescription = null,
+                        tint = MuseGreen,
+                    )
+                    Spacer(Modifier.size(10.dp))
+                    Text(
+                        if (state.importing) "Importing…" else "Import More Audio",
+                        color = MuseGreen,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
             }
         }
     }
@@ -3434,6 +3616,7 @@ private fun SleepTimerScreen(
 ) {
     val timer by viewModel.playback.sleepTimer.collectAsStateWithLifecycle()
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
+    var selectedMinutes by remember { mutableStateOf(30) }
     var customMinutes by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -3441,17 +3624,17 @@ private fun SleepTimerScreen(
     }
 
     val presets = listOf(10, 30, 60, 90)
-    val timerLabel = when (timer.mode) {
-        SleepTimerProtocol.ModeAfterCurrent -> "After Track"
-        SleepTimerProtocol.ModeEndOfQueue -> "End Queue"
+    val mainLabel = when (timer.mode) {
+        SleepTimerProtocol.ModeAfterCurrent -> "After"
+        SleepTimerProtocol.ModeEndOfQueue -> "Queue"
         SleepTimerProtocol.ModeDuration -> formatDuration(timer.remainingMs)
-        else -> "Off"
+        else -> selectedMinutes.toString()
     }
-    val timerCaption = when (timer.mode) {
-        SleepTimerProtocol.ModeAfterCurrent -> "pause when this track finishes"
-        SleepTimerProtocol.ModeEndOfQueue -> "pause when the queue finishes"
-        SleepTimerProtocol.ModeDuration -> "remaining"
-        else -> "Sleep Scene"
+    val caption = when (timer.mode) {
+        SleepTimerProtocol.ModeAfterCurrent -> "Current Track"
+        SleepTimerProtocol.ModeEndOfQueue -> "End of Queue"
+        SleepTimerProtocol.ModeDuration -> "Remaining"
+        else -> "Minutes"
     }
 
     LazyColumn(
@@ -3470,35 +3653,73 @@ private fun SleepTimerScreen(
 
         item {
             Surface(
-                modifier = Modifier.size(240.dp),
+                modifier = Modifier.size(272.dp),
                 shape = CircleShape,
-                color = Color(0x5513301A),
-                border = androidx.compose.foundation.BorderStroke(2.dp, MuseGreen),
+                color = Color(0xD407170C),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.5.dp,
+                    MuseGreen.copy(alpha = 0.76f),
+                ),
+                shadowElevation = 18.dp,
             ) {
                 Box(contentAlignment = Alignment.Center) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val inset = 14.dp.toPx()
+                        val arcSize = Size(
+                            width = size.width - inset * 2,
+                            height = size.height - inset * 2,
+                        )
+                        drawArc(
+                            color = MuseGreen.copy(alpha = 0.12f),
+                            startAngle = -90f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = arcSize,
+                            style = Stroke(width = 12.dp.toPx()),
+                        )
+                        drawArc(
+                            color = MuseGreen.copy(alpha = 0.28f),
+                            startAngle = -90f,
+                            sweepAngle = if (timer.active) 318f else 260f,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = arcSize,
+                            style = Stroke(width = 18.dp.toPx()),
+                        )
+                        drawArc(
+                            color = MuseGreen,
+                            startAngle = -90f,
+                            sweepAngle = if (timer.active) 318f else 260f,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = arcSize,
+                            style = Stroke(width = 5.dp.toPx()),
+                        )
+                    }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             Icons.Rounded.Timer,
                             contentDescription = null,
                             tint = MuseGreen,
+                            modifier = Modifier.size(36.dp),
                         )
+                        Spacer(Modifier.height(8.dp))
                         Text(
-                            timerLabel,
-                            style = if (
-                                timer.mode == SleepTimerProtocol.ModeDuration ||
-                                !timer.active
-                            ) {
+                            mainLabel,
+                            style = if (timer.mode == SleepTimerProtocol.ModeDuration) {
                                 MaterialTheme.typography.displaySmall
                             } else {
-                                MaterialTheme.typography.headlineMedium
+                                MaterialTheme.typography.headlineLarge
                             },
                             fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
                         )
                         Text(
-                            timerCaption,
+                            caption,
                             color = MuseMuted,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 18.dp),
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
@@ -3511,133 +3732,192 @@ private fun SleepTimerScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 presets.forEach { minutes ->
-                    Button(
+                    MuseGlassAction(
                         onClick = {
-                            viewModel.playback.startSleepTimer(minutes)
+                            selectedMinutes = minutes
+                            customMinutes = ""
                         },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (
-                                timer.active &&
-                                timer.mode == SleepTimerProtocol.ModeDuration &&
-                                timer.remainingMs <= minutes * 60_000L
-                            ) {
-                                Color(0x443DFF5E)
-                            } else {
-                                MuseSurface
-                            },
-                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(86.dp),
+                        variant = if (
+                            selectedMinutes == minutes &&
+                            timer.mode != SleepTimerProtocol.ModeAfterCurrent &&
+                            timer.mode != SleepTimerProtocol.ModeEndOfQueue
+                        ) {
+                            MuseGlassVariant.Selected
+                        } else {
+                            MuseGlassVariant.Standard
+                        },
+                        cornerRadius = 22.dp,
                     ) {
-                        Text("$minutes")
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                minutes.toString(),
+                                color = if (selectedMinutes == minutes) MuseGreen else Color.White,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "min",
+                                color = MuseMuted,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
                     }
                 }
             }
         }
 
         item {
-            GlassCard {
+            MuseGlassAction(
+                onClick = {
+                    viewModel.playback.startSleepTimer(selectedMinutes)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(68.dp),
+                variant = MuseGlassVariant.Selected,
+                cornerRadius = 30.dp,
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    OutlinedTextField(
-                        value = customMinutes,
-                        onValueChange = { value ->
-                            customMinutes = value
-                                .filter(Char::isDigit)
-                                .take(3)
-                        },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        label = { Text("Custom minutes") },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                        shape = RoundedCornerShape(18.dp),
+                    Icon(
+                        Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = MuseGreen,
+                        modifier = Modifier.size(30.dp),
                     )
-                    Button(
-                        enabled = customMinutes.toIntOrNull()
-                            ?.let { it in 1..720 } == true,
-                        onClick = {
-                            customMinutes.toIntOrNull()?.let {
-                                viewModel.playback.startSleepTimer(it)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MuseGreen,
-                            contentColor = MuseBackground,
-                        ),
-                    ) {
-                        Text("Start")
-                    }
+                    Spacer(Modifier.size(10.dp))
+                    Text(
+                        if (timer.active) "Restart Timer" else "Start Timer",
+                        color = MuseGreen,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }
 
         item {
-            GlassCard {
+            MuseGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                variant = MuseGlassVariant.Strong,
+                cornerRadius = 24.dp,
+            ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
-                        "Sleep Scene",
+                        "Custom & Playback Boundaries",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Text(
-                        "Use a playback boundary instead of a clock.",
-                        color = MuseMuted,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedTextField(
+                            value = customMinutes,
+                            onValueChange = { value ->
+                                customMinutes = value.filter(Char::isDigit).take(3)
+                            },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("Minutes") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                            shape = RoundedCornerShape(18.dp),
+                        )
+                        TextButton(
+                            enabled = customMinutes.toIntOrNull()
+                                ?.let { it in 1..720 } == true,
+                            onClick = {
+                                customMinutes.toIntOrNull()?.let { minutes ->
+                                    selectedMinutes = minutes
+                                    viewModel.playback.startSleepTimer(minutes)
+                                }
+                            },
+                        ) {
+                            Text("Start")
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Button(
-                            enabled = playback.currentMediaId != null,
+                        MuseGlassAction(
                             onClick = viewModel.playback::startSleepAfterCurrentTrack,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MuseSurface,
-                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
+                            variant = if (
+                                timer.mode == SleepTimerProtocol.ModeAfterCurrent
+                            ) {
+                                MuseGlassVariant.Selected
+                            } else {
+                                MuseGlassVariant.Standard
+                            },
+                            cornerRadius = 18.dp,
+                            enabled = playback.currentMediaId != null,
                         ) {
-                            Text("After Track")
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("After Track", fontWeight = FontWeight.SemiBold)
+                            }
                         }
-                        Button(
-                            enabled = playback.queue.isNotEmpty(),
+                        MuseGlassAction(
                             onClick = viewModel.playback::startSleepAtEndOfQueue,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MuseSurface,
-                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
+                            variant = if (
+                                timer.mode == SleepTimerProtocol.ModeEndOfQueue
+                            ) {
+                                MuseGlassVariant.Selected
+                            } else {
+                                MuseGlassVariant.Standard
+                            },
+                            cornerRadius = 18.dp,
+                            enabled = playback.queue.isNotEmpty(),
                         ) {
-                            Text("End of Queue")
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("End Queue", fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
             }
         }
 
-        item {
-            if (timer.active) {
-                Button(
+        if (timer.active) {
+            item {
+                MuseGlassAction(
                     onClick = viewModel.playback::cancelSleepTimer,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    variant = MuseGlassVariant.Destructive,
+                    cornerRadius = 22.dp,
                 ) {
-                    Text("Cancel Sleep Scene")
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Cancel Sleep Timer",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
-            } else {
-                Text(
-                    "Muse pauses playback at the selected time or playback boundary.",
-                    color = MuseMuted,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
             }
         }
     }
