@@ -135,6 +135,15 @@ private enum class LibraryTab {
     Playlists,
 }
 
+private enum class LibrarySort(
+    val label: String,
+) {
+    Newest("Newest"),
+    Title("Title"),
+    Artist("Artist"),
+    Album("Album"),
+}
+
 private val PrimaryDestinations = listOf(
     PrimaryDestination("home", "Home", Icons.Rounded.Home),
     PrimaryDestination("explore", "Explore", Icons.Rounded.Explore),
@@ -633,12 +642,27 @@ private fun LibraryScreen(
     val liked by viewModel.likedTracks.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(LibraryTab.Songs) }
+    var selectedSort by remember { mutableStateOf(LibrarySort.Newest) }
 
-    val albums = tracks
+    val sortedTracks = when (selectedSort) {
+        LibrarySort.Newest -> tracks.sortedByDescending { it.dateAddedSeconds }
+        LibrarySort.Title -> tracks.sortedBy { it.title.lowercase() }
+        LibrarySort.Artist -> tracks.sortedWith(
+            compareBy<Track> { it.artist.lowercase() }
+                .thenBy { it.title.lowercase() }
+        )
+        LibrarySort.Album -> tracks.sortedWith(
+            compareBy<Track> { it.album.lowercase() }
+                .thenBy { it.trackNumber ?: Int.MAX_VALUE }
+                .thenBy { it.title.lowercase() }
+        )
+    }
+
+    val albums = sortedTracks
         .groupBy { it.album }
         .entries
         .sortedBy { it.key.lowercase() }
-    val artists = tracks
+    val artists = sortedTracks
         .groupBy { it.artist }
         .entries
         .sortedBy { it.key.lowercase() }
@@ -684,6 +708,20 @@ private fun LibraryScreen(
             }
         }
 
+        if (selectedTab == LibraryTab.Songs) {
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(LibrarySort.entries) { sort ->
+                        FilterChip(
+                            selected = selectedSort == sort,
+                            onClick = { selectedSort = sort },
+                            label = { Text(sort.label) },
+                        )
+                    }
+                }
+            }
+        }
+
         when (selectedTab) {
             LibraryTab.Songs -> {
                 if (tracks.isEmpty()) {
@@ -698,7 +736,7 @@ private fun LibraryScreen(
                         )
                     }
                 } else {
-                    items(tracks, key = { it.id }) { track ->
+                    items(sortedTracks, key = { it.id }) { track ->
                         TrackRow(
                             track = track,
                             favorite = track.id in favourites,
