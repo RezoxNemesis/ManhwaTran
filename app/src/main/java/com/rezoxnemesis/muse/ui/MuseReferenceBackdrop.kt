@@ -46,21 +46,21 @@ internal enum class MuseVisualIntensity(
 internal enum class MuseReferenceScreen(
     val assetEntryName: String,
 ) {
-    Splash("muse_ref_splash.png"),
-    Home("muse_ref_home.png"),
-    NowPlaying("muse_ref_now_playing.png"),
-    Lyrics("muse_ref_lyrics.png"),
-    Queue("muse_ref_queue.png"),
-    Explore("muse_ref_explore.png"),
-    Library("muse_ref_library.png"),
-    Playlists("muse_ref_playlists.png"),
-    Equalizer("muse_ref_equalizer.png"),
-    Settings("muse_ref_settings.png"),
-    Artist("muse_ref_artist.png"),
-    Album("muse_ref_album.png"),
-    Downloads("muse_ref_downloads.png"),
-    SleepTimer("muse_ref_sleep.png"),
-    MoreOptions("muse_ref_more.png");
+    Splash("muse_ref_splash.webp"),
+    Home("muse_ref_home.webp"),
+    NowPlaying("muse_ref_now_playing.webp"),
+    Lyrics("muse_ref_lyrics.webp"),
+    Queue("muse_ref_queue.webp"),
+    Explore("muse_ref_explore.webp"),
+    Library("muse_ref_library.webp"),
+    Playlists("muse_ref_playlists.webp"),
+    Equalizer("muse_ref_equalizer.webp"),
+    Settings("muse_ref_settings.webp"),
+    Artist("muse_ref_artist.webp"),
+    Album("muse_ref_album.webp"),
+    Downloads("muse_ref_downloads.webp"),
+    SleepTimer("muse_ref_sleep.webp"),
+    MoreOptions("muse_ref_more.webp");
 
     companion object {
         fun fromRoute(route: String?): MuseReferenceScreen =
