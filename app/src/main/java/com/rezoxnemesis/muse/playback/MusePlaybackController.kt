@@ -11,6 +11,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
+import com.rezoxnemesis.muse.data.MuseSoundProfile
 import com.rezoxnemesis.muse.data.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -298,6 +299,47 @@ class MusePlaybackController(
                     .onSuccess(::applyAudioEffectResult)
             },
             mainExecutor,
+        )
+    }
+
+    fun applySoundProfile(profile: MuseSoundProfile) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putBoolean(AudioEffectProtocol.KeyMasterEnabled, true)
+                putBoolean(AudioEffectProtocol.KeyBypass, false)
+                putIntArray(
+                    AudioEffectProtocol.KeyEqProfileCentersHz,
+                    profile.eqCentersHz.toIntArray(),
+                )
+                putIntArray(
+                    AudioEffectProtocol.KeyEqProfileLevelsMb,
+                    profile.eqLevelsMb.toIntArray(),
+                )
+                putBoolean(
+                    AudioEffectProtocol.KeyBassEnabled,
+                    profile.bassEnabled,
+                )
+                putInt(
+                    AudioEffectProtocol.KeyBassStrength,
+                    profile.bassStrength,
+                )
+                putBoolean(
+                    AudioEffectProtocol.KeyVirtualizerEnabled,
+                    profile.virtualizerEnabled,
+                )
+                putInt(
+                    AudioEffectProtocol.KeyVirtualizerStrength,
+                    profile.virtualizerStrength,
+                )
+                putBoolean(
+                    AudioEffectProtocol.KeyLoudnessEnabled,
+                    profile.loudnessEnabled,
+                )
+                putInt(
+                    AudioEffectProtocol.KeyLoudnessGainMb,
+                    profile.loudnessGainMb,
+                )
+            }
         )
     }
 
