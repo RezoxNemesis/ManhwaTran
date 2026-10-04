@@ -2,11 +2,13 @@ package com.rezoxnemesis.muse.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.rezoxnemesis.muse.data.Track
 import kotlinx.coroutines.CoroutineScope
@@ -40,10 +42,33 @@ data class PlaybackUiState(
     val queue: List<QueueUiItem> = emptyList(),
 )
 
+data class AudioEffectsUiState(
+    val connected: Boolean = false,
+    val sessionReady: Boolean = false,
+    val masterEnabled: Boolean = true,
+    val bypass: Boolean = false,
+    val equalizerAvailable: Boolean = false,
+    val bandCentersHz: List<Int> = emptyList(),
+    val bandMinMb: Int = 0,
+    val bandMaxMb: Int = 0,
+    val bandLevelsMb: List<Int> = emptyList(),
+    val presetNames: List<String> = emptyList(),
+    val bassAvailable: Boolean = false,
+    val bassEnabled: Boolean = false,
+    val bassStrength: Int = 0,
+    val virtualizerAvailable: Boolean = false,
+    val virtualizerEnabled: Boolean = false,
+    val virtualizerStrength: Int = 0,
+    val loudnessAvailable: Boolean = false,
+    val loudnessEnabled: Boolean = false,
+    val loudnessGainMb: Int = 0,
+)
+
 class MusePlaybackController(
     context: Context,
 ) {
     private val appContext = context.applicationContext
+    private val mainExecutor = ContextCompat.getMainExecutor(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val token = SessionToken(
         appContext,
@@ -56,9 +81,16 @@ class MusePlaybackController(
     private val _state = MutableStateFlow(PlaybackUiState())
     val state: StateFlow<PlaybackUiState> = _state.asStateFlow()
 
+    private val _audioEffects = MutableStateFlow(AudioEffectsUiState())
+    val audioEffects: StateFlow<AudioEffectsUiState> = _audioEffects.asStateFlow()
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             syncFrom(player)
+        }
+
+        override fun onAudioSessionIdChanged(audioSessionId: Int) {
+            refreshAudioEffects()
         }
     }
 
@@ -71,9 +103,10 @@ class MusePlaybackController(
                         mediaController.addListener(listener)
                         syncFrom(mediaController)
                         startTicker()
+                        refreshAudioEffects()
                     }
             },
-            ContextCompat.getMainExecutor(appContext),
+            mainExecutor,
         )
     }
 
@@ -144,12 +177,189 @@ class MusePlaybackController(
         controller?.clearMediaItems()
     }
 
+    fun refreshAudioEffects() {
+        val mediaController = controller ?: return
+        val future = mediaController.sendCustomCommand(
+            AudioEffectProtocol.GetStateCommand,
+            Bundle.EMPTY,
+        )
+        future.addListener(
+            {
+                runCatching { future.get() }
+                    .onSuccess(::applyAudioEffectResult)
+            },
+            mainExecutor,
+        )
+    }
+
+    fun setAudioEffectsEnabled(enabled: Boolean) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putBoolean(AudioEffectProtocol.KeyMasterEnabled, enabled)
+            }
+        )
+    }
+
+    fun setAudioBypass(bypass: Boolean) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putBoolean(AudioEffectProtocol.KeyBypass, bypass)
+            }
+        )
+    }
+
+    fun setEqualizerBand(
+        index: Int,
+        levelMb: Int,
+    ) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putInt(AudioEffectProtocol.KeyEqBandIndex, index)
+                putInt(AudioEffectProtocol.KeyEqBandLevelMb, levelMb)
+            }
+        )
+    }
+
+    fun useEqualizerPreset(index: Int) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putInt(AudioEffectProtocol.KeyEqPresetIndex, index)
+            }
+        )
+    }
+
+    fun setBassEnabled(enabled: Boolean) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putBoolean(AudioEffectProtocol.KeyBassEnabled, enabled)
+            }
+        )
+    }
+
+    fun setBassStrength(strength: Int) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putInt(AudioEffectProtocol.KeyBassStrength, strength)
+            }
+        )
+    }
+
+    fun setVirtualizerEnabled(enabled: Boolean) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putBoolean(AudioEffectProtocol.KeyVirtualizerEnabled, enabled)
+            }
+        )
+    }
+
+    fun setVirtualizerStrength(strength: Int) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putInt(AudioEffectProtocol.KeyVirtualizerStrength, strength)
+            }
+        )
+    }
+
+    fun setLoudnessEnabled(enabled: Boolean) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putBoolean(AudioEffectProtocol.KeyLoudnessEnabled, enabled)
+            }
+        )
+    }
+
+    fun setLoudnessGainMb(gainMb: Int) {
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putInt(AudioEffectProtocol.KeyLoudnessGainMb, gainMb)
+            }
+        )
+    }
+
     fun release() {
         tickerJob?.cancel()
         controller?.removeListener(listener)
         controller?.release()
         controller = null
         scope.coroutineContext[Job]?.cancel()
+    }
+
+    private fun sendAudioEffectUpdate(args: Bundle) {
+        val mediaController = controller ?: return
+        val future = mediaController.sendCustomCommand(
+            AudioEffectProtocol.UpdateCommand,
+            args,
+        )
+        future.addListener(
+            {
+                runCatching { future.get() }
+                    .onSuccess(::applyAudioEffectResult)
+            },
+            mainExecutor,
+        )
+    }
+
+    private fun applyAudioEffectResult(result: SessionResult) {
+        if (result.resultCode != SessionResult.RESULT_SUCCESS) return
+        val extras = result.extras
+
+        val centers = extras
+            .getIntArray(AudioEffectProtocol.KeyEqCentersHz)
+            ?.toList()
+            .orEmpty()
+        val levels = extras
+            .getIntArray(AudioEffectProtocol.KeyEqLevelsMb)
+            ?.toList()
+            .orEmpty()
+        val presetNames = extras
+            .getStringArrayList(AudioEffectProtocol.KeyEqPresetNames)
+            ?.toList()
+            .orEmpty()
+
+        _audioEffects.value = AudioEffectsUiState(
+            connected = true,
+            sessionReady = extras.getBoolean(AudioEffectProtocol.KeySessionReady),
+            masterEnabled = extras.getBoolean(
+                AudioEffectProtocol.KeyMasterEnabled,
+                true,
+            ),
+            bypass = extras.getBoolean(AudioEffectProtocol.KeyBypass),
+            equalizerAvailable = extras.getBoolean(
+                AudioEffectProtocol.KeyEqAvailable,
+            ),
+            bandCentersHz = centers,
+            bandMinMb = extras.getInt(AudioEffectProtocol.KeyEqMinMb),
+            bandMaxMb = extras.getInt(AudioEffectProtocol.KeyEqMaxMb),
+            bandLevelsMb = levels,
+            presetNames = presetNames,
+            bassAvailable = extras.getBoolean(
+                AudioEffectProtocol.KeyBassAvailable,
+            ),
+            bassEnabled = extras.getBoolean(
+                AudioEffectProtocol.KeyBassEnabled,
+            ),
+            bassStrength = extras.getInt(
+                AudioEffectProtocol.KeyBassStrength,
+            ),
+            virtualizerAvailable = extras.getBoolean(
+                AudioEffectProtocol.KeyVirtualizerAvailable,
+            ),
+            virtualizerEnabled = extras.getBoolean(
+                AudioEffectProtocol.KeyVirtualizerEnabled,
+            ),
+            virtualizerStrength = extras.getInt(
+                AudioEffectProtocol.KeyVirtualizerStrength,
+            ),
+            loudnessAvailable = extras.getBoolean(
+                AudioEffectProtocol.KeyLoudnessAvailable,
+            ),
+            loudnessEnabled = extras.getBoolean(
+                AudioEffectProtocol.KeyLoudnessEnabled,
+            ),
+            loudnessGainMb = extras.getInt(
+                AudioEffectProtocol.KeyLoudnessGainMb,
+            ),
+        )
     }
 
     private fun startTicker() {
