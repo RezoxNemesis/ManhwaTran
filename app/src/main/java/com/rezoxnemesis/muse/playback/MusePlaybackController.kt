@@ -1,5 +1,3 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
-
 package com.rezoxnemesis.muse.playback
 
 import android.content.ComponentName
@@ -73,6 +71,7 @@ data class AudioEffectsUiState(
     val loudnessGainMb: Int = 0,
 )
 
+@androidx.media3.common.util.UnstableApi
 class MusePlaybackController(
     context: Context,
 ) {
