@@ -100,6 +100,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -184,6 +185,7 @@ fun MuseApp(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .testTag("MuseRoot")
             .background(
                 Brush.verticalGradient(
                     listOf(
