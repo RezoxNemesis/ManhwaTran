@@ -35,6 +35,15 @@ data class LyricsUiState(
     val error: String? = null,
 )
 
+enum class MuseMood {
+    Chill,
+    Workout,
+    Love,
+    Focus,
+    Party,
+    Sleep,
+}
+
 data class ManagedMediaUiState(
     val importing: Boolean = false,
     val tracks: List<Track> = emptyList(),
@@ -297,6 +306,54 @@ class MuseViewModel(
 
     fun moveTrackInPlaylist(playlistId: String, fromIndex: Int, toIndex: Int) {
         viewModelScope.launch { preferences.moveTrackInPlaylist(playlistId, fromIndex, toIndex) }
+    }
+
+    fun moodTracks(mood: MuseMood): List<Track> {
+        val library = _libraryState.value.tracks
+        if (library.isEmpty()) return emptyList()
+
+        val favourites = favoriteIds.value
+        val recentRank = recentTracks.value
+            .mapIndexed { index, track -> track.id to index }
+            .toMap()
+
+        val keywords = when (mood) {
+            MuseMood.Chill -> listOf("chill", "lofi", "lo-fi", "acoustic", "ambient", "soft", "calm")
+            MuseMood.Workout -> listOf("workout", "gym", "run", "rock", "edm", "dance", "power")
+            MuseMood.Love -> listOf("love", "heart", "romance", "romantic", "kiss")
+            MuseMood.Focus -> listOf("focus", "study", "instrumental", "piano", "classical", "ambient")
+            MuseMood.Party -> listOf("party", "club", "dance", "remix", "edm", "house")
+            MuseMood.Sleep -> listOf("sleep", "night", "ambient", "calm", "piano", "dream")
+        }
+
+        return library
+            .map { track ->
+                val searchable = "${track.title} ${track.album} ${track.artist}".lowercase()
+                val keywordHits = keywords.count(searchable::contains)
+                val durationScore = when (mood) {
+                    MuseMood.Chill,
+                    MuseMood.Focus,
+                    MuseMood.Sleep -> if (track.durationMs >= 180_000L) 1 else 0
+                    MuseMood.Workout,
+                    MuseMood.Party -> if (track.durationMs in 120_000L..360_000L) 1 else 0
+                    MuseMood.Love -> 0
+                }
+                val score =
+                    keywordHits * 6 +
+                    durationScore +
+                    (if (track.id in favourites) 2 else 0) +
+                    (if (track.id in recentRank) 1 else 0)
+
+                track to score
+            }
+            .sortedWith(
+                compareByDescending<Pair<Track, Int>> { it.second }
+                    .thenBy { recentRank[it.first.id] ?: Int.MAX_VALUE }
+                    .thenByDescending { it.first.dateAddedSeconds }
+                    .thenBy { it.first.title.lowercase() }
+            )
+            .map { it.first }
+            .take(30)
     }
 
     fun playLocalSongRadio(seed: Track) {
