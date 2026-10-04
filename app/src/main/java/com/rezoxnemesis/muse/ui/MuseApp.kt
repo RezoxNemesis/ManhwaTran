@@ -5055,6 +5055,8 @@ private fun MoreOptionsScreen(
                                     },
                                     color = MuseMuted,
                                     style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 4,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
