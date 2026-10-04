@@ -15,6 +15,7 @@ private val Context.museDataStore by preferencesDataStore(name = "muse_preferenc
 private val FavoriteTrackIds = stringSetPreferencesKey("favorite_track_ids")
 private val RecentTrackIds = stringPreferencesKey("recent_track_ids")
 private val PlaylistsJson = stringPreferencesKey("playlists_json")
+private val ManagedMediaUris = stringSetPreferencesKey("managed_media_uris")
 
 data class UserPlaylist(
     val id: String,
@@ -38,6 +39,48 @@ class MusePreferences(
 
     val playlists: Flow<List<UserPlaylist>> = context.museDataStore.data.map { prefs ->
         decodePlaylists(prefs[PlaylistsJson].orEmpty())
+    }
+
+    val managedMediaUris: Flow<Set<String>> = context.museDataStore.data.map { prefs ->
+        prefs[ManagedMediaUris].orEmpty()
+    }
+
+    suspend fun addManagedMediaUri(uri: String) {
+        if (uri.isBlank()) return
+        context.museDataStore.edit { prefs ->
+            prefs[ManagedMediaUris] = prefs[ManagedMediaUris].orEmpty() + uri
+        }
+    }
+
+    suspend fun removeManagedMediaUri(uri: String) {
+        context.museDataStore.edit { prefs ->
+            prefs[ManagedMediaUris] = prefs[ManagedMediaUris].orEmpty() - uri
+        }
+    }
+
+    suspend fun removeTrackReferences(trackId: Long) {
+        context.museDataStore.edit { prefs ->
+            val favoriteValue = trackId.toString()
+            prefs[FavoriteTrackIds] = prefs[FavoriteTrackIds]
+                .orEmpty()
+                .filterNot { it == favoriteValue }
+                .toSet()
+
+            prefs[RecentTrackIds] = prefs[RecentTrackIds]
+                .orEmpty()
+                .split(',')
+                .mapNotNull(String::toLongOrNull)
+                .filterNot { it == trackId }
+                .joinToString(",")
+
+            val playlists = decodePlaylists(prefs[PlaylistsJson].orEmpty())
+                .map { playlist ->
+                    playlist.copy(
+                        trackIds = playlist.trackIds.filterNot { it == trackId },
+                    )
+                }
+            prefs[PlaylistsJson] = encodePlaylists(playlists)
+        }
     }
 
     suspend fun toggleFavorite(trackId: Long) {
@@ -167,8 +210,13 @@ class MusePreferences(
                     val tracks = item.optJSONArray("tracks") ?: JSONArray()
                     val trackIds = buildList {
                         for (trackIndex in 0 until tracks.length()) {
-                            val value = tracks.optLong(trackIndex, -1L)
-                            if (value >= 0L) add(value)
+                            val rawValue = tracks.opt(trackIndex)
+                            val value = when (rawValue) {
+                                is Number -> rawValue.toLong()
+                                is String -> rawValue.toLongOrNull()
+                                else -> null
+                            }
+                            if (value != null && value != 0L) add(value)
                         }
                     }
                     val id = item.optString("id")
