@@ -123,6 +123,9 @@ class MuseViewModel(
     private val _selectedAlbum = MutableStateFlow<String?>(null)
     val selectedAlbum = _selectedAlbum.asStateFlow()
 
+    private val _selectedPlaylistId = MutableStateFlow<String?>(null)
+    val selectedPlaylistId = _selectedPlaylistId.asStateFlow()
+
     private val _sleepTimer = MutableStateFlow(SleepTimerState())
     val sleepTimer = _sleepTimer.asStateFlow()
     private var sleepTimerJob: Job? = null
@@ -175,12 +178,20 @@ class MuseViewModel(
         viewModelScope.launch { preferences.deletePlaylist(playlistId) }
     }
 
+    fun renamePlaylist(playlistId: String, name: String) {
+        viewModelScope.launch { preferences.renamePlaylist(playlistId, name) }
+    }
+
     fun addTrackToPlaylist(playlistId: String, trackId: Long) {
         viewModelScope.launch { preferences.addTrackToPlaylist(playlistId, trackId) }
     }
 
     fun removeTrackFromPlaylist(playlistId: String, trackId: Long) {
         viewModelScope.launch { preferences.removeTrackFromPlaylist(playlistId, trackId) }
+    }
+
+    fun moveTrackInPlaylist(playlistId: String, fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch { preferences.moveTrackInPlaylist(playlistId, fromIndex, toIndex) }
     }
 
     fun playlistTracks(playlist: UserPlaylist): List<Track> {
@@ -194,6 +205,10 @@ class MuseViewModel(
 
     fun selectAlbum(name: String) {
         _selectedAlbum.value = name
+    }
+
+    fun selectPlaylist(id: String) {
+        _selectedPlaylistId.value = id
     }
 
     fun artistTracks(name: String?): List<Track> =
