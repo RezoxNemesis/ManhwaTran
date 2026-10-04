@@ -18,6 +18,7 @@ import com.rezoxnemesis.muse.data.MuseSoundProfile
 import com.rezoxnemesis.muse.data.Track
 import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.MusePlaybackController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,10 +26,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class LibraryState(
     val loading: Boolean = false,
@@ -98,15 +102,23 @@ class MuseViewModel(
         initialValue = emptySet(),
     )
 
-    val filteredTracks = combine(_libraryState, _searchQuery) { state, query ->
-        if (query.isBlank()) {
-            state.tracks
-        } else {
-            val needle = query.trim()
-            state.tracks.filter { track ->
-                track.title.contains(needle, ignoreCase = true) ||
-                    track.artist.contains(needle, ignoreCase = true) ||
-                    track.album.contains(needle, ignoreCase = true)
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    val filteredTracks = combine(
+        _libraryState,
+        _searchQuery
+            .debounce(140L)
+            .distinctUntilChanged(),
+    ) { state, query ->
+        withContext(Dispatchers.Default) {
+            if (query.isBlank()) {
+                state.tracks
+            } else {
+                val needle = query.trim()
+                state.tracks.filter { track ->
+                    track.title.contains(needle, ignoreCase = true) ||
+                        track.artist.contains(needle, ignoreCase = true) ||
+                        track.album.contains(needle, ignoreCase = true)
+                }
             }
         }
     }.stateIn(
