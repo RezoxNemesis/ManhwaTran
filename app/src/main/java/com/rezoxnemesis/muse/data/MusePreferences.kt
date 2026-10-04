@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,6 +38,13 @@ data class MuseSoundProfile(
     val loudnessGainMb: Int,
 )
 
+data class MuseBackupSummary(
+    val favorites: Int,
+    val recentTracks: Int,
+    val playlists: Int,
+    val soundProfiles: Int,
+)
+
 class MusePreferences(
     private val context: Context,
 ) {
@@ -61,6 +69,97 @@ class MusePreferences(
 
     val soundProfiles: Flow<List<MuseSoundProfile>> = context.museDataStore.data.map { prefs ->
         decodeSoundProfiles(prefs[SoundProfilesJson].orEmpty())
+    }
+
+    suspend fun exportBackupJson(): String {
+        val prefs = context.museDataStore.data.first()
+
+        val favorites = prefs[FavoriteTrackIds]
+            .orEmpty()
+            .mapNotNull(String::toLongOrNull)
+            .filter { it != 0L }
+            .distinct()
+
+        val recent = prefs[RecentTrackIds]
+            .orEmpty()
+            .split(',')
+            .mapNotNull(String::toLongOrNull)
+            .filter { it != 0L }
+            .distinct()
+            .take(100)
+
+        val playlists = decodePlaylists(
+            prefs[PlaylistsJson].orEmpty(),
+        )
+        val profiles = decodeSoundProfiles(
+            prefs[SoundProfilesJson].orEmpty(),
+        )
+
+        return JSONObject()
+            .put("schema", BackupSchemaVersion)
+            .put("kind", "muse-local-backup")
+            .put("favorites", JSONArray(favorites))
+            .put("recentTracks", JSONArray(recent))
+            .put("playlists", JSONArray(encodePlaylists(playlists)))
+            .put("soundProfiles", JSONArray(encodeSoundProfiles(profiles)))
+            .toString(2)
+    }
+
+    suspend fun restoreBackupJson(
+        raw: String,
+    ): MuseBackupSummary {
+        require(raw.length <= MaxBackupChars) {
+            "Muse backup is too large."
+        }
+
+        val root = JSONObject(raw)
+        require(root.optString("kind") == "muse-local-backup") {
+            "This is not a Muse backup."
+        }
+        require(root.optInt("schema", -1) == BackupSchemaVersion) {
+            "Unsupported Muse backup version."
+        }
+
+        val favorites = root
+            .optJSONArray("favorites")
+            .toLongList()
+            .filter { it != 0L }
+            .distinct()
+
+        val recent = root
+            .optJSONArray("recentTracks")
+            .toLongList()
+            .filter { it != 0L }
+            .distinct()
+            .take(100)
+
+        val playlists = decodePlaylists(
+            root.optJSONArray("playlists")
+                ?.toString()
+                .orEmpty(),
+        )
+
+        val profiles = decodeSoundProfiles(
+            root.optJSONArray("soundProfiles")
+                ?.toString()
+                .orEmpty(),
+        )
+
+        context.museDataStore.edit { prefs ->
+            prefs[FavoriteTrackIds] = favorites
+                .map(Long::toString)
+                .toSet()
+            prefs[RecentTrackIds] = recent.joinToString(",")
+            prefs[PlaylistsJson] = encodePlaylists(playlists)
+            prefs[SoundProfilesJson] = encodeSoundProfiles(profiles)
+        }
+
+        return MuseBackupSummary(
+            favorites = favorites.size,
+            recentTracks = recent.size,
+            playlists = playlists.size,
+            soundProfiles = profiles.size,
+        )
     }
 
     suspend fun addManagedMediaUri(uri: String) {
@@ -316,6 +415,21 @@ class MusePreferences(
                 }
             }
         }.getOrDefault(emptyList())
+    }
+
+    private fun JSONArray?.toLongList(): List<Long> {
+        val source = this ?: return emptyList()
+        return buildList {
+            for (index in 0 until source.length()) {
+                val raw = source.opt(index)
+                val value = when (raw) {
+                    is Number -> raw.toLong()
+                    is String -> raw.toLongOrNull()
+                    else -> null
+                }
+                if (value != null) add(value)
+            }
+        }
     }
 
     private fun JSONArray?.toIntList(): List<Int> {
