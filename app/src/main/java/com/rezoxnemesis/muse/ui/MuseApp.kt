@@ -107,6 +107,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.rezoxnemesis.muse.BuildConfig
 import com.rezoxnemesis.muse.MuseMood
 import com.rezoxnemesis.muse.MuseViewModel
 import com.rezoxnemesis.muse.R
@@ -2533,7 +2534,7 @@ private fun SettingsScreen(
                     Column {
                         Text("About", fontWeight = FontWeight.Medium)
                         Text(
-                            "Muse 0.1.0 • local-first • no account required",
+                            "Muse ${BuildConfig.VERSION_NAME} • local-first • no account required",
                             color = MuseMuted,
                         )
                     }
