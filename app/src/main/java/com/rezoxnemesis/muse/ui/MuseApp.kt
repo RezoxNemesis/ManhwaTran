@@ -2402,115 +2402,295 @@ private fun MoreOptionsScreen(
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var confirmRemove by remember(track?.id) {
+        mutableStateOf(false)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         ScreenHeader("More Options", { navController.popBackStack() })
+
         if (track == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                EmptyCard("Nothing playing", "Start a track to see song actions.")
+            Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                EmptyCard(
+                    "Nothing playing",
+                    "Start a track to see song actions.",
+                )
             }
         } else {
-            Column(
-                modifier = Modifier.padding(18.dp),
+            val activeTrack = track!!
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 18.dp,
+                    end = 18.dp,
+                    bottom = 32.dp,
+                ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OptionRow(
-                    icon = if (track!!.id in favourites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                    title = if (track!!.id in favourites) "Remove from Liked Songs" else "Add to Liked Songs",
-                    onClick = { viewModel.toggleFavorite(track!!.id) },
-                )
-                if (playlists.isEmpty()) {
+                item {
+                    GlassCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TrackArtwork(
+                                track = activeTrack,
+                                modifier = Modifier.size(76.dp),
+                                contentDescription = null,
+                            )
+                            Spacer(Modifier.size(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    activeTrack.title,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    activeTrack.artist,
+                                    color = MuseMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
                     OptionRow(
-                        icon = Icons.Rounded.PlaylistPlay,
-                        title = "Create a Playlist",
-                        subtitle = "Create one before adding this track",
-                        onClick = { navController.navigate("playlists") },
+                        icon = if (activeTrack.id in favourites) {
+                            Icons.Rounded.Favorite
+                        } else {
+                            Icons.Rounded.FavoriteBorder
+                        },
+                        title = if (activeTrack.id in favourites) {
+                            "Remove from Liked Songs"
+                        } else {
+                            "Add to Liked Songs"
+                        },
+                        onClick = {
+                            viewModel.toggleFavorite(activeTrack.id)
+                        },
                     )
+                }
+
+                if (playlists.isEmpty()) {
+                    item {
+                        OptionRow(
+                            icon = Icons.Rounded.PlaylistPlay,
+                            title = "Create a Playlist",
+                            subtitle = "Create one before adding this track",
+                            onClick = {
+                                navController.navigate("playlists")
+                            },
+                        )
+                    }
                 } else {
-                    playlists.forEach { playlist ->
+                    items(playlists, key = { it.id }) { playlist ->
                         OptionRow(
                             icon = Icons.Rounded.PlaylistPlay,
                             title = "Add to ${playlist.name}",
                             subtitle = "${playlist.trackIds.size} songs",
-                            onClick = { viewModel.addTrackToPlaylist(playlist.id, track!!.id) },
+                            onClick = {
+                                viewModel.addTrackToPlaylist(
+                                    playlist.id,
+                                    activeTrack.id,
+                                )
+                            },
                         )
                     }
                 }
-                OptionRow(
-                    icon = Icons.Rounded.SkipNext,
-                    title = "Play Next",
-                    onClick = {
-                        viewModel.playback.playNext(track!!)
-                        navController.popBackStack()
-                    },
-                )
-                OptionRow(
-                    icon = Icons.Rounded.QueueMusic,
-                    title = "Add to Queue",
-                    onClick = {
-                        viewModel.playback.addToQueue(track!!)
-                        navController.popBackStack()
-                    },
-                )
-                OptionRow(
-                    icon = Icons.Rounded.Tune,
-                    title = "Muse Local Radio",
-                    subtitle = "Build a mix from related music already in your library",
-                    onClick = {
-                        viewModel.playLocalSongRadio(track!!)
-                        navController.navigate("nowPlaying") {
-                            popUpTo("more") { inclusive = true }
-                        }
-                    },
-                )
-                OptionRow(
-                    icon = Icons.Rounded.Album,
-                    title = "View Album",
-                    onClick = {
-                        viewModel.selectAlbum(track!!.album)
-                        navController.navigate("album")
-                    },
-                )
-                OptionRow(
-                    icon = Icons.Rounded.Person,
-                    title = "View Artist",
-                    onClick = {
-                        viewModel.selectArtist(track!!.artist)
-                        navController.navigate("artist")
-                    },
-                )
-                OptionRow(
-                    icon = Icons.Rounded.Share,
-                    title = "Share",
-                    onClick = {
-                        val text = "${track!!.title} — ${track!!.artist}"
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, text)
-                        }
-                        context.startActivity(Intent.createChooser(intent, "Share with"))
-                    },
-                )
-                GlassCard {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Rounded.Info, contentDescription = null, tint = MuseGreen)
-                        Spacer(Modifier.size(14.dp))
-                        Column {
-                            Text("Song Info")
-                            Text(
-                                buildString {
-                                    append(track!!.album)
-                                    track!!.mimeType?.let { append(" • $it") }
-                                },
-                                color = MuseMuted,
-                                style = MaterialTheme.typography.bodySmall,
+
+                item {
+                    OptionRow(
+                        icon = Icons.Rounded.SkipNext,
+                        title = "Play Next",
+                        onClick = {
+                            viewModel.playback.playNext(activeTrack)
+                            navController.popBackStack()
+                        },
+                    )
+                }
+                item {
+                    OptionRow(
+                        icon = Icons.Rounded.QueueMusic,
+                        title = "Add to Queue",
+                        onClick = {
+                            viewModel.playback.addToQueue(activeTrack)
+                            navController.popBackStack()
+                        },
+                    )
+                }
+                item {
+                    OptionRow(
+                        icon = Icons.Rounded.Tune,
+                        title = "Muse Local Radio",
+                        subtitle = "Build a mix from related music already in your library",
+                        onClick = {
+                            viewModel.playLocalSongRadio(activeTrack)
+                            navController.navigate("nowPlaying") {
+                                popUpTo("more") { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                item {
+                    OptionRow(
+                        icon = Icons.Rounded.Album,
+                        title = "View Album",
+                        onClick = {
+                            viewModel.selectAlbum(activeTrack.album)
+                            navController.navigate("album")
+                        },
+                    )
+                }
+                item {
+                    OptionRow(
+                        icon = Icons.Rounded.Person,
+                        title = "View Artist",
+                        onClick = {
+                            viewModel.selectArtist(activeTrack.artist)
+                            navController.navigate("artist")
+                        },
+                    )
+                }
+                item {
+                    OptionRow(
+                        icon = Icons.Rounded.Share,
+                        title = "Share",
+                        subtitle = "Share track metadata through Android",
+                        onClick = {
+                            val text = "${activeTrack.title} — ${activeTrack.artist}"
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                            }
+                            context.startActivity(
+                                Intent.createChooser(intent, "Share with")
                             )
+                        },
+                    )
+                }
+
+                if (activeTrack.managedByMuse) {
+                    item {
+                        OptionRow(
+                            icon = Icons.Rounded.Download,
+                            title = "Imported File",
+                            subtitle = "Open Muse-managed imported media",
+                            onClick = {
+                                navController.navigate("downloads")
+                            },
+                        )
+                    }
+                }
+
+                item {
+                    GlassCard {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Info,
+                                contentDescription = null,
+                                tint = MuseGreen,
+                            )
+                            Spacer(Modifier.size(14.dp))
+                            Column {
+                                Text("Song Info")
+                                Text(
+                                    buildString {
+                                        append(activeTrack.album)
+                                        activeTrack.year?.let {
+                                            append(" • ")
+                                            append(it)
+                                        }
+                                        activeTrack.mimeType?.let {
+                                            append(" • ")
+                                            append(it)
+                                        }
+                                        activeTrack.sizeBytes?.let {
+                                            append(" • ")
+                                            append(formatFileSize(it))
+                                        }
+                                    },
+                                    color = MuseMuted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                         }
                     }
                 }
+
+                if (activeTrack.managedByMuse) {
+                    item {
+                        GlassCard(
+                            modifier = Modifier.clickable {
+                                confirmRemove = true
+                            },
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                                Spacer(Modifier.size(14.dp))
+                                Text(
+                                    "Remove imported file from Muse",
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (confirmRemove) {
+                AlertDialog(
+                    onDismissRequest = { confirmRemove = false },
+                    title = { Text("Remove from Muse?") },
+                    text = {
+                        Text(
+                            "Muse will forget “${activeTrack.title}” and release saved access. The original file is not deleted."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.removeManagedMedia(activeTrack)
+                                confirmRemove = false
+                                navController.popBackStack()
+                            },
+                        ) {
+                            Text(
+                                "Remove",
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { confirmRemove = false },
+                        ) {
+                            Text("Cancel")
+                        }
+                    },
+                )
             }
         }
     }
