@@ -50,6 +50,9 @@ jobs:
       - name: Assemble debug
         run: gradle --no-daemon :app:assembleDebug
 
+      - name: Assemble release
+        run: gradle --no-daemon :app:assembleRelease
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
