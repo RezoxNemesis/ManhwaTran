@@ -112,6 +112,7 @@ import com.rezoxnemesis.muse.BuildConfig
 import com.rezoxnemesis.muse.MuseMood
 import com.rezoxnemesis.muse.MuseViewModel
 import com.rezoxnemesis.muse.R
+import com.rezoxnemesis.muse.data.LyricsSource
 import com.rezoxnemesis.muse.data.Track
 import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.PlaybackUiState
@@ -1345,7 +1346,7 @@ private fun LyricsScreen(
     }
 
     LaunchedEffect(track?.id) {
-        track?.let { viewModel.loadLyrics(it.id) }
+        track?.let(viewModel::loadLyrics)
     }
 
     val document = lyrics.document
@@ -1411,7 +1412,7 @@ private fun LyricsScreen(
             ) {
                 ErrorCard(
                     message = lyrics.error.orEmpty(),
-                    onRetry = { viewModel.loadLyrics(track!!.id) },
+                    onRetry = { track?.let(viewModel::loadLyrics) },
                 )
             }
         }
@@ -1467,7 +1468,14 @@ private fun LyricsScreen(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        if (document.synced) "Synced local lyrics" else "Plain local lyrics",
+                        when {
+                            document.source == LyricsSource.Embedded ->
+                                "Embedded in audio file"
+                            document.synced ->
+                                "Synced imported lyrics"
+                            else ->
+                                "Plain imported lyrics"
+                        },
                         color = MuseMuted,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -1479,8 +1487,13 @@ private fun LyricsScreen(
                         onCheckedChange = { autoFollow = it },
                     )
                 }
-                IconButton(onClick = { confirmRemove = true }) {
-                    Icon(Icons.Rounded.Delete, contentDescription = "Remove imported lyrics")
+                if (document.source == LyricsSource.Imported) {
+                    IconButton(onClick = { confirmRemove = true }) {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = "Remove imported lyrics",
+                        )
+                    }
                 }
             }
 
