@@ -215,6 +215,27 @@ class MuseViewModel(
         )
 
         viewModelScope.launch {
+            var lastRecordedTrackId: Long? = null
+            playback.state
+                .map { state ->
+                    state.currentMediaId to state.isPlaying
+                }
+                .distinctUntilChanged()
+                .collect { (trackId, isPlaying) ->
+                    if (
+                        isPlaying &&
+                        trackId != null &&
+                        trackId != lastRecordedTrackId
+                    ) {
+                        preferences.recordPlayed(trackId)
+                        lastRecordedTrackId = trackId
+                    } else if (trackId != lastRecordedTrackId && !isPlaying) {
+                        lastRecordedTrackId = null
+                    }
+                }
+        }
+
+        viewModelScope.launch {
             combine(
                 selectedSoundProfileId,
                 soundProfiles,
