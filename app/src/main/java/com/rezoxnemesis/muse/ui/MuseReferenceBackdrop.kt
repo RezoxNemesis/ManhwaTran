@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
+import java.util.zip.ZipInputStream
 
 internal enum class MuseVisualIntensity(
     val storedValue: String,
@@ -44,23 +46,23 @@ internal enum class MuseVisualIntensity(
 }
 
 internal enum class MuseReferenceScreen(
-    val atlasIndex: Int,
+    val assetEntryName: String,
 ) {
-    Splash(0),
-    Home(1),
-    NowPlaying(2),
-    Lyrics(3),
-    Queue(4),
-    Explore(5),
-    Library(6),
-    Playlists(7),
-    Equalizer(8),
-    Settings(9),
-    Artist(10),
-    Album(11),
-    Downloads(12),
-    SleepTimer(13),
-    MoreOptions(14);
+    Splash("muse_ref_splash.webp"),
+    Home("muse_ref_home.webp"),
+    NowPlaying("muse_ref_now_playing.webp"),
+    Lyrics("muse_ref_lyrics.webp"),
+    Queue("muse_ref_queue.webp"),
+    Explore("muse_ref_explore.webp"),
+    Library("muse_ref_library.webp"),
+    Playlists("muse_ref_playlists.webp"),
+    Equalizer("muse_ref_equalizer.webp"),
+    Settings("muse_ref_settings.webp"),
+    Artist("muse_ref_artist.webp"),
+    Album("muse_ref_album.webp"),
+    Downloads("muse_ref_downloads.webp"),
+    SleepTimer("muse_ref_sleep.webp"),
+    MoreOptions("muse_ref_more.webp");
 
     companion object {
         fun fromRoute(route: String?): MuseReferenceScreen =
@@ -85,15 +87,14 @@ internal enum class MuseReferenceScreen(
 }
 
 /**
- * The approved 15 Muse mockups are packaged as a compact atlas and used as
- * screen-specific photographic atmosphere. The atlas cells are intentionally
- * softened/darkened derivatives of the exact approved images, so they preserve
- * the wet-leaf, forest-light, album-art and bokeh character without leaving
- * readable example text underneath the live interface.
+ * The approved 15 Muse screens are packaged at high resolution and rendered as
+ * the screen-specific visual foundation. They preserve the selected wet-leaf,
+ * green-black glass, bokeh, glow and blur treatment instead of approximating it.
  *
- * Every label, icon, control, song title and action above this layer remains a
- * native Compose element backed by real Muse state. The artwork never acts as a
- * fake button or a screenshot pretending to be interactive UI.
+ * Native Compose content remains above the reference layer so playback, library,
+ * navigation and accessibility stay real. Only narrow top/bottom safety veils
+ * protect Android system chrome and long dynamic metadata; the central artwork
+ * remains intentionally vivid.
  */
 @Composable
 internal fun MuseReferenceBackdrop(
@@ -125,15 +126,10 @@ internal fun MuseReferenceBackdrop(
         if (activeBitmap == null) {
             MuseAtmosphere()
         } else {
-            val verticalScrim = when (intensity) {
-                MuseVisualIntensity.Calm -> listOf(0.42f, 0.55f, 0.47f, 0.60f)
-                MuseVisualIntensity.Balanced -> listOf(0.29f, 0.39f, 0.32f, 0.43f)
-                MuseVisualIntensity.Vivid -> listOf(0.20f, 0.29f, 0.23f, 0.34f)
-            }
-            val centerScrim = when (intensity) {
-                MuseVisualIntensity.Calm -> 0.34f
-                MuseVisualIntensity.Balanced -> 0.26f
-                MuseVisualIntensity.Vivid -> 0.18f
+            val centerVeil = when (intensity) {
+                MuseVisualIntensity.Calm -> 0.18f
+                MuseVisualIntensity.Balanced -> 0.10f
+                MuseVisualIntensity.Vivid -> 0.04f
             }
 
             Image(
@@ -143,109 +139,130 @@ internal fun MuseReferenceBackdrop(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // Layered text-safety veil: enough contrast for long/local metadata
-            // while allowing bright botanical highlights to remain visible.
+            // Keep the selected images visibly intact. Only protect the extreme
+            // top/bottom where the source mockups contain device chrome and where
+            // Android system/navigation UI may overlap.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF010503).copy(alpha = verticalScrim[0]),
-                                Color(0xFF010503).copy(alpha = verticalScrim[1]),
-                                Color(0xFF010503).copy(alpha = verticalScrim[2]),
-                                Color(0xFF010302).copy(alpha = verticalScrim[3]),
+                            colorStops = arrayOf(
+                                0.00f to Color.Black.copy(alpha = 0.72f),
+                                0.07f to Color.Black.copy(alpha = 0.28f),
+                                0.16f to Color.Transparent,
+                                0.78f to Color.Transparent,
+                                0.94f to Color.Black.copy(alpha = 0.16f),
+                                1.00f to Color.Black.copy(alpha = 0.58f),
                             )
                         )
                     ),
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = centerScrim * 0.34f),
-                                Color(0xFF020A05).copy(alpha = centerScrim),
-                                Color.Black.copy(alpha = centerScrim * 0.34f),
-                            )
-                        )
-                    ),
-            )
+            if (centerVeil > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Color(0xFF010503).copy(alpha = centerVeil)
+                        ),
+                )
+            }
         }
     }
 }
 
 private object MuseReferenceBackdropLoader {
-    private const val AssetPath =
-        "muse_reference/muse_reference_atlas.webp.b64"
-    private const val AtlasColumns = 5
-    private const val AtlasRows = 3
+    private const val AssetDirectory = "muse_reference"
+    private const val ArchivePrefix = "muse_reference_assets.zip.b64."
 
-    private val bitmapCache = object : LruCache<String, Bitmap>(20 * 1024) {
+    private val bitmapCache = object : LruCache<String, Bitmap>(28 * 1024) {
         override fun sizeOf(
             key: String,
             value: Bitmap,
         ): Int = value.byteCount / 1024
     }
 
-    private var atlas: Bitmap? = null
+    private var archiveBytes: ByteArray? = null
 
     @Synchronized
     fun peek(screen: MuseReferenceScreen): Bitmap? =
-        bitmapCache.get(screen.name)
+        bitmapCache.get(screen.assetEntryName)
 
     @Synchronized
     fun load(
         context: android.content.Context,
         screen: MuseReferenceScreen,
     ): Bitmap? {
-        bitmapCache.get(screen.name)?.let { return it }
+        bitmapCache.get(screen.assetEntryName)?.let { return it }
 
-        val activeAtlas = atlas ?: decodeAtlas(context)?.also {
-            atlas = it
+        val archive = archiveBytes ?: decodeArchive(context)?.also {
+            archiveBytes = it
         } ?: return null
 
-        val cellWidth = activeAtlas.width / AtlasColumns
-        val cellHeight = activeAtlas.height / AtlasRows
-        if (cellWidth <= 0 || cellHeight <= 0) return null
+        val encodedImage = findZipEntry(
+            archive = archive,
+            entryName = screen.assetEntryName,
+        ) ?: return null
 
-        val column = screen.atlasIndex % AtlasColumns
-        val row = screen.atlasIndex / AtlasColumns
-        if (row !in 0 until AtlasRows) return null
+        val options = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val bitmap = BitmapFactory.decodeByteArray(
+            encodedImage,
+            0,
+            encodedImage.size,
+            options,
+        ) ?: return null
 
-        val bitmap = runCatching {
-            Bitmap.createBitmap(
-                activeAtlas,
-                column * cellWidth,
-                row * cellHeight,
-                cellWidth,
-                cellHeight,
-            )
-        }.getOrNull() ?: return null
-
-        bitmapCache.put(screen.name, bitmap)
+        bitmapCache.put(screen.assetEntryName, bitmap)
         return bitmap
     }
 
-    private fun decodeAtlas(
+    private fun decodeArchive(
         context: android.content.Context,
-    ): Bitmap? {
-        val encoded = runCatching {
+    ): ByteArray? {
+        val chunkNames = runCatching {
             context.assets
-                .open(AssetPath)
-                .bufferedReader(Charsets.US_ASCII)
-                .use { it.readText() }
-        }.getOrNull() ?: return null
+                .list(AssetDirectory)
+                ?.filter { it.startsWith(ArchivePrefix) }
+                ?.sorted()
+                .orEmpty()
+        }.getOrDefault(emptyList())
 
-        val bytes = runCatching {
+        if (chunkNames.isEmpty()) return null
+
+        val encoded = buildString {
+            chunkNames.forEach { name ->
+                val chunk = runCatching {
+                    context.assets
+                        .open("$AssetDirectory/$name")
+                        .bufferedReader(Charsets.US_ASCII)
+                        .use { it.readText() }
+                }.getOrNull() ?: return null
+                append(chunk)
+            }
+        }
+
+        return runCatching {
             Base64.decode(encoded, Base64.DEFAULT)
-        }.getOrNull() ?: return null
-
-        return BitmapFactory.decodeByteArray(
-            bytes,
-            0,
-            bytes.size,
-        )
+        }.getOrNull()
     }
+
+    private fun findZipEntry(
+        archive: ByteArray,
+        entryName: String,
+    ): ByteArray? =
+        runCatching {
+            ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    if (!entry.isDirectory && entry.name == entryName) {
+                        return@runCatching zip.readBytes()
+                    }
+                    zip.closeEntry()
+                    entry = zip.nextEntry
+                }
+                null
+            }
+        }.getOrNull()
 }
