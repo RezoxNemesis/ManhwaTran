@@ -2179,6 +2179,8 @@ private fun LyricsScreen(
                                     },
                                     color = MuseMuted,
                                     style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 4,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                             if (document.synced) {
@@ -5004,8 +5006,14 @@ private fun MoreOptionsScreen(
                                 tint = MuseGreen,
                             )
                             Spacer(Modifier.size(14.dp))
-                            Column {
-                                Text("Song Info")
+                            Column(
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    "Song Info",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
                                 Text(
                                     buildString {
                                         append(activeTrack.album)
@@ -5999,7 +6007,15 @@ private fun QuickAction(
                 modifier = Modifier.size(28.dp),
             )
             Spacer(Modifier.height(8.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium)
+            Text(
+                label,
+                color = Color.White,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
         }
     }
 }
@@ -6041,6 +6057,10 @@ private fun QueueAction(
                 color = if (selected) MuseGreen else Color.White,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.labelLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
     }
@@ -6425,8 +6445,11 @@ private fun OptionRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     title,
+                    color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (subtitle != null) {
                     Text(
