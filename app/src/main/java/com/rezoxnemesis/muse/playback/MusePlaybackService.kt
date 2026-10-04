@@ -66,7 +66,14 @@ class MusePlaybackService : MediaSessionService() {
             mediaItem: androidx.media3.common.MediaItem?,
             reason: Int,
         ) {
-            if (sleepTimer.onMediaItemTransition()) {
+            val completedNaturally =
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+            if (
+                sleepTimer.onMediaItemTransition(
+                    completedNaturally = completedNaturally,
+                )
+            ) {
                 mediaSession?.player?.let { player ->
                     player.pause()
                     snapshotStore.save(player)
