@@ -203,7 +203,7 @@ fun MuseApp(
                     LibraryScreen(viewModel, navController)
                 }
                 composable("equalizer") {
-                    EqualizerFoundationScreen(playback)
+                    EqualizerScreen(viewModel, playback)
                 }
                 composable("tools") {
                     MuseLabScreen(navController)
@@ -1683,30 +1683,280 @@ private fun MoreOptionsScreen(
 }
 
 @Composable
-private fun EqualizerFoundationScreen(
+private fun EqualizerScreen(
+    viewModel: MuseViewModel,
     playback: PlaybackUiState,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("Equalizer")
+    val effects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
+
+    LaunchedEffect(playback.currentMediaId) {
+        viewModel.playback.refreshAudioEffects()
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 18.dp,
+            end = 18.dp,
+            bottom = 30.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            ScreenHeader(
+                title = "Equalizer",
+                action = {
+                    Switch(
+                        checked = effects.masterEnabled,
+                        onCheckedChange = viewModel.playback::setAudioEffectsEnabled,
+                        enabled = effects.connected,
+                    )
+                },
+            )
+        }
+
+        if (!effects.connected) {
+            item {
+                EmptyCard(
+                    title = "Connecting to Muse audio…",
+                    body = "Audio tools are provided by the playback session so they stay consistent in the background.",
+                )
+            }
+        } else if (!effects.sessionReady) {
+            item {
+                EmptyCard(
+                    title = "Start a track to activate audio tools",
+                    body = "Muse attaches effects only to the real playback audio session. No fake controls are enabled before a session exists.",
+                )
+            }
+        } else {
+            item {
+                GlassCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "A/B Tune",
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                if (effects.bypass) {
+                                    "Original signal is active"
+                                } else {
+                                    "Muse processing is active"
+                                },
+                                color = MuseMuted,
+                            )
+                        }
+                        FilterChip(
+                            selected = effects.bypass,
+                            onClick = {
+                                viewModel.playback.setAudioBypass(!effects.bypass)
+                            },
+                            label = {
+                                Text(if (effects.bypass) "Original" else "Processed")
+                            },
+                        )
+                    }
+                }
+            }
+
+            if (effects.equalizerAvailable) {
+                item {
+                    SectionTitle(
+                        title = "Equalizer",
+                        trailing = "${effects.bandCentersHz.size} bands",
+                    )
+                }
+
+                if (effects.presetNames.isNotEmpty()) {
+                    item {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            itemsIndexed(effects.presetNames) { index, name ->
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        viewModel.playback.useEqualizerPreset(index)
+                                    },
+                                    label = { Text(name) },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                itemsIndexed(
+                    effects.bandCentersHz,
+                    key = { index, frequency -> "$frequency:$index" },
+                ) { index, frequency ->
+                    val level = effects.bandLevelsMb.getOrNull(index) ?: 0
+                    GlassCard {
+                        Column(
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp,
+                                vertical = 12.dp,
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    formatFrequency(frequency),
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    formatMillibels(level),
+                                    color = MuseGreen,
+                                )
+                            }
+                            Slider(
+                                value = level.toFloat(),
+                                onValueChange = { value ->
+                                    viewModel.playback.setEqualizerBand(
+                                        index,
+                                        value.roundToLong().toInt(),
+                                    )
+                                },
+                                valueRange = effects.bandMinMb.toFloat()..
+                                    effects.bandMaxMb.toFloat(),
+                                enabled = effects.masterEnabled && !effects.bypass,
+                            )
+                        }
+                    }
+                }
+            } else {
+                item {
+                    EmptyCard(
+                        title = "Equalizer unavailable",
+                        body = "This device or current audio route did not expose an attachable Android Equalizer effect.",
+                    )
+                }
+            }
+
+            if (effects.bassAvailable) {
+                item {
+                    AudioEffectControl(
+                        title = "Bass Boost",
+                        subtitle = "Conservative low-frequency enhancement",
+                        checked = effects.bassEnabled,
+                        onCheckedChange = viewModel.playback::setBassEnabled,
+                        value = effects.bassStrength,
+                        valueRange = 0..700,
+                        onValueChange = viewModel.playback::setBassStrength,
+                        controlsEnabled = effects.masterEnabled && !effects.bypass,
+                    )
+                }
+            }
+
+            if (effects.virtualizerAvailable) {
+                item {
+                    AudioEffectControl(
+                        title = "Virtualizer",
+                        subtitle = "Device-supported spatial widening",
+                        checked = effects.virtualizerEnabled,
+                        onCheckedChange = viewModel.playback::setVirtualizerEnabled,
+                        value = effects.virtualizerStrength,
+                        valueRange = 0..1000,
+                        onValueChange = viewModel.playback::setVirtualizerStrength,
+                        controlsEnabled = effects.masterEnabled && !effects.bypass,
+                    )
+                }
+            }
+
+            if (effects.loudnessAvailable) {
+                item {
+                    AudioEffectControl(
+                        title = "Loudness Enhancer",
+                        subtitle = "Capped at +6 dB to reduce clipping risk",
+                        checked = effects.loudnessEnabled,
+                        onCheckedChange = viewModel.playback::setLoudnessEnabled,
+                        value = effects.loudnessGainMb,
+                        valueRange = 0..600,
+                        onValueChange = viewModel.playback::setLoudnessGainMb,
+                        controlsEnabled = effects.masterEnabled && !effects.bypass,
+                        valueLabel = { formatMillibels(it) },
+                    )
+                }
+            }
+
+            if (
+                !effects.equalizerAvailable &&
+                !effects.bassAvailable &&
+                !effects.virtualizerAvailable &&
+                !effects.loudnessAvailable
+            ) {
+                item {
+                    EmptyCard(
+                        title = "No compatible audio effects",
+                        body = "Muse keeps playback untouched rather than pretending unsupported enhancement features are active.",
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioEffectControl(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    value: Int,
+    valueRange: IntRange,
+    onValueChange: (Int) -> Unit,
+    controlsEnabled: Boolean,
+    valueLabel: (Int) -> String = { "${it / 10}%" },
+) {
+    GlassCard {
         Column(
-            modifier = Modifier.padding(22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(16.dp),
         ) {
-            ArtworkPlaceholder(
-                modifier = Modifier.size(110.dp),
-                icon = Icons.Rounded.Equalizer,
-            )
-            Spacer(Modifier.height(20.dp))
-            Text(
-                if (playback.currentMediaId == null) "Start playback to initialise an audio session"
-                else "Playback session is active",
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Muse will only expose EQ, bass, virtualizer and spatial controls after runtime capability detection. Unsupported effects will never be shown as working.",
-                color = MuseMuted,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        subtitle,
+                        color = MuseMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    enabled = controlsEnabled,
+                )
+            }
+            if (checked) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Slider(
+                        value = value.toFloat(),
+                        onValueChange = { onValueChange(it.roundToLong().toInt()) },
+                        valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
+                        enabled = controlsEnabled,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        valueLabel(value),
+                        color = MuseGreen,
+                        modifier = Modifier.padding(start = 10.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -2015,6 +2265,26 @@ private fun OptionRow(
         }
     }
 }
+
+private fun formatFrequency(frequencyHz: Int): String =
+    when {
+        frequencyHz >= 1_000 -> {
+            val khz = frequencyHz / 1_000.0
+            if (khz % 1.0 == 0.0) {
+                "${khz.toInt()} kHz"
+            } else {
+                String.format(java.util.Locale.US, "%.1f kHz", khz)
+            }
+        }
+        else -> "$frequencyHz Hz"
+    }
+
+private fun formatMillibels(valueMb: Int): String =
+    String.format(
+        java.util.Locale.US,
+        "%+.1f dB",
+        valueMb / 100.0,
+    )
 
 private fun formatDuration(durationMs: Long): String {
     val safe = durationMs.coerceAtLeast(0L)
