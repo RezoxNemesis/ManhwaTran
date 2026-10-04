@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +44,7 @@ fun TrackArtwork(
     track: Track?,
     modifier: Modifier,
     contentDescription: String? = track?.let { "${it.title} album artwork" },
+    shape: Shape = RoundedCornerShape(18.dp),
 ) {
     val context = LocalContext.current
     val bitmap by produceState<Bitmap?>(initialValue = null, key1 = track?.id) {
@@ -53,13 +55,13 @@ fun TrackArtwork(
         Image(
             bitmap = bitmap!!.asImageBitmap(),
             contentDescription = contentDescription,
-            modifier = modifier.clip(RoundedCornerShape(18.dp)),
+            modifier = modifier.clip(shape),
             contentScale = ContentScale.Crop,
         )
     } else {
         Box(
             modifier = modifier
-                .clip(RoundedCornerShape(18.dp))
+                .clip(shape)
                 .background(
                     Brush.linearGradient(
                         listOf(
@@ -69,7 +71,7 @@ fun TrackArtwork(
                         )
                     )
                 )
-                .border(1.dp, MuseBorder, RoundedCornerShape(18.dp)),
+                .border(1.dp, MuseBorder, shape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
