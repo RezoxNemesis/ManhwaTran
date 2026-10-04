@@ -1495,6 +1495,88 @@ private fun NowPlayingScreen(
                 onClick = { navController.navigate("more") },
             )
         }
+
+        Spacer(Modifier.height(18.dp))
+        MuseGlassSurface(
+            modifier = Modifier.fillMaxWidth(),
+            variant = MuseGlassVariant.Standard,
+            cornerRadius = 24.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Playback Tuning",
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Session controls • new queues start at 1.0×",
+                            color = MuseMuted,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    TextButton(
+                        onClick = viewModel.playback::resetPlaybackTuning,
+                        enabled = playback.connected,
+                    ) {
+                        Text("Reset")
+                    }
+                }
+
+                Text(
+                    String.format(
+                        java.util.Locale.US,
+                        "Speed  %.2f×",
+                        playback.playbackSpeed,
+                    ),
+                    color = MuseGreen,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Slider(
+                    value = playback.playbackSpeed,
+                    onValueChange = viewModel.playback::setPlaybackSpeed,
+                    valueRange = 0.5f..2.0f,
+                    steps = 14,
+                    enabled = playback.connected,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Text(
+                    if (playback.playbackPitch in 0.995f..1.005f) {
+                        "Pitch  Original"
+                    } else {
+                        String.format(
+                            java.util.Locale.US,
+                            "Pitch  %.2f×",
+                            playback.playbackPitch,
+                        )
+                    },
+                    color = MuseGreen,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Slider(
+                    value = playback.playbackPitch,
+                    onValueChange = viewModel.playback::setPlaybackPitch,
+                    valueRange = 0.75f..1.25f,
+                    steps = 9,
+                    enabled = playback.connected,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Speed changes preserve the original pitch by default. Pitch shift is separate and deliberately limited.",
+                    color = MuseMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
     }
 }
 
