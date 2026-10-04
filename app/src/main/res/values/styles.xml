@@ -7,4 +7,10 @@
         <item name="android:navigationBarColor">#061108</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+
+    <style name="Theme.Muse.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#07140B</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/muse_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Muse</item>
+    </style>
 </resources>
