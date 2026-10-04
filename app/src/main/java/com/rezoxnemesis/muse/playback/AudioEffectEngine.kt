@@ -1,6 +1,8 @@
 package com.rezoxnemesis.muse.playback
 
 import android.content.Context
+import android.media.AudioManager
+import android.os.Build
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
@@ -8,7 +10,7 @@ import android.media.audiofx.Virtualizer
 import android.os.Bundle
 
 class AudioEffectEngine(
-    context: Context,
+    private val context: Context,
 ) {
     private val preferences = context.getSharedPreferences(
         PreferencesName,
@@ -158,6 +160,8 @@ class AudioEffectEngine(
             }.getOrDefault("Preset ${index + 1}")
         }
 
+        val spatial = spatialCapability()
+
         return Bundle().apply {
             putBoolean(AudioEffectProtocol.KeySessionReady, audioSessionId > 0)
             putBoolean(AudioEffectProtocol.KeyMasterEnabled, masterEnabled)
@@ -213,6 +217,23 @@ class AudioEffectEngine(
             putInt(
                 AudioEffectProtocol.KeyLoudnessGainMb,
                 preferences.getInt(KeyLoudnessGainPref, DefaultLoudnessGainMb),
+            )
+
+            putBoolean(
+                AudioEffectProtocol.KeySpatialSupported,
+                spatial.supported,
+            )
+            putBoolean(
+                AudioEffectProtocol.KeySpatialAvailable,
+                spatial.available,
+            )
+            putBoolean(
+                AudioEffectProtocol.KeySpatialEnabled,
+                spatial.enabled,
+            )
+            putBoolean(
+                AudioEffectProtocol.KeyHeadTrackerAvailable,
+                spatial.headTrackerAvailable,
             )
         }
     }
@@ -355,6 +376,31 @@ class AudioEffectEngine(
         }
     }
 
+    private fun spatialCapability(): SpatialCapability {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return SpatialCapability()
+        }
+        return spatialCapabilityApi33()
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun spatialCapabilityApi33(): SpatialCapability {
+        val audioManager = context.getSystemService(AudioManager::class.java)
+            ?: return SpatialCapability()
+        val spatializer = audioManager.spatializer
+        val supported =
+            spatializer.immersiveAudioLevel !=
+                android.media.Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
+
+        return SpatialCapability(
+            supported = supported,
+            available = supported && spatializer.isAvailable,
+            enabled = supported && spatializer.isEnabled,
+            headTrackerAvailable =
+                supported && spatializer.isHeadTrackerAvailable,
+        )
+    }
+
     private fun releaseEffects() {
         listOf(equalizer, bassBoost, virtualizer, loudnessEnhancer).forEach { effect ->
             runCatching { effect?.enabled = false }
@@ -365,6 +411,13 @@ class AudioEffectEngine(
         virtualizer = null
         loudnessEnhancer = null
     }
+
+    private data class SpatialCapability(
+        val supported: Boolean = false,
+        val available: Boolean = false,
+        val enabled: Boolean = false,
+        val headTrackerAvailable: Boolean = false,
+    )
 
     private companion object {
         const val PreferencesName = "muse_audio_effects"
