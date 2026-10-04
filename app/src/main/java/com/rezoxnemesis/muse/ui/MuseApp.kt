@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DragHandle
@@ -3972,7 +3973,11 @@ private fun SettingsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 18.dp,
+            end = 18.dp,
+            bottom = 30.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
@@ -3980,48 +3985,59 @@ private fun SettingsScreen(
         }
 
         item {
-            SettingsRow(
-                icon = Icons.Rounded.LibraryMusic,
-                title = "Library",
-                subtitle = "${state.tracks.size} local tracks • tap to rescan",
-                onClick = viewModel::refreshLibrary,
+            SectionTitle(
+                title = "Muse",
+                trailing = "Local-first",
             )
         }
-        if (!libraryPermissionGranted) {
-            item {
-                SettingsRow(
-                    icon = Icons.Rounded.LibraryMusic,
-                    title = "Enable Device Library",
-                    subtitle = "Grant Android music access while keeping imported files available",
-                    onClick = {
-                        libraryPermissionLauncher.launch(libraryPermission)
-                    },
-                )
+
+        item {
+            MuseGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                variant = MuseGlassVariant.Elevated,
+                cornerRadius = 26.dp,
+            ) {
+                Column {
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.LibraryMusic,
+                        title = "Library",
+                        subtitle = "${state.tracks.size} local tracks • tap to rescan",
+                        onClick = viewModel::refreshLibrary,
+                    )
+                    if (!libraryPermissionGranted) {
+                        SettingsPanelDivider()
+                        SettingsPanelItem(
+                            icon = Icons.Rounded.LibraryMusic,
+                            title = "Enable Device Library",
+                            subtitle = "Grant Android music access",
+                            onClick = {
+                                libraryPermissionLauncher.launch(libraryPermission)
+                            },
+                        )
+                    }
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Timer,
+                        title = "Sleep Timer",
+                        subtitle = "Timer and playback boundaries",
+                        onClick = { navController.navigate("sleep") },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Equalizer,
+                        title = "Audio Enhancement",
+                        subtitle = "Real EQ, bass, virtualizer and loudness when supported",
+                        onClick = { navController.navigate("equalizer") },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Download,
+                        title = "Imported Audio",
+                        subtitle = "Manage files chosen through Android",
+                        onClick = { navController.navigate("downloads") },
+                    )
+                }
             }
-        }
-        item {
-            SettingsRow(
-                icon = Icons.Rounded.Timer,
-                title = "Sleep Timer",
-                subtitle = "Timer and Sleep Scene playback boundaries",
-                onClick = { navController.navigate("sleep") },
-            )
-        }
-        item {
-            SettingsRow(
-                icon = Icons.Rounded.Equalizer,
-                title = "Audio Enhancement",
-                subtitle = "Capability-aware EQ, bass, virtualizer and loudness",
-                onClick = { navController.navigate("equalizer") },
-            )
-        }
-        item {
-            SettingsRow(
-                icon = Icons.Rounded.Download,
-                title = "Imported Audio",
-                subtitle = "Manage files chosen through Android's secure picker",
-                onClick = { navController.navigate("downloads") },
-            )
         }
 
         item {
@@ -4032,37 +4048,52 @@ private fun SettingsScreen(
         }
 
         item {
-            SettingsRow(
-                icon = Icons.Rounded.Share,
-                title = "Export Muse Backup",
-                subtitle = "Playlists, favourites, history and sound profiles",
-                onClick = {
-                    if (!backup.busy) {
-                        exportLauncher.launch("Muse-backup.json")
-                    }
-                },
-            )
-        }
-
-        item {
-            SettingsRow(
-                icon = Icons.Rounded.Download,
-                title = "Restore Muse Backup",
-                subtitle = "Restore organisation data from a Muse JSON backup",
-                onClick = {
-                    if (!backup.busy) {
-                        restoreLauncher.launch(arrayOf("application/json", "text/json", "text/plain"))
-                    }
-                },
-            )
+            MuseGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                variant = MuseGlassVariant.Strong,
+                cornerRadius = 26.dp,
+            ) {
+                Column {
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Share,
+                        title = "Export Muse Backup",
+                        subtitle = "Playlists, favourites, history and sound profiles",
+                        onClick = {
+                            if (!backup.busy) {
+                                exportLauncher.launch("Muse-backup.json")
+                            }
+                        },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Download,
+                        title = "Restore Muse Backup",
+                        subtitle = "Restore organisation data from a Muse JSON backup",
+                        onClick = {
+                            if (!backup.busy) {
+                                restoreLauncher.launch(
+                                    arrayOf(
+                                        "application/json",
+                                        "text/json",
+                                        "text/plain",
+                                    )
+                                )
+                            }
+                        },
+                    )
+                }
+            }
         }
 
         if (backup.busy) {
             item {
-                GlassCard {
+                MuseGlassSurface(
+                    variant = MuseGlassVariant.Selected,
+                    cornerRadius = 20.dp,
+                ) {
                     Text(
                         "Working on backup…",
-                        color = MuseMuted,
+                        color = MuseGreen,
                         modifier = Modifier.padding(16.dp),
                     )
                 }
@@ -4071,7 +4102,14 @@ private fun SettingsScreen(
 
         if (backup.message != null || backup.error != null) {
             item {
-                GlassCard {
+                MuseGlassSurface(
+                    variant = if (backup.error == null) {
+                        MuseGlassVariant.Selected
+                    } else {
+                        MuseGlassVariant.Destructive
+                    },
+                    cornerRadius = 20.dp,
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -4096,63 +4134,49 @@ private fun SettingsScreen(
         }
 
         item {
-            SectionTitle(title = "Privacy & Storage")
+            SectionTitle(title = "Privacy & About")
         }
 
         item {
-            GlassCard {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.Info,
-                            contentDescription = null,
-                            tint = MuseGreen,
-                        )
-                        Spacer(Modifier.size(14.dp))
-                        Text(
-                            "Local-first by design",
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    Text(
-                        "Muse does not require an account or paid cloud service for core playback. Imported-file permissions remain Android-scoped. Backups exclude imported file permissions and audio files.",
-                        color = MuseMuted,
+            MuseGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                variant = MuseGlassVariant.Standard,
+                cornerRadius = 26.dp,
+            ) {
+                Column {
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Info,
+                        title = "Privacy & Storage",
+                        subtitle = "No account required • Android-scoped file access",
+                        onClick = null,
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Info,
+                        title = "About",
+                        subtitle = "Muse ${BuildConfig.VERSION_NAME} • local-first music player",
+                        onClick = null,
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Info,
+                        title = "Diagnostics",
+                        subtitle = "Playback, permissions and device audio capability",
+                        onClick = { navController.navigate("diagnostics") },
                     )
                 }
             }
         }
 
         item {
-            GlassCard {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Rounded.Info,
-                        contentDescription = null,
-                        tint = MuseGreen,
-                    )
-                    Spacer(Modifier.size(14.dp))
-                    Column {
-                        Text("About", fontWeight = FontWeight.Medium)
-                        Text(
-                            "Muse ${BuildConfig.VERSION_NAME} • local-first • no account required",
-                            color = MuseMuted,
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            SettingsRow(
-                icon = Icons.Rounded.Info,
-                title = "Diagnostics",
-                subtitle = "Playback, permissions and device audio capability",
-                onClick = { navController.navigate("diagnostics") },
+            Text(
+                "Muse does not require an account or paid cloud service for core playback. Backups exclude audio files and imported-file permissions.",
+                color = MuseMuted,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
     }
@@ -4185,6 +4209,75 @@ private fun SettingsScreen(
             },
         )
     }
+}
+
+@Composable
+private fun SettingsPanelItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: (() -> Unit)?,
+) {
+    val interactionModifier = if (onClick == null) {
+        Modifier
+    } else {
+        Modifier.clickable(onClick = onClick)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(interactionModifier)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(48.dp),
+            shape = RoundedCornerShape(15.dp),
+            color = Color(0x5A123B1D),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MuseGreen.copy(alpha = 0.22f),
+            ),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MuseGreen,
+                    modifier = Modifier.size(25.dp),
+                )
+            }
+        }
+        Spacer(Modifier.size(13.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                subtitle,
+                color = MuseMuted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (onClick != null) {
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.82f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsPanelDivider() {
+    HorizontalDivider(
+        color = MuseBorder.copy(alpha = 0.42f),
+        modifier = Modifier.padding(horizontal = 12.dp),
+    )
 }
 
 @Composable
@@ -4442,7 +4535,16 @@ private fun MoreOptionsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("More Options", { navController.popBackStack() })
+        Spacer(Modifier.height(14.dp))
+        Box(
+            modifier = Modifier
+                .width(56.dp)
+                .height(5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(MuseMuted.copy(alpha = 0.52f))
+                .align(Alignment.CenterHorizontally),
+        )
+        Spacer(Modifier.height(10.dp))
 
         if (track == null) {
             Box(
@@ -4466,33 +4568,53 @@ private fun MoreOptionsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item {
-                    GlassCard {
+                    MuseGlassSurface(
+                        variant = MuseGlassVariant.Elevated,
+                        cornerRadius = 28.dp,
+                    ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(14.dp),
+                                .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             TrackArtwork(
                                 track = activeTrack,
-                                modifier = Modifier.size(76.dp),
+                                modifier = Modifier.size(88.dp),
                                 contentDescription = null,
                             )
                             Spacer(Modifier.size(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     activeTrack.title,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     activeTrack.artist,
                                     color = MuseMuted,
+                                    style = MaterialTheme.typography.titleMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
+                            }
+                            MuseGlassAction(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier.size(48.dp),
+                                variant = MuseGlassVariant.Strong,
+                                cornerRadius = 24.dp,
+                            ) {
+                                Box(
+                                    Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Clear,
+                                        contentDescription = "Close",
+                                    )
+                                }
                             }
                         }
                     }
@@ -4738,10 +4860,11 @@ private fun MoreOptionsScreen(
 
                 if (activeTrack.managedByMuse) {
                     item {
-                        GlassCard(
-                            modifier = Modifier.clickable {
-                                confirmRemove = true
-                            },
+                        MuseGlassAction(
+                            onClick = { confirmRemove = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = MuseGlassVariant.Destructive,
+                            cornerRadius = 20.dp,
                         ) {
                             Row(
                                 modifier = Modifier
@@ -6049,19 +6172,55 @@ private fun OptionRow(
     MuseGlassAction(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        variant = MuseGlassVariant.Strong,
-        cornerRadius = 16.dp,
+        variant = MuseGlassVariant.Standard,
+        cornerRadius = 18.dp,
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = MuseGreen)
-            Spacer(Modifier.size(14.dp))
-            Column {
-                Text(title)
-                if (subtitle != null) Text(subtitle, color = MuseMuted, style = MaterialTheme.typography.bodySmall)
+            Surface(
+                modifier = Modifier.size(46.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0x56123B1D),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MuseGreen.copy(alpha = 0.22f),
+                ),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = MuseGreen,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
+            Spacer(Modifier.size(13.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        color = MuseMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.82f),
+            )
         }
     }
 }
