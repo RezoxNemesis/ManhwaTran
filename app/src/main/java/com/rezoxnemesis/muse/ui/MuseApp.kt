@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessTime
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
@@ -155,6 +156,12 @@ private enum class LibrarySort(
     Title("Title"),
     Artist("Artist"),
     Album("Album"),
+}
+
+private enum class PlaylistTab {
+    All,
+    Created,
+    Liked,
 }
 
 private val PrimaryDestinations = listOf(
@@ -1451,153 +1458,270 @@ private fun QueueScreen(
     val dragThresholdPx = with(LocalDensity.current) {
         48.dp.toPx()
     }
+    val queue = playback.queue
+    val currentQueueIndex = playback.currentIndex
+        .takeIf { it in queue.indices }
+        ?: if (queue.isNotEmpty()) 0 else -1
+    val currentItem = queue.getOrNull(currentQueueIndex)
+    val upcoming = queue
+        .mapIndexed { index, item -> index to item }
+        .filter { (index, _) -> index > currentQueueIndex }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             ScreenHeader(
                 title = "Play Queue",
                 onBack = { navController.popBackStack() },
-                action = {
-                    Row {
-                        IconButton(onClick = viewModel.playback::toggleShuffle) {
-                            Icon(
-                                Icons.Rounded.Shuffle,
-                                contentDescription = "Toggle shuffle",
-                                tint = if (playback.shuffleEnabled) MuseGreen else Color.White,
-                            )
-                        }
-                        IconButton(onClick = viewModel.playback::clearUpcomingQueue) {
-                            Icon(Icons.Rounded.Clear, contentDescription = "Clear upcoming queue")
-                        }
-                    }
-                },
             )
         }
-        if (playback.queue.isEmpty()) {
-            item { EmptyCard("Queue is empty", "Choose a song from your library to start listening.") }
-        } else {
+
+        if (queue.isEmpty()) {
             item {
-                OutlinedTextField(
-                    value = saveName,
-                    onValueChange = { saveName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Save queue as playlist") },
-                    placeholder = { Text("Playlist name") },
-                    trailingIcon = {
-                        TextButton(
-                            enabled = saveName.isNotBlank(),
-                            onClick = {
-                                viewModel.saveCurrentQueueAsPlaylist(saveName)
-                                saveName = ""
-                            },
-                        ) {
-                            Text("Save")
-                        }
-                    },
-                    shape = RoundedCornerShape(18.dp),
+                EmptyCard(
+                    "Queue is empty",
+                    "Choose a song from your library to start listening.",
                 )
             }
-
-            itemsIndexed(playback.queue, key = { index, item -> "${item.mediaId}:$index" }) { index, item ->
-                GlassCard {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+        } else {
+            currentItem?.let { item ->
+                item {
+                    SectionTitle(
+                        title = "Now Playing",
+                        trailing = if (playback.isPlaying) "Playing" else "Paused",
+                    )
+                }
+                item {
+                    MuseGlassSurface(
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = MuseGlassVariant.Selected,
+                        cornerRadius = 24.dp,
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                item.title.ifBlank { "Unknown title" },
-                                fontWeight = if (index == playback.currentIndex) FontWeight.Bold else FontWeight.Medium,
-                                color = if (index == playback.currentIndex) MuseGreen else Color.White,
-                            )
-                            Text(item.artist, color = MuseMuted)
-                        }
-                        TextButton(
-                            enabled = index > 0,
-                            onClick = { viewModel.playback.moveQueueItem(index, index - 1) },
-                        ) { Text("↑") }
-                        TextButton(
-                            enabled = index < playback.queue.lastIndex,
-                            onClick = { viewModel.playback.moveQueueItem(index, index + 1) },
-                        ) { Text("↓") }
-                        var dragIndex by remember(item.mediaId, index) {
-                            mutableStateOf(index)
-                        }
-                        var dragDistance by remember(item.mediaId, index) {
-                            mutableStateOf(0f)
-                        }
-                        Icon(
-                            Icons.Rounded.DragHandle,
-                            contentDescription = "Drag to reorder queue",
-                            tint = MuseMuted,
+                        Row(
                             modifier = Modifier
-                                .size(40.dp)
-                                .padding(8.dp)
-                                .pointerInput(
-                                    item.mediaId,
-                                    index,
-                                    playback.queue.size,
-                                ) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            dragIndex = index
-                                            dragDistance = 0f
-                                        },
-                                        onDragEnd = {
-                                            dragDistance = 0f
-                                        },
-                                        onDragCancel = {
-                                            dragDistance = 0f
-                                        },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
-                                            dragDistance += dragAmount.y
-
-                                            while (
-                                                dragDistance >= dragThresholdPx &&
-                                                dragIndex < playback.queue.lastIndex
-                                            ) {
-                                                viewModel.playback.moveQueueItem(
-                                                    dragIndex,
-                                                    dragIndex + 1,
-                                                )
-                                                dragIndex += 1
-                                                dragDistance -= dragThresholdPx
-                                            }
-
-                                            while (
-                                                dragDistance <= -dragThresholdPx &&
-                                                dragIndex > 0
-                                            ) {
-                                                viewModel.playback.moveQueueItem(
-                                                    dragIndex,
-                                                    dragIndex - 1,
-                                                )
-                                                dragIndex -= 1
-                                                dragDistance += dragThresholdPx
-                                            }
-                                        },
-                                    )
-                                },
-                        )
-                        IconButton(
-                            onClick = {
-                                viewModel.playback.removeQueueItem(index)
-                            },
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            MuseGlassSurface(
+                                modifier = Modifier.size(52.dp),
+                                variant = MuseGlassVariant.Strong,
+                                cornerRadius = 18.dp,
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.MusicNote,
+                                        contentDescription = null,
+                                        tint = MuseGreen,
+                                        modifier = Modifier.size(28.dp),
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.size(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    item.title.ifBlank { "Unknown title" },
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    item.artist,
+                                    color = MuseMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                             Icon(
-                                Icons.Rounded.Delete,
-                                contentDescription = "Remove from queue",
+                                Icons.Rounded.Equalizer,
+                                contentDescription = null,
+                                tint = MuseGreen,
                             )
                         }
                     }
+                }
+            }
+
+            if (upcoming.isNotEmpty()) {
+                item {
+                    SectionTitle(
+                        title = "Up Next",
+                        trailing = "${upcoming.size}",
+                    )
+                }
+
+                items(
+                    items = upcoming,
+                    key = { (index, item) -> "${item.mediaId}:$index" },
+                ) { (index, item) ->
+                    MuseGlassSurface(
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = MuseGlassVariant.Standard,
+                        cornerRadius = 20.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    item.title.ifBlank { "Unknown title" },
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    item.artist,
+                                    color = MuseMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+
+                            TextButton(
+                                enabled = index > currentQueueIndex + 1,
+                                onClick = {
+                                    viewModel.playback.moveQueueItem(index, index - 1)
+                                },
+                            ) { Text("↑") }
+                            TextButton(
+                                enabled = index < queue.lastIndex,
+                                onClick = {
+                                    viewModel.playback.moveQueueItem(index, index + 1)
+                                },
+                            ) { Text("↓") }
+
+                            var dragIndex by remember(item.mediaId, index) {
+                                mutableStateOf(index)
+                            }
+                            var dragDistance by remember(item.mediaId, index) {
+                                mutableStateOf(0f)
+                            }
+                            Icon(
+                                Icons.Rounded.DragHandle,
+                                contentDescription = "Drag to reorder queue",
+                                tint = MuseMuted,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(8.dp)
+                                    .pointerInput(
+                                        item.mediaId,
+                                        index,
+                                        queue.size,
+                                    ) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                dragIndex = index
+                                                dragDistance = 0f
+                                            },
+                                            onDragEnd = {
+                                                dragDistance = 0f
+                                            },
+                                            onDragCancel = {
+                                                dragDistance = 0f
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                dragDistance += dragAmount.y
+
+                                                while (
+                                                    dragDistance >= dragThresholdPx &&
+                                                    dragIndex < queue.lastIndex
+                                                ) {
+                                                    viewModel.playback.moveQueueItem(
+                                                        dragIndex,
+                                                        dragIndex + 1,
+                                                    )
+                                                    dragIndex += 1
+                                                    dragDistance -= dragThresholdPx
+                                                }
+
+                                                while (
+                                                    dragDistance <= -dragThresholdPx &&
+                                                    dragIndex > currentQueueIndex + 1
+                                                ) {
+                                                    viewModel.playback.moveQueueItem(
+                                                        dragIndex,
+                                                        dragIndex - 1,
+                                                    )
+                                                    dragIndex -= 1
+                                                    dragDistance += dragThresholdPx
+                                                }
+                                            },
+                                        )
+                                    },
+                            )
+                            IconButton(
+                                onClick = {
+                                    viewModel.playback.removeQueueItem(index)
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = "Remove from queue",
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                MuseGlassSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = MuseGlassVariant.Strong,
+                    cornerRadius = 22.dp,
+                ) {
+                    OutlinedTextField(
+                        value = saveName,
+                        onValueChange = { saveName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Save queue as playlist") },
+                        placeholder = { Text("Playlist name") },
+                        shape = RoundedCornerShape(22.dp),
+                    )
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    QueueAction(
+                        icon = Icons.Rounded.Clear,
+                        label = "Clear",
+                        enabled = upcoming.isNotEmpty(),
+                        modifier = Modifier.weight(1f),
+                        onClick = viewModel.playback::clearUpcomingQueue,
+                    )
+                    QueueAction(
+                        icon = Icons.Rounded.Shuffle,
+                        label = "Shuffle",
+                        selected = playback.shuffleEnabled,
+                        modifier = Modifier.weight(1f),
+                        onClick = viewModel.playback::toggleShuffle,
+                    )
+                    QueueAction(
+                        icon = Icons.Rounded.PlaylistPlay,
+                        label = "Save",
+                        enabled = saveName.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            viewModel.saveCurrentQueueAsPlaylist(saveName)
+                            saveName = ""
+                        },
+                    )
                 }
             }
         }
@@ -1927,6 +2051,8 @@ private fun PlaylistsScreen(
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val transfer by viewModel.playlistTransferState.collectAsStateWithLifecycle()
     var name by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableStateOf(PlaylistTab.All) }
+    var showCreate by remember { mutableStateOf(false) }
 
     val importPlaylistLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -1940,16 +2066,95 @@ private fun PlaylistsScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { ScreenHeader("Playlists", { navController.popBackStack() }) }
+        item {
+            ScreenHeader(
+                title = "Playlists",
+                onBack = { navController.popBackStack() },
+                action = {
+                    MuseGlassAction(
+                        onClick = { showCreate = !showCreate },
+                        modifier = Modifier.size(46.dp),
+                        variant = if (showCreate) {
+                            MuseGlassVariant.Selected
+                        } else {
+                            MuseGlassVariant.Elevated
+                        },
+                        cornerRadius = 18.dp,
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Add,
+                                contentDescription = "Create playlist",
+                                tint = MuseGreen,
+                            )
+                        }
+                    }
+                },
+            )
+        }
 
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                TextButton(
-                    enabled = !transfer.busy,
-                    onClick = {
+                PlaylistTab.entries.forEach { tab ->
+                    MusePillTab(
+                        label = tab.name,
+                        selected = selectedTab == tab,
+                        modifier = Modifier.weight(1f),
+                        onClick = { selectedTab = tab },
+                    )
+                }
+            }
+        }
+
+        if (showCreate) {
+            item {
+                MuseGlassSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = MuseGlassVariant.Strong,
+                    cornerRadius = 22.dp,
+                ) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("New playlist") },
+                        placeholder = { Text("Playlist name") },
+                        trailingIcon = {
+                            TextButton(
+                                enabled = name.isNotBlank(),
+                                onClick = {
+                                    viewModel.createPlaylist(name)
+                                    name = ""
+                                    showCreate = false
+                                },
+                            ) {
+                                Text("Create")
+                            }
+                        },
+                        shape = RoundedCornerShape(22.dp),
+                    )
+                }
+            }
+        }
+
+        item {
+            SettingsRow(
+                icon = Icons.Rounded.PlaylistPlay,
+                title = "Import M3U / M3U8",
+                subtitle = if (transfer.busy) {
+                    "Import in progress…"
+                } else {
+                    "Match playlist entries against your local Muse library"
+                },
+                onClick = {
+                    if (!transfer.busy) {
                         importPlaylistLauncher.launch(
                             arrayOf(
                                 "audio/x-mpegurl",
@@ -1957,11 +2162,9 @@ private fun PlaylistsScreen(
                                 "text/plain",
                             )
                         )
-                    },
-                ) {
-                    Text(if (transfer.busy) "Working…" else "Import M3U")
-                }
-            }
+                    }
+                },
+            )
         }
 
         if (transfer.message != null || transfer.error != null) {
@@ -2004,62 +2207,13 @@ private fun PlaylistsScreen(
             }
         }
 
-        item {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("New playlist") },
-                placeholder = { Text("Playlist name") },
-                trailingIcon = {
-                    TextButton(
-                        enabled = name.isNotBlank(),
-                        onClick = {
-                            viewModel.createPlaylist(name)
-                            name = ""
-                        },
-                    ) { Text("Create") }
-                },
-                shape = RoundedCornerShape(20.dp),
-            )
-        }
-
-        item {
-            GlassCard(
-                modifier = Modifier.clickable { navController.navigate("liked") },
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Rounded.Favorite, contentDescription = null, tint = MuseGreen)
-                    Spacer(Modifier.size(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Liked Songs", fontWeight = FontWeight.SemiBold)
-                        Text("${liked.size} songs", color = MuseMuted)
-                    }
-                }
-            }
-        }
-
-        if (playlists.isEmpty()) {
+        if (selectedTab != PlaylistTab.Created) {
             item {
-                EmptyCard(
-                    title = "No playlists yet",
-                    body = "Create a playlist above. Muse stores it locally on this device.",
-                )
-            }
-        } else {
-            items(playlists, key = { it.id }) { playlist ->
-                val tracks = viewModel.playlistTracks(playlist)
-                GlassCard(
-                    modifier = Modifier.clickable {
-                        viewModel.selectPlaylist(playlist.id)
-                        navController.navigate("playlistDetail")
-                    },
+                MuseGlassAction(
+                    onClick = { navController.navigate("liked") },
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = MuseGlassVariant.Elevated,
+                    cornerRadius = 22.dp,
                 ) {
                     Row(
                         modifier = Modifier
@@ -2067,20 +2221,96 @@ private fun PlaylistsScreen(
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Rounded.PlaylistPlay, contentDescription = null, tint = MuseGreen)
-                        Spacer(Modifier.size(12.dp))
+                        TrackArtwork(
+                            track = liked.firstOrNull(),
+                            modifier = Modifier.size(68.dp),
+                            contentDescription = null,
+                        )
+                        Spacer(Modifier.size(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(playlist.name, fontWeight = FontWeight.SemiBold)
-                            Text("${tracks.size} songs", color = MuseMuted)
+                            Text(
+                                "Liked Songs",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                "${liked.size} songs",
+                                color = MuseMuted,
+                            )
                         }
-                        IconButton(
-                            enabled = tracks.isNotEmpty(),
-                            onClick = { viewModel.playTracks(tracks) },
+                        Icon(
+                            Icons.Rounded.Favorite,
+                            contentDescription = null,
+                            tint = MuseGreen,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (selectedTab != PlaylistTab.Liked) {
+            if (playlists.isEmpty()) {
+                item {
+                    EmptyCard(
+                        title = "No playlists yet",
+                        body = "Tap + to create a local playlist, or import an M3U/M3U8 file.",
+                    )
+                }
+            } else {
+                items(playlists, key = { it.id }) { playlist ->
+                    val tracks = viewModel.playlistTracks(playlist)
+                    MuseGlassAction(
+                        onClick = {
+                            viewModel.selectPlaylist(playlist.id)
+                            navController.navigate("playlistDetail")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = MuseGlassVariant.Standard,
+                        cornerRadius = 22.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = "Play playlist")
-                        }
-                        IconButton(onClick = { playlistPendingDelete = playlist }) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Delete playlist")
+                            TrackArtwork(
+                                track = tracks.firstOrNull(),
+                                modifier = Modifier.size(68.dp),
+                                contentDescription = null,
+                            )
+                            Spacer(Modifier.size(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    playlist.name,
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    "${tracks.size} songs",
+                                    color = MuseMuted,
+                                )
+                            }
+                            IconButton(
+                                enabled = tracks.isNotEmpty(),
+                                onClick = { viewModel.playTracks(tracks) },
+                            ) {
+                                Icon(
+                                    Icons.Rounded.PlayArrow,
+                                    contentDescription = "Play playlist",
+                                    tint = MuseGreen,
+                                )
+                            }
+                            IconButton(
+                                onClick = { playlistPendingDelete = playlist },
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = "Delete playlist",
+                                )
+                            }
                         }
                     }
                 }
@@ -4530,6 +4760,48 @@ private fun QuickAction(
             )
             Spacer(Modifier.height(8.dp))
             Text(label, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun QueueAction(
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    selected: Boolean = false,
+    onClick: () -> Unit,
+) {
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = modifier.height(88.dp),
+        variant = if (selected) {
+            MuseGlassVariant.Selected
+        } else {
+            MuseGlassVariant.Elevated
+        },
+        cornerRadius = 22.dp,
+        enabled = enabled,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = if (selected) MuseGreen else Color.White,
+                modifier = Modifier.size(28.dp),
+            )
+            Spacer(Modifier.height(7.dp))
+            Text(
+                label,
+                color = if (selected) MuseGreen else Color.White,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }
