@@ -276,12 +276,14 @@ internal fun MuseGlassAction(
     modifier: Modifier = Modifier,
     variant: MuseGlassVariant = MuseGlassVariant.Standard,
     cornerRadius: Dp = 22.dp,
+    enabled: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val activePress = pressed && enabled
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.965f else 1f,
+        targetValue = if (activePress) 0.965f else 1f,
         animationSpec = spring(
             dampingRatio = 0.58f,
             stiffness = Spring.StiffnessMedium,
@@ -294,13 +296,15 @@ internal fun MuseGlassAction(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                alpha = if (enabled) 1f else 0.48f
             }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
+                enabled = enabled,
                 onClick = onClick,
             ),
-        variant = if (pressed && variant == MuseGlassVariant.Standard) {
+        variant = if (activePress && variant == MuseGlassVariant.Standard) {
             MuseGlassVariant.Selected
         } else {
             variant
