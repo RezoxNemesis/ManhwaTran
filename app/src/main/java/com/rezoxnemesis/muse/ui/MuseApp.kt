@@ -243,7 +243,7 @@ fun MuseApp(
                     AlbumScreen(viewModel, navController)
                 }
                 composable("downloads") {
-                    DownloadsScreen(navController)
+                    DownloadsScreen(viewModel, navController)
                 }
                 composable("sleep") {
                     SleepTimerScreen(viewModel, navController)
@@ -1726,21 +1726,184 @@ private fun AlbumScreen(
 
 @Composable
 private fun DownloadsScreen(
+    viewModel: MuseViewModel,
     navController: NavHostController,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader("Downloads", { navController.popBackStack() })
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(22.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            EmptyCard(
-                title = "No Muse-managed downloads",
-                body = "This local-first build only shows real app-managed media here. Device songs remain in your Library.",
+    val state by viewModel.managedMediaState.collectAsStateWithLifecycle()
+    var pendingDelete by remember { mutableStateOf<Track?>(null) }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let(viewModel::importManagedMedia)
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            ScreenHeader(
+                title = "Downloads",
+                onBack = { navController.popBackStack() },
             )
         }
+
+        item {
+            GlassCard {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "Imported Files",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "Add audio files you already have access to. Muse keeps persistent read access through Android’s document picker and does not bypass protected sources.",
+                        color = MuseMuted,
+                    )
+                    Button(
+                        onClick = { importLauncher.launch(arrayOf("audio/*")) },
+                        enabled = !state.importing,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MuseGreen,
+                            contentColor = MuseBackground,
+                        ),
+                    ) {
+                        Icon(Icons.Rounded.Download, contentDescription = null)
+                        Text(if (state.importing) " Importing…" else " Import Audio")
+                    }
+                }
+            }
+        }
+
+        if (state.error != null) {
+            item {
+                GlassCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            state.error.orEmpty(),
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = viewModel::clearManagedMediaError) {
+                            Text("Dismiss")
+                        }
+                    }
+                }
+            }
+        }
+
+        if (state.tracks.isEmpty() && !state.importing) {
+            item {
+                EmptyCard(
+                    title = "No imported files",
+                    body = "Use Import Audio to add a file through Android’s secure document picker.",
+                )
+            }
+        } else {
+            items(state.tracks, key = { it.id }) { track ->
+                GlassCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TrackArtwork(
+                            track = track,
+                            modifier = Modifier.size(60.dp),
+                            contentDescription = null,
+                        )
+                        Spacer(Modifier.size(12.dp))
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { viewModel.playTrack(track) },
+                        ) {
+                            Text(
+                                track.title,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                track.artist,
+                                color = MuseMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                listOfNotNull(
+                                    track.sizeBytes?.let(::formatFileSize),
+                                    track.mimeType,
+                                ).joinToString(" • "),
+                                color = MuseMuted.copy(alpha = 0.82f),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        IconButton(onClick = { viewModel.playTrack(track) }) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = "Play imported track")
+                        }
+                        IconButton(onClick = { pendingDelete = track }) {
+                            Icon(Icons.Rounded.Delete, contentDescription = "Remove imported track")
+                        }
+                    }
+                }
+            }
+
+            item {
+                val totalBytes = state.tracks.mapNotNull { it.sizeBytes }.sum()
+                Text(
+                    buildString {
+                        append(state.tracks.size)
+                        append(if (state.tracks.size == 1) " file" else " files")
+                        if (totalBytes > 0L) {
+                            append(" • ")
+                            append(formatFileSize(totalBytes))
+                        }
+                    },
+                    color = MuseMuted,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
+    }
+
+    pendingDelete?.let { track ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Remove from Muse?") },
+            text = {
+                Text(
+                    "Muse will forget “${track.title}” and release its saved document access. The original file will not be deleted."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.removeManagedMedia(track)
+                        pendingDelete = null
+                    },
+                ) {
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -2564,6 +2727,22 @@ private fun OptionRow(
                 if (subtitle != null) Text(subtitle, color = MuseMuted, style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    if (bytes <= 0L) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB")
+    var value = bytes.toDouble()
+    var unitIndex = 0
+    while (value >= 1024.0 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex += 1
+    }
+    return if (unitIndex == 0) {
+        "${value.toLong()} ${units[unitIndex]}"
+    } else {
+        String.format(java.util.Locale.US, "%.1f %s", value, units[unitIndex])
     }
 }
 
