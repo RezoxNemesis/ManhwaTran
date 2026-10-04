@@ -157,6 +157,12 @@ class MuseViewModel(
         initialValue = emptyList(),
     )
 
+    val selectedSoundProfileId = preferences.selectedSoundProfileId.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+    )
+
     val recentTracks = combine(_libraryState, preferences.recentTrackIds) { library, ids ->
         val byId = library.tracks.associateBy { it.id }
         ids.mapNotNull(byId::get)
@@ -207,6 +213,30 @@ class MuseViewModel(
             true,
             mediaStoreObserver,
         )
+
+        viewModelScope.launch {
+            combine(
+                selectedSoundProfileId,
+                soundProfiles,
+                playback.audioEffects,
+            ) { selectedId, profiles, effects ->
+                Triple(
+                    selectedId,
+                    profiles.firstOrNull { it.id == selectedId },
+                    effects.sessionReady,
+                )
+            }
+                .distinctUntilChanged()
+                .collect { (selectedId, profile, sessionReady) ->
+                    if (
+                        selectedId != null &&
+                        profile != null &&
+                        sessionReady
+                    ) {
+                        playback.applySoundProfile(profile)
+                    }
+                }
+        }
     }
 
     private fun scheduleLibraryRefresh() {
@@ -427,6 +457,15 @@ class MuseViewModel(
 
     fun applySoundProfile(profile: MuseSoundProfile) {
         playback.applySoundProfile(profile)
+        viewModelScope.launch {
+            preferences.selectSoundProfile(profile.id)
+        }
+    }
+
+    fun clearSelectedSoundProfile() {
+        viewModelScope.launch {
+            preferences.selectSoundProfile(null)
+        }
     }
 
     fun deleteSoundProfile(profileId: String) {
