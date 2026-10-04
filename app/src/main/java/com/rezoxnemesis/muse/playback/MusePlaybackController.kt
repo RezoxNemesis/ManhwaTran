@@ -627,9 +627,17 @@ class MusePlaybackController(
                     .setTitle(track.title)
                     .setArtist(track.artist)
                     .setAlbumTitle(track.album)
+                    .setAlbumArtist(track.albumArtist)
+                    .setGenre(track.genre)
                     .setExtras(
                         Bundle().apply {
                             putString(SourceUriExtraKey, track.uri.toString())
+                            track.bitrateBps?.let {
+                                putInt(BitrateExtraKey, it)
+                            }
+                            track.sampleRateHz?.let {
+                                putInt(SampleRateExtraKey, it)
+                            }
                         }
                     )
                     .build()
@@ -638,5 +646,7 @@ class MusePlaybackController(
 
     private companion object {
         const val SourceUriExtraKey = "muse.source_uri"
+        const val BitrateExtraKey = "muse.bitrate_bps"
+        const val SampleRateExtraKey = "muse.sample_rate_hz"
     }
 }
