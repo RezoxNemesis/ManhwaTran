@@ -94,6 +94,13 @@ jobs:
             adb shell settings put system font_scale 1.0
             adb install -r app/build/outputs/apk/debug/app-debug.apk
 
+            # Silence the Google SDK setup helper on the headless CI emulator.
+            # It is unrelated to Muse but can otherwise place an ANR dialog over captures.
+            adb shell pm disable-user --user 0 com.google.android.googlesdksetup || true
+            adb shell am force-stop com.google.android.googlesdksetup || true
+            adb shell settings put global device_provisioned 1 || true
+            adb shell settings put secure user_setup_complete 1 || true
+
             # Grant the real runtime media permission so the screenshot shows Muse,
             # not the Android permission/onboarding gate.
             adb shell pm grant com.rezoxnemesis.muse android.permission.READ_MEDIA_AUDIO || true
