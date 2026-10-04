@@ -4524,46 +4524,17 @@ private fun EqualizerScreen(
                     }
                 }
 
-                itemsIndexed(
-                    effects.bandCentersHz,
-                    key = { index, frequency -> "$frequency:$index" },
-                ) { index, frequency ->
-                    val level = effects.bandLevelsMb.getOrNull(index) ?: 0
-                    GlassCard {
-                        Column(
-                            modifier = Modifier.padding(
-                                horizontal = 16.dp,
-                                vertical = 12.dp,
-                            ),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    formatFrequency(frequency),
-                                    fontWeight = FontWeight.Medium,
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    formatMillibels(level),
-                                    color = MuseGreen,
-                                )
-                            }
-                            Slider(
-                                value = level.toFloat(),
-                                onValueChange = { value ->
-                                    viewModel.playback.setEqualizerBand(
-                                        index,
-                                        value.roundToLong().toInt(),
-                                    )
-                                },
-                                valueRange = effects.bandMinMb.toFloat()..
-                                    effects.bandMaxMb.toFloat(),
-                                enabled = effects.masterEnabled && !effects.bypass,
-                            )
-                        }
-                    }
+                item {
+                    MuseEqualizerRack(
+                        frequencies = effects.bandCentersHz,
+                        levelsMb = effects.bandLevelsMb,
+                        minMb = effects.bandMinMb,
+                        maxMb = effects.bandMaxMb,
+                        enabled = effects.masterEnabled && !effects.bypass,
+                        onBandChange = { index, level ->
+                            viewModel.playback.setEqualizerBand(index, level)
+                        },
+                    )
                 }
             } else {
                 item {
@@ -4688,6 +4659,199 @@ private fun EqualizerScreen(
 }
 
 @Composable
+private fun MuseEqualizerRack(
+    frequencies: List<Int>,
+    levelsMb: List<Int>,
+    minMb: Int,
+    maxMb: Int,
+    enabled: Boolean,
+    onBandChange: (Int, Int) -> Unit,
+) {
+    val safeRange = (maxMb - minMb).coerceAtLeast(1)
+
+    MuseGlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        variant = MuseGlassVariant.Elevated,
+        cornerRadius = 28.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Live Curve",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    if (enabled) "ACTIVE" else "BYPASSED",
+                    color = if (enabled) MuseGreen else MuseMuted,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp),
+            ) {
+                Canvas(Modifier.fillMaxSize()) {
+                    if (frequencies.isEmpty()) return@Canvas
+
+                    val graphTop = 14.dp.toPx()
+                    val graphBottom = size.height * 0.72f
+                    val left = 18.dp.toPx()
+                    val right = size.width - 18.dp.toPx()
+                    val span = (right - left).coerceAtLeast(1f)
+                    val xStep = if (frequencies.size <= 1) {
+                        0f
+                    } else {
+                        span / (frequencies.size - 1)
+                    }
+
+                    fun point(index: Int): Offset {
+                        val level = levelsMb.getOrNull(index) ?: 0
+                        val normalized = (
+                            (level - minMb).toFloat() / safeRange.toFloat()
+                        ).coerceIn(0f, 1f)
+                        return Offset(
+                            x = if (frequencies.size <= 1) {
+                                size.width / 2f
+                            } else {
+                                left + xStep * index
+                            },
+                            y = graphBottom -
+                                normalized * (graphBottom - graphTop),
+                        )
+                    }
+
+                    val zeroNormalized = (
+                        (0 - minMb).toFloat() / safeRange.toFloat()
+                    ).coerceIn(0f, 1f)
+                    val zeroY = graphBottom -
+                        zeroNormalized * (graphBottom - graphTop)
+
+                    drawLine(
+                        color = MuseGreen.copy(alpha = 0.12f),
+                        start = Offset(left, zeroY),
+                        end = Offset(right, zeroY),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+
+                    frequencies.indices.forEach { index ->
+                        val p = point(index)
+                        drawLine(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    MuseGreen.copy(alpha = 0.18f),
+                                    MuseGreen.copy(alpha = 0.05f),
+                                ),
+                                startY = graphTop,
+                                endY = graphBottom,
+                            ),
+                            start = Offset(p.x, graphTop),
+                            end = Offset(p.x, graphBottom),
+                            strokeWidth = 1.dp.toPx(),
+                        )
+                    }
+
+                    for (index in 0 until frequencies.lastIndex) {
+                        val startPoint = point(index)
+                        val endPoint = point(index + 1)
+                        drawLine(
+                            color = MuseGreen.copy(alpha = 0.18f),
+                            start = startPoint,
+                            end = endPoint,
+                            strokeWidth = 8.dp.toPx(),
+                        )
+                        drawLine(
+                            color = MuseGreen,
+                            start = startPoint,
+                            end = endPoint,
+                            strokeWidth = 2.5.dp.toPx(),
+                        )
+                    }
+
+                    frequencies.indices.forEach { index ->
+                        val p = point(index)
+                        drawCircle(
+                            color = MuseGreen.copy(alpha = 0.16f),
+                            center = p,
+                            radius = 11.dp.toPx(),
+                        )
+                        drawCircle(
+                            color = MuseGreen.copy(alpha = 0.42f),
+                            center = p,
+                            radius = 7.dp.toPx(),
+                        )
+                        drawCircle(
+                            color = Color(0xFFE4FFD9),
+                            center = p,
+                            radius = 4.dp.toPx(),
+                        )
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxSize()) {
+                    frequencies.forEachIndexed { index, frequency ->
+                        val level = levelsMb.getOrNull(index) ?: 0
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Slider(
+                                    value = level.toFloat(),
+                                    onValueChange = { raw ->
+                                        onBandChange(
+                                            index,
+                                            raw.roundToLong().toInt(),
+                                        )
+                                    },
+                                    valueRange = minMb.toFloat()..maxMb.toFloat(),
+                                    enabled = enabled,
+                                    modifier = Modifier
+                                        .width(190.dp)
+                                        .graphicsLayer {
+                                            rotationZ = -90f
+                                            alpha = 0.015f
+                                        },
+                                )
+                            }
+                            Text(
+                                formatMillibels(level),
+                                color = MuseGreen,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                            )
+                            Text(
+                                formatFrequency(frequency),
+                                color = MuseMuted,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun AudioEffectControl(
     title: String,
     subtitle: String,
@@ -4699,7 +4863,14 @@ private fun AudioEffectControl(
     controlsEnabled: Boolean,
     valueLabel: (Int) -> String = { "${it / 10}%" },
 ) {
-    GlassCard {
+    MuseGlassSurface(
+        variant = if (checked) {
+            MuseGlassVariant.Selected
+        } else {
+            MuseGlassVariant.Standard
+        },
+        cornerRadius = 22.dp,
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
         ) {
@@ -4708,7 +4879,11 @@ private fun AudioEffectControl(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(title, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        title,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (checked) MuseGreen else Color.White,
+                    )
                     Text(
                         subtitle,
                         color = MuseMuted,
@@ -4728,14 +4903,18 @@ private fun AudioEffectControl(
                 ) {
                     Slider(
                         value = value.toFloat(),
-                        onValueChange = { onValueChange(it.roundToLong().toInt()) },
-                        valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
+                        onValueChange = {
+                            onValueChange(it.roundToLong().toInt())
+                        },
+                        valueRange = valueRange.first.toFloat()..
+                            valueRange.last.toFloat(),
                         enabled = controlsEnabled,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
                         valueLabel(value),
                         color = MuseGreen,
+                        fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 10.dp),
                     )
                 }
