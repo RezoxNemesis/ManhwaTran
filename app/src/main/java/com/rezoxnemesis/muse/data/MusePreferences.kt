@@ -19,6 +19,7 @@ private val PlaylistsJson = stringPreferencesKey("playlists_json")
 private val ManagedMediaUris = stringSetPreferencesKey("managed_media_uris")
 private val SoundProfilesJson = stringPreferencesKey("sound_profiles_json")
 private val SelectedSoundProfileId = stringPreferencesKey("selected_sound_profile_id")
+private val PlayCountsJson = stringPreferencesKey("play_counts_json")
 
 data class UserPlaylist(
     val id: String,
@@ -77,6 +78,10 @@ class MusePreferences(
             ?.takeIf { it.isNotBlank() }
     }
 
+    val playCounts: Flow<Map<Long, Int>> = context.museDataStore.data.map { prefs ->
+        decodePlayCounts(prefs[PlayCountsJson].orEmpty())
+    }
+
     suspend fun exportBackupJson(): String {
         val prefs = context.museDataStore.data.first()
 
@@ -107,6 +112,10 @@ class MusePreferences(
             }
             .orEmpty()
 
+        val playCounts = decodePlayCounts(
+            prefs[PlayCountsJson].orEmpty(),
+        )
+
         return JSONObject()
             .put("schema", BackupSchemaVersion)
             .put("kind", "muse-local-backup")
@@ -115,6 +124,11 @@ class MusePreferences(
             .put("playlists", JSONArray(encodePlaylists(playlists)))
             .put("soundProfiles", JSONArray(encodeSoundProfiles(profiles)))
             .put("selectedSoundProfileId", selectedProfileId)
+            .put("playCounts", JSONObject().apply {
+                playCounts.forEach { (trackId, count) ->
+                    put(trackId.toString(), count)
+                }
+            })
             .toString(2)
     }
 
@@ -165,6 +179,10 @@ class MusePreferences(
             }
             .orEmpty()
 
+        val playCounts = decodePlayCountsObject(
+            root.optJSONObject("playCounts"),
+        )
+
         context.museDataStore.edit { prefs ->
             prefs[FavoriteTrackIds] = favorites
                 .map(Long::toString)
@@ -173,6 +191,7 @@ class MusePreferences(
             prefs[PlaylistsJson] = encodePlaylists(playlists)
             prefs[SoundProfilesJson] = encodeSoundProfiles(profiles)
             prefs[SelectedSoundProfileId] = selectedProfileId
+            prefs[PlayCountsJson] = encodePlayCounts(playCounts)
         }
 
         return MuseBackupSummary(
@@ -210,6 +229,12 @@ class MusePreferences(
                 .mapNotNull(String::toLongOrNull)
                 .filterNot { it == trackId }
                 .joinToString(",")
+
+            val counts = decodePlayCounts(
+                prefs[PlayCountsJson].orEmpty(),
+            ).toMutableMap()
+            counts.remove(trackId)
+            prefs[PlayCountsJson] = encodePlayCounts(counts)
 
             val playlists = decodePlaylists(prefs[PlaylistsJson].orEmpty())
                 .map { playlist ->
@@ -305,6 +330,14 @@ class MusePreferences(
             current.remove(trackId)
             current.add(0, trackId)
             prefs[RecentTrackIds] = current.take(100).joinToString(",")
+
+            val counts = decodePlayCounts(
+                prefs[PlayCountsJson].orEmpty(),
+            ).toMutableMap()
+            counts[trackId] = (counts[trackId] ?: 0)
+                .plus(1)
+                .coerceAtMost(Int.MAX_VALUE)
+            prefs[PlayCountsJson] = encodePlayCounts(counts)
         }
     }
 
@@ -375,6 +408,41 @@ class MusePreferences(
                 val moved = reordered.removeAt(fromIndex)
                 reordered.add(toIndex, moved)
                 playlist.copy(trackIds = reordered)
+            }
+        }
+    }
+
+    private fun encodePlayCounts(
+        counts: Map<Long, Int>,
+    ): String =
+        JSONObject().apply {
+            counts.forEach { (trackId, count) ->
+                if (trackId != 0L && count > 0) {
+                    put(trackId.toString(), count)
+                }
+            }
+        }.toString()
+
+    private fun decodePlayCounts(
+        raw: String,
+    ): Map<Long, Int> {
+        if (raw.isBlank()) return emptyMap()
+        return runCatching {
+            decodePlayCountsObject(JSONObject(raw))
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun decodePlayCountsObject(
+        source: JSONObject?,
+    ): Map<Long, Int> {
+        if (source == null) return emptyMap()
+        return buildMap {
+            source.keys().forEach { key ->
+                val trackId = key.toLongOrNull()
+                val count = source.optInt(key, 0)
+                if (trackId != null && trackId != 0L && count > 0) {
+                    put(trackId, count)
+                }
             }
         }
     }
