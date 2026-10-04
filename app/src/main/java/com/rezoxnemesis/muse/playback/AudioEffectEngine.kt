@@ -164,6 +164,7 @@ class AudioEffectEngine(
 
         return Bundle().apply {
             putBoolean(AudioEffectProtocol.KeySessionReady, audioSessionId > 0)
+            putInt(AudioEffectProtocol.KeyAudioSessionId, audioSessionId)
             putBoolean(AudioEffectProtocol.KeyMasterEnabled, masterEnabled)
             putBoolean(AudioEffectProtocol.KeyBypass, bypass)
 
