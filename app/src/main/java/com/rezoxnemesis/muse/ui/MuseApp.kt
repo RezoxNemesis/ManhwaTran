@@ -840,6 +840,8 @@ private fun LibraryScreen(
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val liked by viewModel.likedTracks.collectAsStateWithLifecycle()
+    val recent by viewModel.recentTracks.collectAsStateWithLifecycle()
+    val managed by viewModel.managedMediaState.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(LibraryTab.Songs) }
     var selectedSort by remember { mutableStateOf(LibrarySort.Newest) }
@@ -886,25 +888,85 @@ private fun LibraryScreen(
             )
         }
         item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::setSearchQuery,
+            MuseGlassSurface(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                placeholder = { Text("Search your library") },
-                shape = RoundedCornerShape(20.dp),
-            )
+                variant = MuseGlassVariant.Strong,
+                cornerRadius = 26.dp,
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = viewModel::setSearchQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = null,
+                            tint = MuseGreen,
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            "Search your library",
+                            color = MuseMuted,
+                        )
+                    },
+                    shape = RoundedCornerShape(26.dp),
+                )
+            }
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(LibraryTab.entries) { tab ->
-                    FilterChip(
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                LibraryTab.entries.forEach { tab ->
+                    MusePillTab(
+                        label = tab.name,
                         selected = selectedTab == tab,
+                        modifier = Modifier.weight(1f),
                         onClick = { selectedTab = tab },
-                        label = { Text(tab.name) },
                     )
                 }
+            }
+        }
+
+        if (selectedTab == LibraryTab.Songs && query.isBlank()) {
+            item {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    SettingsRow(
+                        icon = Icons.Rounded.Favorite,
+                        title = "Liked Songs",
+                        subtitle = "${liked.size} local favourites",
+                        onClick = { navController.navigate("liked") },
+                    )
+                    SettingsRow(
+                        icon = Icons.Rounded.AccessTime,
+                        title = "Recently Played",
+                        subtitle = "${recent.size} tracks in local history",
+                        onClick = { navController.navigate("recent") },
+                    )
+                    SettingsRow(
+                        icon = Icons.Rounded.Download,
+                        title = "Imported Audio",
+                        subtitle = "${managed.tracks.size} Muse-managed files",
+                        onClick = { navController.navigate("downloads") },
+                    )
+                    SettingsRow(
+                        icon = Icons.Rounded.PlaylistPlay,
+                        title = "My Playlists",
+                        subtitle = "${playlists.size} local playlists",
+                        onClick = { navController.navigate("playlists") },
+                    )
+                }
+            }
+            item {
+                SectionTitle(
+                    title = "Recently Added",
+                    trailing = "${sortedTracks.size} local",
+                )
             }
         }
 
@@ -1173,12 +1235,43 @@ private fun NowPlayingScreen(
             },
         )
         Spacer(Modifier.height(18.dp))
-        TrackArtwork(
-            track = track,
+        MuseGlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f),
-        )
+            variant = MuseGlassVariant.Elevated,
+            cornerRadius = 30.dp,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
+            ) {
+                TrackArtwork(
+                    track = track,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                track?.bitrateBps?.takeIf { it > 0 }?.let { bitrate ->
+                    MuseGlassSurface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(12.dp),
+                        variant = MuseGlassVariant.Strong,
+                        cornerRadius = 18.dp,
+                    ) {
+                        Text(
+                            text = "${bitrate / 1_000} kbps",
+                            color = MuseGreen,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(
+                                horizontal = 12.dp,
+                                vertical = 7.dp,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(24.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1210,9 +1303,6 @@ private fun NowPlayingScreen(
         }
         track?.let { activeTrack ->
             val quality = buildList {
-                activeTrack.bitrateBps?.let { bitrate ->
-                    add("${bitrate / 1_000} kbps")
-                }
                 activeTrack.sampleRateHz?.let { sampleRate ->
                     add(
                         if (sampleRate >= 1_000) {
@@ -1266,17 +1356,20 @@ private fun NowPlayingScreen(
             IconButton(onClick = viewModel.playback::previous) {
                 Icon(Icons.Rounded.SkipPrevious, contentDescription = "Previous")
             }
-            Surface(
-                modifier = Modifier.size(72.dp),
-                shape = CircleShape,
-                color = Color(0x2215FF4F),
-                border = androidx.compose.foundation.BorderStroke(2.dp, MuseGreen),
+            MuseGlassAction(
                 onClick = viewModel.playback::playPause,
+                modifier = Modifier.size(76.dp),
+                variant = MuseGlassVariant.Selected,
+                cornerRadius = 38.dp,
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
                         if (playback.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (playback.isPlaying) "Pause" else "Play",
+                        tint = Color.White,
                         modifier = Modifier.size(38.dp),
                     )
                 }
@@ -1316,20 +1409,34 @@ private fun NowPlayingScreen(
         Spacer(Modifier.height(22.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TextButton(onClick = { navController.navigate("queue") }) {
-                Icon(Icons.Rounded.QueueMusic, contentDescription = null)
-                Text(" Queue")
-            }
-            TextButton(onClick = { navController.navigate("lyrics") }) {
-                Icon(Icons.Rounded.MusicNote, contentDescription = null)
-                Text(" Lyrics")
-            }
-            TextButton(onClick = { navController.navigate("more") }) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = null)
-                Text(" More")
-            }
+            NowPlayingAction(
+                icon = Icons.Rounded.Explore,
+                label = "Flow",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    track?.let(viewModel::playMuseFlow)
+                },
+            )
+            NowPlayingAction(
+                icon = Icons.Rounded.QueueMusic,
+                label = "Queue",
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate("queue") },
+            )
+            NowPlayingAction(
+                icon = Icons.Rounded.MusicNote,
+                label = "Lyrics",
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate("lyrics") },
+            )
+            NowPlayingAction(
+                icon = Icons.Rounded.MoreVert,
+                label = "More",
+                modifier = Modifier.weight(1f),
+                onClick = { navController.navigate("more") },
+            )
         }
     }
 }
@@ -4423,6 +4530,71 @@ private fun QuickAction(
             )
             Spacer(Modifier.height(8.dp))
             Text(label, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun MusePillTab(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = modifier.height(46.dp),
+        variant = if (selected) {
+            MuseGlassVariant.Selected
+        } else {
+            MuseGlassVariant.Standard
+        },
+        cornerRadius = 23.dp,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                label,
+                color = if (selected) MuseGreen else Color.White,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun NowPlayingAction(
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = modifier.height(74.dp),
+        variant = MuseGlassVariant.Standard,
+        cornerRadius = 20.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = MuseGreen,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+            )
         }
     }
 }
