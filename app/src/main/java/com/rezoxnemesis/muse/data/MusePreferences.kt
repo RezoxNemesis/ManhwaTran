@@ -20,6 +20,7 @@ private val ManagedMediaUris = stringSetPreferencesKey("managed_media_uris")
 private val SoundProfilesJson = stringPreferencesKey("sound_profiles_json")
 private val SelectedSoundProfileId = stringPreferencesKey("selected_sound_profile_id")
 private val PlayCountsJson = stringPreferencesKey("play_counts_json")
+private val ListeningSignalsJson = stringPreferencesKey("listening_signals_json")
 
 data class UserPlaylist(
     val id: String,
@@ -82,6 +83,11 @@ class MusePreferences(
         decodePlayCounts(prefs[PlayCountsJson].orEmpty())
     }
 
+    val listeningSignals: Flow<Map<Long, MuseListeningSignal>> =
+        context.museDataStore.data.map { prefs ->
+            decodeListeningSignals(prefs[ListeningSignalsJson].orEmpty())
+        }
+
     suspend fun exportBackupJson(): String {
         val prefs = context.museDataStore.data.first()
 
@@ -115,6 +121,9 @@ class MusePreferences(
         val playCounts = decodePlayCounts(
             prefs[PlayCountsJson].orEmpty(),
         )
+        val listeningSignals = decodeListeningSignals(
+            prefs[ListeningSignalsJson].orEmpty(),
+        )
 
         return JSONObject()
             .put("schema", BackupSchemaVersion)
@@ -129,6 +138,10 @@ class MusePreferences(
                     put(trackId.toString(), count)
                 }
             })
+            .put(
+                "listeningSignals",
+                JSONObject(encodeListeningSignals(listeningSignals)),
+            )
             .toString(2)
     }
 
@@ -182,6 +195,9 @@ class MusePreferences(
         val playCounts = decodePlayCountsObject(
             root.optJSONObject("playCounts"),
         )
+        val listeningSignals = decodeListeningSignalsObject(
+            root.optJSONObject("listeningSignals"),
+        )
 
         context.museDataStore.edit { prefs ->
             prefs[FavoriteTrackIds] = favorites
@@ -192,6 +208,7 @@ class MusePreferences(
             prefs[SoundProfilesJson] = encodeSoundProfiles(profiles)
             prefs[SelectedSoundProfileId] = selectedProfileId
             prefs[PlayCountsJson] = encodePlayCounts(playCounts)
+            prefs[ListeningSignalsJson] = encodeListeningSignals(listeningSignals)
         }
 
         return MuseBackupSummary(
@@ -235,6 +252,12 @@ class MusePreferences(
             ).toMutableMap()
             counts.remove(trackId)
             prefs[PlayCountsJson] = encodePlayCounts(counts)
+
+            val listeningSignals = decodeListeningSignals(
+                prefs[ListeningSignalsJson].orEmpty(),
+            ).toMutableMap()
+            listeningSignals.remove(trackId)
+            prefs[ListeningSignalsJson] = encodeListeningSignals(listeningSignals)
 
             val playlists = decodePlaylists(prefs[PlaylistsJson].orEmpty())
                 .map { playlist ->
@@ -341,6 +364,22 @@ class MusePreferences(
         }
     }
 
+    suspend fun recordListeningOutcome(
+        trackId: Long,
+        completionFraction: Double,
+    ) {
+        if (trackId == 0L || !completionFraction.isFinite()) return
+
+        context.museDataStore.edit { prefs ->
+            val signals = decodeListeningSignals(
+                prefs[ListeningSignalsJson].orEmpty(),
+            ).toMutableMap()
+            val current = signals[trackId] ?: MuseListeningSignal()
+            signals[trackId] = current.record(completionFraction)
+            prefs[ListeningSignalsJson] = encodeListeningSignals(signals)
+        }
+    }
+
     suspend fun createPlaylist(
         name: String,
         trackIds: List<Long> = emptyList(),
@@ -443,6 +482,78 @@ class MusePreferences(
                 if (trackId != null && trackId != 0L && count > 0) {
                     put(trackId, count)
                 }
+            }
+        }
+    }
+
+    private fun encodeListeningSignals(
+        signals: Map<Long, MuseListeningSignal>,
+    ): String =
+        JSONObject().apply {
+            signals.forEach { (trackId, signal) ->
+                if (trackId != 0L && signal.observedSessions > 0) {
+                    put(
+                        trackId.toString(),
+                        JSONObject()
+                            .put("observed", signal.observedSessions)
+                            .put("completed", signal.completedSessions)
+                            .put("skipped", signal.skippedSessions)
+                            .put(
+                                "completionSum",
+                                signal.completionFractionSum.coerceIn(
+                                    0.0,
+                                    signal.observedSessions.toDouble(),
+                                ),
+                            ),
+                    )
+                }
+            }
+        }.toString()
+
+    private fun decodeListeningSignals(
+        raw: String,
+    ): Map<Long, MuseListeningSignal> {
+        if (raw.isBlank()) return emptyMap()
+        return runCatching {
+            decodeListeningSignalsObject(JSONObject(raw))
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun decodeListeningSignalsObject(
+        source: JSONObject?,
+    ): Map<Long, MuseListeningSignal> {
+        if (source == null) return emptyMap()
+        return buildMap {
+            source.keys().forEach { key ->
+                val trackId = key.toLongOrNull()
+                val item = source.optJSONObject(key)
+                if (trackId == null || trackId == 0L || item == null) {
+                    return@forEach
+                }
+
+                val observed = item.optInt("observed", 0)
+                    .coerceAtLeast(0)
+                if (observed <= 0) return@forEach
+
+                val completed = item.optInt("completed", 0)
+                    .coerceIn(0, observed)
+                val skipped = item.optInt("skipped", 0)
+                    .coerceIn(0, observed)
+                val completionSum = item
+                    .optDouble("completionSum", 0.0)
+                    .takeIf(Double::isFinite)
+                    ?.coerceIn(0.0, observed.toDouble())
+                    ?: 0.0
+
+                put(
+                    trackId,
+                    MuseListeningSignal(
+                        observedSessions = observed,
+                        completedSessions = completed,
+                        skippedSessions = skipped,
+                        completionFractionSum = completionSum,
+                    ),
+                )
             }
         }
     }
