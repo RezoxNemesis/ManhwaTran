@@ -1,0 +1,5 @@
+Muse preview release trigger
+
+Requested after successful Muse Android CI #255.
+Purpose: publish an installable preview APK from the latest Muse UI branch state.
+Previous prerelease asset predates the current branch head.
