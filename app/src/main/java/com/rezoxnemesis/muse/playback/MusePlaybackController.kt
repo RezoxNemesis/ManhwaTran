@@ -58,6 +58,7 @@ data class SleepTimerUiState(
 data class AudioEffectsUiState(
     val connected: Boolean = false,
     val sessionReady: Boolean = false,
+    val audioSessionId: Int = 0,
     val masterEnabled: Boolean = true,
     val bypass: Boolean = false,
     val equalizerAvailable: Boolean = false,
@@ -540,6 +541,9 @@ class MusePlaybackController(
         _audioEffects.value = AudioEffectsUiState(
             connected = true,
             sessionReady = extras.getBoolean(AudioEffectProtocol.KeySessionReady),
+            audioSessionId = extras.getInt(
+                AudioEffectProtocol.KeyAudioSessionId,
+            ),
             masterEnabled = extras.getBoolean(
                 AudioEffectProtocol.KeyMasterEnabled,
                 true,
