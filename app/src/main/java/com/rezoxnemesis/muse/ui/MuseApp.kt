@@ -1,6 +1,7 @@
 package com.rezoxnemesis.muse.ui
 
 import android.content.Intent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,7 +87,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -98,6 +101,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.rezoxnemesis.muse.MuseViewModel
+import com.rezoxnemesis.muse.R
 import com.rezoxnemesis.muse.data.Track
 import com.rezoxnemesis.muse.playback.PlaybackUiState
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
@@ -326,9 +330,13 @@ private fun HomeScreen(
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ArtworkPlaceholder(
-                    modifier = Modifier.size(92.dp),
-                    icon = Icons.Rounded.MusicNote,
+                Image(
+                    painter = painterResource(R.drawable.muse_logo),
+                    contentDescription = "Muse logo",
+                    modifier = Modifier
+                        .size(104.dp)
+                        .clip(RoundedCornerShape(26.dp)),
+                    contentScale = ContentScale.Fit,
                 )
                 Spacer(Modifier.height(10.dp))
                 Text("Good Evening", style = MaterialTheme.typography.headlineMedium)
