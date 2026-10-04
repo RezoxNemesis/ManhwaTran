@@ -18,6 +18,7 @@ private val RecentTrackIds = stringPreferencesKey("recent_track_ids")
 private val PlaylistsJson = stringPreferencesKey("playlists_json")
 private val ManagedMediaUris = stringSetPreferencesKey("managed_media_uris")
 private val SoundProfilesJson = stringPreferencesKey("sound_profiles_json")
+private val SelectedSoundProfileId = stringPreferencesKey("selected_sound_profile_id")
 
 data class UserPlaylist(
     val id: String,
@@ -71,6 +72,11 @@ class MusePreferences(
         decodeSoundProfiles(prefs[SoundProfilesJson].orEmpty())
     }
 
+    val selectedSoundProfileId: Flow<String?> = context.museDataStore.data.map { prefs ->
+        prefs[SelectedSoundProfileId]
+            ?.takeIf { it.isNotBlank() }
+    }
+
     suspend fun exportBackupJson(): String {
         val prefs = context.museDataStore.data.first()
 
@@ -94,6 +100,12 @@ class MusePreferences(
         val profiles = decodeSoundProfiles(
             prefs[SoundProfilesJson].orEmpty(),
         )
+        val selectedProfileId = prefs[SelectedSoundProfileId]
+            .orEmpty()
+            .takeIf { selected ->
+                profiles.any { it.id == selected }
+            }
+            .orEmpty()
 
         return JSONObject()
             .put("schema", BackupSchemaVersion)
@@ -102,6 +114,7 @@ class MusePreferences(
             .put("recentTracks", JSONArray(recent))
             .put("playlists", JSONArray(encodePlaylists(playlists)))
             .put("soundProfiles", JSONArray(encodeSoundProfiles(profiles)))
+            .put("selectedSoundProfileId", selectedProfileId)
             .toString(2)
     }
 
@@ -144,6 +157,13 @@ class MusePreferences(
                 ?.toString()
                 .orEmpty(),
         )
+        val selectedProfileId = root
+            .optString("selectedSoundProfileId")
+            .takeIf { selected ->
+                selected.isNotBlank() &&
+                    profiles.any { it.id == selected }
+            }
+            .orEmpty()
 
         context.museDataStore.edit { prefs ->
             prefs[FavoriteTrackIds] = favorites
@@ -152,6 +172,7 @@ class MusePreferences(
             prefs[RecentTrackIds] = recent.joinToString(",")
             prefs[PlaylistsJson] = encodePlaylists(playlists)
             prefs[SoundProfilesJson] = encodeSoundProfiles(profiles)
+            prefs[SelectedSoundProfileId] = selectedProfileId
         }
 
         return MuseBackupSummary(
@@ -239,8 +260,29 @@ class MusePreferences(
     }
 
     suspend fun deleteSoundProfile(profileId: String) {
-        mutateSoundProfiles { current ->
-            current.filterNot { it.id == profileId }
+        context.museDataStore.edit { prefs ->
+            val current = decodeSoundProfiles(
+                prefs[SoundProfilesJson].orEmpty(),
+            )
+            prefs[SoundProfilesJson] = encodeSoundProfiles(
+                current.filterNot { it.id == profileId },
+            )
+            if (prefs[SelectedSoundProfileId] == profileId) {
+                prefs[SelectedSoundProfileId] = ""
+            }
+        }
+    }
+
+    suspend fun selectSoundProfile(profileId: String?) {
+        context.museDataStore.edit { prefs ->
+            val profiles = decodeSoundProfiles(
+                prefs[SoundProfilesJson].orEmpty(),
+            )
+            prefs[SelectedSoundProfileId] = profileId
+                ?.takeIf { selected ->
+                    profiles.any { it.id == selected }
+                }
+                .orEmpty()
         }
     }
 
