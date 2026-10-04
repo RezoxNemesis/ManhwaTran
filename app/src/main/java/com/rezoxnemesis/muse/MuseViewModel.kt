@@ -14,6 +14,9 @@ import com.rezoxnemesis.muse.data.M3uPlaylistRepository
 import com.rezoxnemesis.muse.data.ManagedMediaRepository
 import com.rezoxnemesis.muse.data.MediaLibraryRepository
 import com.rezoxnemesis.muse.data.MuseBackupRepository
+import com.rezoxnemesis.muse.data.MuseFlowEngine
+import com.rezoxnemesis.muse.data.MuseFlowSignals
+import com.rezoxnemesis.muse.data.MuseFlowTrack
 import com.rezoxnemesis.muse.data.MusePreferences
 import com.rezoxnemesis.muse.data.MuseSoundProfile
 import com.rezoxnemesis.muse.data.Track
@@ -87,7 +90,9 @@ class MuseViewModel(
         preferences,
     )
     private val m3uRepository = M3uPlaylistRepository(application)
+    private val museFlowEngine = MuseFlowEngine()
     private var mediaStoreRefreshJob: Job? = null
+    private var lastRecordedTrackId: Long? = null
     private val mediaStoreObserver = object : ContentObserver(
         Handler(Looper.getMainLooper()),
     ) {
@@ -273,6 +278,20 @@ class MuseViewModel(
                         playback.applySoundProfile(profile)
                     }
                 }
+        }
+
+        viewModelScope.launch {
+            playback.state.collect { state ->
+                val trackId = state.currentMediaId
+                if (
+                    state.isPlaying &&
+                    trackId != null &&
+                    trackId != lastRecordedTrackId
+                ) {
+                    lastRecordedTrackId = trackId
+                    preferences.recordPlayed(trackId)
+                }
+            }
         }
     }
 
@@ -678,35 +697,49 @@ class MuseViewModel(
             .take(30)
     }
 
-    fun playLocalSongRadio(seed: Track) {
-        val library = _libraryState.value.tracks
-        val favourites = favoriteIds.value
-        val recents = recentTracks.value.map { it.id }.toSet()
+    fun playMuseFlow(seed: Track) {
+        viewModelScope.launch {
+            val library = _libraryState.value.tracks
+            if (library.none { it.id == seed.id }) return@launch
 
-        val related = library
-            .asSequence()
-            .filter { it.id != seed.id }
-            .map { candidate ->
-                val score =
-                    (if (candidate.artist == seed.artist) 6 else 0) +
-                    (if (candidate.album == seed.album) 4 else 0) +
-                    (if (candidate.id in favourites) 2 else 0) +
-                    (if (candidate.id in recents) 1 else 0)
-                candidate to score
-            }
-            .filter { (_, score) -> score > 0 }
-            .sortedWith(
-                compareByDescending<Pair<Track, Int>> { it.second }
-                    .thenByDescending { it.first.dateAddedSeconds }
-                    .thenBy { it.first.title.lowercase() }
+            val queueIds = museFlowEngine.buildQueue(
+                seedId = seed.id,
+                library = library.map(Track::toMuseFlowTrack),
+                signals = MuseFlowSignals(
+                    favoriteIds = preferences.favoriteIds.first(),
+                    recentTrackIds = preferences.recentTrackIds.first(),
+                    playCounts = preferences.playCounts.first(),
+                    sessionTrackIds = playback.state.value.queue
+                        .mapNotNull { item -> item.mediaId },
+                ),
+                limit = 40,
             )
-            .map { it.first }
-            .take(40)
-            .toList()
+            val byId = library.associateBy(Track::id)
+            val flowQueue = queueIds.mapNotNull(byId::get)
+            if (flowQueue.isEmpty()) return@launch
 
-        val radio = listOf(seed) + related
-        playback.playTracks(radio, 0)
+            playback.setShuffleEnabled(false)
+            playback.playTracks(flowQueue, 0)
+        }
     }
+
+    @Deprecated(
+        message = "Use Muse Flow so Song Radio and continuous local recommendations share one engine.",
+        replaceWith = ReplaceWith("playMuseFlow(seed)"),
+    )
+    fun playLocalSongRadio(seed: Track) = playMuseFlow(seed)
+
+    private fun Track.toMuseFlowTrack(): MuseFlowTrack =
+        MuseFlowTrack(
+            id = id,
+            title = title,
+            artist = artist,
+            album = album,
+            albumArtist = albumArtist,
+            genre = genre,
+            year = year,
+            dateAddedSeconds = dateAddedSeconds,
+        )
 
     fun playlistTracks(playlist: UserPlaylist): List<Track> {
         val byId = _libraryState.value.tracks.associateBy { it.id }
