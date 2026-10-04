@@ -238,6 +238,7 @@ class MusePlaybackService : MediaSessionService() {
             .apply {
                 setAudioAttributes(audioAttributes, true)
                 setHandleAudioBecomingNoisy(true)
+                setWakeMode(C.WAKE_MODE_LOCAL)
                 playWhenReady = false
             }
 
