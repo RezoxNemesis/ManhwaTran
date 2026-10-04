@@ -2374,7 +2374,33 @@ private fun SettingsScreen(
 ) {
     val state by viewModel.libraryState.collectAsStateWithLifecycle()
     val backup by viewModel.backupState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val libraryPermission = if (
+        android.os.Build.VERSION.SDK_INT >=
+        android.os.Build.VERSION_CODES.TIRAMISU
+    ) {
+        android.Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        android.Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+    var libraryPermissionGranted by remember {
+        mutableStateOf(
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                libraryPermission,
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val libraryPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        libraryPermissionGranted = granted
+        if (granted) {
+            viewModel.refreshLibrary()
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -2404,6 +2430,18 @@ private fun SettingsScreen(
                 subtitle = "${state.tracks.size} local tracks • tap to rescan",
                 onClick = viewModel::refreshLibrary,
             )
+        }
+        if (!libraryPermissionGranted) {
+            item {
+                SettingsRow(
+                    icon = Icons.Rounded.LibraryMusic,
+                    title = "Enable Device Library",
+                    subtitle = "Grant Android music access while keeping imported files available",
+                    onClick = {
+                        libraryPermissionLauncher.launch(libraryPermission)
+                    },
+                )
+            }
         }
         item {
             SettingsRow(
