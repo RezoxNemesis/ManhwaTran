@@ -312,6 +312,18 @@ class MuseViewModel(
         playback.playTracks(tracks, startIndex)
     }
 
+    fun playTracksInOrder(tracks: List<Track>) {
+        if (tracks.isEmpty()) return
+        playback.setShuffleEnabled(false)
+        playback.playTracks(tracks, 0)
+    }
+
+    fun playTracksShuffled(tracks: List<Track>) {
+        if (tracks.isEmpty()) return
+        playback.setShuffleEnabled(true)
+        playback.playTracks(tracks, 0)
+    }
+
     fun toggleFavorite(trackId: Long) {
         viewModelScope.launch { preferences.toggleFavorite(trackId) }
     }
