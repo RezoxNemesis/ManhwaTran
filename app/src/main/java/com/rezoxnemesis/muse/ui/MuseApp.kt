@@ -333,6 +333,14 @@ private fun HomeScreen(
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filtered by viewModel.filteredTracks.collectAsStateWithLifecycle()
     val recent by viewModel.recentTracks.collectAsStateWithLifecycle()
+    val greeting = remember {
+        when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+            in 5..11 -> "Good Morning"
+            in 12..16 -> "Good Afternoon"
+            in 17..21 -> "Good Evening"
+            else -> "Good Night"
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -360,7 +368,7 @@ private fun HomeScreen(
                     contentScale = ContentScale.Fit,
                 )
                 Spacer(Modifier.height(10.dp))
-                Text("Good Evening", style = MaterialTheme.typography.headlineMedium)
+                Text(greeting, style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "FEEL THE MUSIC",
                     color = MuseGreen,
