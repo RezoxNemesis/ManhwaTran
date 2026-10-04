@@ -1,6 +1,8 @@
 package com.rezoxnemesis.muse.ui
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -75,9 +78,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -210,7 +215,7 @@ fun MuseApp(
                     QueueScreen(viewModel, navController)
                 }
                 composable("lyrics") {
-                    LyricsScreen(navController)
+                    LyricsScreen(viewModel, navController)
                 }
                 composable("liked") {
                     LikedScreen(viewModel, navController)
@@ -770,21 +775,232 @@ private fun QueueScreen(
 
 @Composable
 private fun LyricsScreen(
+    viewModel: MuseViewModel,
     navController: NavHostController,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader(title = "Lyrics", onBack = { navController.popBackStack() })
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(22.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            EmptyCard(
-                title = "No local lyrics found",
-                body = "Muse will use embedded lyrics, local LRC files, or user-imported lyrics. It will not fabricate song lyrics.",
-            )
+    val track by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val playback by viewModel.playback.state.collectAsStateWithLifecycle()
+    val lyrics by viewModel.lyricsState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    var autoFollow by remember { mutableStateOf(true) }
+    var confirmRemove by remember { mutableStateOf(false) }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+    ) { uri ->
+        val activeTrack = track
+        if (uri != null && activeTrack != null) {
+            viewModel.importLyrics(activeTrack.id, uri)
         }
+    }
+
+    LaunchedEffect(track?.id) {
+        track?.let { viewModel.loadLyrics(it.id) }
+    }
+
+    val document = lyrics.document
+    val activeIndex = if (document?.synced == true) {
+        document.lines.indexOfLast { line ->
+            val time = line.timeMs
+            time != null && time <= playback.positionMs
+        }
+    } else {
+        -1
+    }
+
+    LaunchedEffect(activeIndex, autoFollow) {
+        if (autoFollow && activeIndex >= 0 && document != null) {
+            listState.animateScrollToItem((activeIndex - 2).coerceAtLeast(0))
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        ScreenHeader(
+            title = "Lyrics",
+            onBack = { navController.popBackStack() },
+            action = {
+                if (track != null) {
+                    TextButton(onClick = { importLauncher.launch("text/*") }) {
+                        Text(if (document == null) "Import" else "Replace")
+                    }
+                }
+            },
+        )
+
+        if (track == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(22.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                EmptyCard(
+                    title = "Nothing playing",
+                    body = "Start a track, then open Lyrics to attach or view local lyrics.",
+                )
+            }
+            return@Column
+        }
+
+        if (lyrics.loading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(22.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Loading lyrics…", color = MuseMuted)
+            }
+            return@Column
+        }
+
+        if (lyrics.error != null) {
+            Column(
+                modifier = Modifier.padding(horizontal = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ErrorCard(
+                    message = lyrics.error.orEmpty(),
+                    onRetry = { viewModel.loadLyrics(track!!.id) },
+                )
+            }
+        }
+
+        if (document == null || document.lines.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(22.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                GlassCard {
+                    Column(
+                        modifier = Modifier.padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            "No local lyrics found",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Import a .lrc or plain-text lyric file you own. Muse stores the imported copy locally and never fabricates lyrics.",
+                            color = MuseMuted,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Button(
+                            onClick = { importLauncher.launch("text/*") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MuseGreen,
+                                contentColor = MuseBackground,
+                            ),
+                        ) {
+                            Text("Import Lyrics")
+                        }
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        track!!.title,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        if (document.synced) "Synced local lyrics" else "Plain local lyrics",
+                        color = MuseMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (document.synced) {
+                    Text("Auto-follow", color = MuseMuted)
+                    Switch(
+                        checked = autoFollow,
+                        onCheckedChange = { autoFollow = it },
+                    )
+                }
+                IconButton(onClick = { confirmRemove = true }) {
+                    Icon(Icons.Rounded.Delete, contentDescription = "Remove imported lyrics")
+                }
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = 18.dp,
+                    bottom = 56.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                itemsIndexed(document.lines) { index, line ->
+                    val active = index == activeIndex
+                    val textColor = if (active) MuseGreen else Color.White.copy(alpha = 0.78f)
+                    Text(
+                        text = line.text.ifBlank { "♪" },
+                        color = textColor,
+                        style = if (active) {
+                            MaterialTheme.typography.headlineSmall
+                        } else {
+                            MaterialTheme.typography.titleMedium
+                        },
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                enabled = line.timeMs != null,
+                                onClick = {
+                                    line.timeMs?.let {
+                                        viewModel.playback.seekTo(it)
+                                        autoFollow = true
+                                    }
+                                },
+                            ),
+                    )
+                }
+            }
+        }
+    }
+
+    if (confirmRemove && track != null) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove imported lyrics?") },
+            text = {
+                Text(
+                    "This removes Muse’s local lyric copy for “${track!!.title}”. Your music file is not changed."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.removeLyrics(track!!.id)
+                        confirmRemove = false
+                    },
+                ) {
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
