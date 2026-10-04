@@ -282,6 +282,9 @@ fun MuseApp(
                 composable("settings") {
                     SettingsScreen(viewModel, navController)
                 }
+                composable("diagnostics") {
+                    DiagnosticsScreen(viewModel, navController)
+                }
                 composable("more") {
                     MoreOptionsScreen(viewModel, navController)
                 }
@@ -2968,6 +2971,14 @@ private fun SettingsScreen(
                 }
             }
         }
+        item {
+            SettingsRow(
+                icon = Icons.Rounded.Info,
+                title = "Diagnostics",
+                subtitle = "Playback, permissions and device audio capability",
+                onClick = { navController.navigate("diagnostics") },
+            )
+        }
     }
 
     pendingRestoreUri?.let { uri ->
@@ -2997,6 +3008,213 @@ private fun SettingsScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun DiagnosticsScreen(
+    viewModel: MuseViewModel,
+    navController: NavHostController,
+) {
+    val context = LocalContext.current
+    val library by viewModel.libraryState.collectAsStateWithLifecycle()
+    val playback by viewModel.playback.state.collectAsStateWithLifecycle()
+    val effects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
+    val timer by viewModel.playback.sleepTimer.collectAsStateWithLifecycle()
+    val managed by viewModel.managedMediaState.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+
+    val libraryPermission = if (
+        android.os.Build.VERSION.SDK_INT >=
+        android.os.Build.VERSION_CODES.TIRAMISU
+    ) {
+        android.Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        android.Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+    val permissionGranted =
+        androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            libraryPermission,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    fun bool(value: Boolean): String =
+        if (value) "Yes" else "No"
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            ScreenHeader(
+                title = "Diagnostics",
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        item {
+            SectionTitle(
+                title = "Build",
+                trailing = if (BuildConfig.DEBUG) "Debug" else "Release",
+            )
+        }
+        item {
+            DiagnosticRow("Version", BuildConfig.VERSION_NAME)
+        }
+        item {
+            DiagnosticRow(
+                "Android",
+                android.os.Build.VERSION.RELEASE +
+                    " (API " + android.os.Build.VERSION.SDK_INT + ")",
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Device library permission",
+                bool(permissionGranted),
+            )
+        }
+
+        item {
+            SectionTitle(title = "Library")
+        }
+        item {
+            DiagnosticRow(
+                "Tracks",
+                library.tracks.size.toString(),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Imported audio",
+                managed.tracks.size.toString(),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Playlists",
+                playlists.size.toString(),
+            )
+        }
+
+        item {
+            SectionTitle(title = "Playback")
+        }
+        item {
+            DiagnosticRow(
+                "Media session connected",
+                bool(playback.connected),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Playing",
+                bool(playback.isPlaying),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Queue items",
+                playback.queue.size.toString(),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Sleep Scene active",
+                bool(timer.active),
+            )
+        }
+        if (BuildConfig.DEBUG) {
+            item {
+                DiagnosticRow(
+                    "Audio session ID",
+                    effects.audioSessionId
+                        .takeIf { it > 0 }
+                        ?.toString()
+                        ?: "Unavailable",
+                )
+            }
+        }
+
+        item {
+            SectionTitle(title = "Audio Capabilities")
+        }
+        item {
+            DiagnosticRow(
+                "Equalizer",
+                bool(effects.equalizerAvailable),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Bass Boost",
+                bool(effects.bassAvailable),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Virtualizer",
+                bool(effects.virtualizerAvailable),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Loudness Enhancer",
+                bool(effects.loudnessAvailable),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Spatial audio supported",
+                bool(effects.spatialSupported),
+            )
+        }
+        item {
+            DiagnosticRow(
+                "Spatial audio available",
+                bool(effects.spatialAvailable),
+            )
+        }
+
+        item {
+            GlassCard {
+                Text(
+                    "Diagnostics stay on-device and intentionally avoid file paths, content URIs and other private media identifiers.",
+                    color = MuseMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticRow(
+    label: String,
+    value: String,
+) {
+    GlassCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 12.dp,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                label,
+                modifier = Modifier.weight(1f),
+                color = MuseMuted,
+            )
+            Text(
+                value,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 
