@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rezoxnemesis.muse.data.LyricsDocument
 import com.rezoxnemesis.muse.data.LyricsRepository
+import com.rezoxnemesis.muse.data.M3uPlaylistRepository
 import com.rezoxnemesis.muse.data.ManagedMediaRepository
 import com.rezoxnemesis.muse.data.MediaLibraryRepository
 import com.rezoxnemesis.muse.data.MuseBackupRepository
@@ -67,6 +68,13 @@ data class BackupUiState(
     val error: String? = null,
 )
 
+data class PlaylistTransferUiState(
+    val busy: Boolean = false,
+    val message: String? = null,
+    val unresolvedEntries: List<String> = emptyList(),
+    val error: String? = null,
+)
+
 class MuseViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
@@ -78,6 +86,7 @@ class MuseViewModel(
         application,
         preferences,
     )
+    private val m3uRepository = M3uPlaylistRepository(application)
     private var mediaStoreRefreshJob: Job? = null
     private val mediaStoreObserver = object : ContentObserver(
         Handler(Looper.getMainLooper()),
@@ -229,6 +238,11 @@ class MuseViewModel(
 
     private val _backupState = MutableStateFlow(BackupUiState())
     val backupState = _backupState.asStateFlow()
+
+    private val _playlistTransferState = MutableStateFlow(
+        PlaylistTransferUiState()
+    )
+    val playlistTransferState = _playlistTransferState.asStateFlow()
 
     init {
         application.contentResolver.registerContentObserver(
@@ -420,6 +434,84 @@ class MuseViewModel(
 
     fun clearBackupMessage() {
         _backupState.value = BackupUiState()
+    }
+
+    fun importM3uPlaylist(source: Uri) {
+        viewModelScope.launch {
+            _playlistTransferState.value = PlaylistTransferUiState(
+                busy = true,
+            )
+            m3uRepository.importPlaylist(
+                source = source,
+                library = _libraryState.value.tracks,
+            )
+                .onSuccess { result ->
+                    preferences.createPlaylist(
+                        name = result.name,
+                        trackIds = result.trackIds,
+                    )
+                    _playlistTransferState.value = PlaylistTransferUiState(
+                        message = buildString {
+                            append("Imported “")
+                            append(result.name)
+                            append("” with ")
+                            append(result.trackIds.size)
+                            append(
+                                if (result.trackIds.size == 1) {
+                                    " matched track."
+                                } else {
+                                    " matched tracks."
+                                }
+                            )
+                            if (result.unresolvedEntries.isNotEmpty()) {
+                                append(" ")
+                                append(result.unresolvedEntries.size)
+                                append(" entries could not be matched.")
+                            }
+                        },
+                        unresolvedEntries = result.unresolvedEntries,
+                    )
+                }
+                .onFailure { error ->
+                    _playlistTransferState.value = PlaylistTransferUiState(
+                        error = error.message ?: "Could not import the playlist.",
+                    )
+                }
+        }
+    }
+
+    fun exportPlaylistM3u(
+        playlistId: String,
+        destination: Uri,
+    ) {
+        val playlist = playlists.value.firstOrNull {
+            it.id == playlistId
+        } ?: return
+
+        val tracks = playlistTracks(playlist)
+        viewModelScope.launch {
+            _playlistTransferState.value = PlaylistTransferUiState(
+                busy = true,
+            )
+            m3uRepository.exportPlaylist(
+                destination = destination,
+                tracks = tracks,
+            )
+                .onSuccess {
+                    _playlistTransferState.value = PlaylistTransferUiState(
+                        message = "Exported “${playlist.name}” as M3U8.",
+                    )
+                }
+                .onFailure { error ->
+                    _playlistTransferState.value = PlaylistTransferUiState(
+                        error = error.message ?: "Could not export the playlist.",
+                    )
+                }
+        }
+    }
+
+    fun clearPlaylistTransferMessage() {
+        _playlistTransferState.value = PlaylistTransferUiState()
     }
 
     fun setSearchQuery(query: String) {
