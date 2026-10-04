@@ -117,7 +117,9 @@ class MuseViewModel(
                 state.tracks.filter { track ->
                     track.title.contains(needle, ignoreCase = true) ||
                         track.artist.contains(needle, ignoreCase = true) ||
-                        track.album.contains(needle, ignoreCase = true)
+                        track.album.contains(needle, ignoreCase = true) ||
+                        track.albumArtist?.contains(needle, ignoreCase = true) == true ||
+                        track.genre?.contains(needle, ignoreCase = true) == true
                 }
             }
         }
@@ -481,7 +483,21 @@ class MuseViewModel(
 
         return library
             .map { track ->
-                val searchable = "${track.title} ${track.album} ${track.artist}".lowercase()
+                val searchable = buildString {
+                    append(track.title)
+                    append(' ')
+                    append(track.album)
+                    append(' ')
+                    append(track.artist)
+                    track.albumArtist?.let {
+                        append(' ')
+                        append(it)
+                    }
+                    track.genre?.let {
+                        append(' ')
+                        append(it)
+                    }
+                }.lowercase()
                 val keywordHits = keywords.count(searchable::contains)
                 val durationScore = when (mood) {
                     MuseMood.Chill,
