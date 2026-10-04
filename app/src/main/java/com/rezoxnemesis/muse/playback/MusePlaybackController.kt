@@ -42,6 +42,13 @@ data class PlaybackUiState(
     val queue: List<QueueUiItem> = emptyList(),
 )
 
+data class SleepTimerUiState(
+    val connected: Boolean = false,
+    val active: Boolean = false,
+    val remainingMs: Long = 0L,
+    val deadlineWallMs: Long = 0L,
+)
+
 data class AudioEffectsUiState(
     val connected: Boolean = false,
     val sessionReady: Boolean = false,
@@ -84,6 +91,9 @@ class MusePlaybackController(
     private val _audioEffects = MutableStateFlow(AudioEffectsUiState())
     val audioEffects: StateFlow<AudioEffectsUiState> = _audioEffects.asStateFlow()
 
+    private val _sleepTimer = MutableStateFlow(SleepTimerUiState())
+    val sleepTimer: StateFlow<SleepTimerUiState> = _sleepTimer.asStateFlow()
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             syncFrom(player)
@@ -104,6 +114,7 @@ class MusePlaybackController(
                         syncFrom(mediaController)
                         startTicker()
                         refreshAudioEffects()
+                        refreshSleepTimer()
                     }
             },
             mainExecutor,
@@ -180,6 +191,53 @@ class MusePlaybackController(
                 player.removeMediaItems(currentIndex + 1, player.mediaItemCount)
             }
         }
+    }
+
+    fun refreshSleepTimer() {
+        val mediaController = controller ?: return
+        val future = mediaController.sendCustomCommand(
+            SleepTimerProtocol.GetStateCommand,
+            Bundle.EMPTY,
+        )
+        future.addListener(
+            {
+                runCatching { future.get() }
+                    .onSuccess(::applySleepTimerResult)
+            },
+            mainExecutor,
+        )
+    }
+
+    fun startSleepTimer(minutes: Int) {
+        val mediaController = controller ?: return
+        val future = mediaController.sendCustomCommand(
+            SleepTimerProtocol.StartCommand,
+            Bundle().apply {
+                putInt(SleepTimerProtocol.KeyMinutes, minutes)
+            },
+        )
+        future.addListener(
+            {
+                runCatching { future.get() }
+                    .onSuccess(::applySleepTimerResult)
+            },
+            mainExecutor,
+        )
+    }
+
+    fun cancelSleepTimer() {
+        val mediaController = controller ?: return
+        val future = mediaController.sendCustomCommand(
+            SleepTimerProtocol.CancelCommand,
+            Bundle.EMPTY,
+        )
+        future.addListener(
+            {
+                runCatching { future.get() }
+                    .onSuccess(::applySleepTimerResult)
+            },
+            mainExecutor,
+        )
     }
 
     fun refreshAudioEffects() {
@@ -304,6 +362,31 @@ class MusePlaybackController(
         )
     }
 
+    private fun applySleepTimerResult(result: SessionResult) {
+        if (result.resultCode != SessionResult.RESULT_SUCCESS) return
+        val extras = result.extras
+        _sleepTimer.value = SleepTimerUiState(
+            connected = true,
+            active = extras.getBoolean(SleepTimerProtocol.KeyActive),
+            remainingMs = extras.getLong(SleepTimerProtocol.KeyRemainingMs),
+            deadlineWallMs = extras.getLong(SleepTimerProtocol.KeyDeadlineWallMs),
+        )
+    }
+
+    private fun syncSleepTimerCountdown() {
+        val state = _sleepTimer.value
+        if (!state.active || state.deadlineWallMs <= 0L) return
+
+        val remaining = (state.deadlineWallMs - System.currentTimeMillis())
+            .coerceAtLeast(0L)
+
+        _sleepTimer.value = state.copy(
+            active = remaining > 0L,
+            remainingMs = remaining,
+            deadlineWallMs = if (remaining > 0L) state.deadlineWallMs else 0L,
+        )
+    }
+
     private fun applyAudioEffectResult(result: SessionResult) {
         if (result.resultCode != SessionResult.RESULT_SUCCESS) return
         val extras = result.extras
@@ -372,6 +455,7 @@ class MusePlaybackController(
         tickerJob = scope.launch {
             while (isActive) {
                 controller?.let(::syncFrom)
+                syncSleepTimerCountdown()
                 delay(500)
             }
         }
