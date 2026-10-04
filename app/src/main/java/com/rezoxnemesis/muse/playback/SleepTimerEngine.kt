@@ -16,9 +16,14 @@ class SleepTimerEngine(
     private val handler = Handler(Looper.getMainLooper())
 
     private val expireRunnable = Runnable {
+        val mode = mode()
         val deadline = deadlineWallMs()
-        if (deadline > 0L && deadline <= System.currentTimeMillis()) {
-            clearDeadline()
+        if (
+            mode == SleepTimerProtocol.ModeDuration &&
+            deadline > 0L &&
+            deadline <= System.currentTimeMillis()
+        ) {
+            clearState()
             onExpired()
         } else {
             schedule()
@@ -29,30 +34,83 @@ class SleepTimerEngine(
         restore()
     }
 
-    fun start(minutes: Int): Bundle {
-        val safeMinutes = minutes.coerceIn(MinMinutes, MaxMinutes)
-        val deadline = System.currentTimeMillis() + safeMinutes * 60_000L
-        preferences.edit()
-            .putLong(KeyDeadlineWallMsPref, deadline)
-            .apply()
-        schedule()
-        return snapshot()
+    fun start(
+        mode: String,
+        minutes: Int,
+    ): Bundle {
+        return when (mode) {
+            SleepTimerProtocol.ModeAfterCurrent -> {
+                storeMode(SleepTimerProtocol.ModeAfterCurrent)
+                clearDeadline()
+                handler.removeCallbacks(expireRunnable)
+                snapshot()
+            }
+
+            SleepTimerProtocol.ModeEndOfQueue -> {
+                storeMode(SleepTimerProtocol.ModeEndOfQueue)
+                clearDeadline()
+                handler.removeCallbacks(expireRunnable)
+                snapshot()
+            }
+
+            else -> {
+                val safeMinutes = minutes.coerceIn(MinMinutes, MaxMinutes)
+                val deadline = System.currentTimeMillis() + safeMinutes * 60_000L
+                preferences.edit()
+                    .putString(KeyModePref, SleepTimerProtocol.ModeDuration)
+                    .putLong(KeyDeadlineWallMsPref, deadline)
+                    .apply()
+                schedule()
+                snapshot()
+            }
+        }
+    }
+
+    fun onMediaItemTransition(): Boolean {
+        if (mode() != SleepTimerProtocol.ModeAfterCurrent) return false
+        clearState()
+        return true
+    }
+
+    fun onPlaybackEnded(): Boolean {
+        if (mode() != SleepTimerProtocol.ModeEndOfQueue) return false
+        clearState()
+        return true
     }
 
     fun cancel(): Bundle {
         handler.removeCallbacks(expireRunnable)
-        clearDeadline()
+        clearState()
         return snapshot()
     }
 
     fun snapshot(): Bundle {
+        val currentMode = mode()
         val now = System.currentTimeMillis()
         val deadline = deadlineWallMs()
-        val remaining = (deadline - now).coerceAtLeast(0L)
-        val active = deadline > now
 
-        if (!active && deadline > 0L) {
-            clearDeadline()
+        val active = when (currentMode) {
+            SleepTimerProtocol.ModeDuration -> deadline > now
+            SleepTimerProtocol.ModeAfterCurrent,
+            SleepTimerProtocol.ModeEndOfQueue -> true
+            else -> false
+        }
+
+        if (
+            currentMode == SleepTimerProtocol.ModeDuration &&
+            !active &&
+            deadline > 0L
+        ) {
+            clearState()
+        }
+
+        val remaining = if (
+            currentMode == SleepTimerProtocol.ModeDuration &&
+            active
+        ) {
+            (deadline - now).coerceAtLeast(0L)
+        } else {
+            0L
         }
 
         return Bundle().apply {
@@ -60,7 +118,15 @@ class SleepTimerEngine(
             putLong(SleepTimerProtocol.KeyRemainingMs, remaining)
             putLong(
                 SleepTimerProtocol.KeyDeadlineWallMs,
-                if (active) deadline else 0L,
+                if (active && currentMode == SleepTimerProtocol.ModeDuration) {
+                    deadline
+                } else {
+                    0L
+                },
+            )
+            putString(
+                SleepTimerProtocol.KeyMode,
+                if (active) currentMode else "",
             )
         }
     }
@@ -70,25 +136,42 @@ class SleepTimerEngine(
     }
 
     private fun restore() {
-        val deadline = deadlineWallMs()
-        if (deadline <= 0L) return
+        when (mode()) {
+            SleepTimerProtocol.ModeDuration -> {
+                val deadline = deadlineWallMs()
+                if (deadline <= System.currentTimeMillis()) {
+                    clearState()
+                } else {
+                    schedule()
+                }
+            }
 
-        if (deadline <= System.currentTimeMillis()) {
-            clearDeadline()
-            return
+            SleepTimerProtocol.ModeAfterCurrent,
+            SleepTimerProtocol.ModeEndOfQueue -> {
+                handler.removeCallbacks(expireRunnable)
+            }
+
+            else -> clearState()
         }
-
-        schedule()
     }
 
     private fun schedule() {
         handler.removeCallbacks(expireRunnable)
+        if (mode() != SleepTimerProtocol.ModeDuration) return
+
         val remaining = deadlineWallMs() - System.currentTimeMillis()
         if (remaining <= 0L) {
             handler.post(expireRunnable)
         } else {
             handler.postDelayed(expireRunnable, remaining)
         }
+    }
+
+    private fun mode(): String =
+        preferences.getString(KeyModePref, "").orEmpty()
+
+    private fun storeMode(value: String) {
+        preferences.edit().putString(KeyModePref, value).apply()
     }
 
     private fun deadlineWallMs(): Long =
@@ -98,8 +181,17 @@ class SleepTimerEngine(
         preferences.edit().remove(KeyDeadlineWallMsPref).apply()
     }
 
+    private fun clearState() {
+        handler.removeCallbacks(expireRunnable)
+        preferences.edit()
+            .remove(KeyModePref)
+            .remove(KeyDeadlineWallMsPref)
+            .apply()
+    }
+
     private companion object {
         const val PreferencesName = "muse_sleep_timer"
+        const val KeyModePref = "mode"
         const val KeyDeadlineWallMsPref = "deadline_wall_ms"
         const val MinMinutes = 1
         const val MaxMinutes = 12 * 60
