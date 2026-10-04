@@ -1,6 +1,6 @@
 package com.rezoxnemesis.muse
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -18,6 +18,6 @@ class MuseLaunchSmokeTest {
         composeRule.waitForIdle()
         composeRule
             .onNode(hasTestTag("MuseRoot"))
-            .assertExists()
+            .assertIsDisplayed()
     }
 }
