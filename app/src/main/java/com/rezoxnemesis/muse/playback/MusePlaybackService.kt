@@ -57,6 +57,30 @@ class MusePlaybackService : MediaSessionService() {
         override fun onAudioSessionIdChanged(audioSessionId: Int) {
             audioEffects.attach(audioSessionId)
         }
+
+        override fun onMediaItemTransition(
+            mediaItem: androidx.media3.common.MediaItem?,
+            reason: Int,
+        ) {
+            if (sleepTimer.onMediaItemTransition()) {
+                mediaSession?.player?.let { player ->
+                    player.pause()
+                    snapshotStore.save(player)
+                }
+            }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (
+                playbackState == Player.STATE_ENDED &&
+                sleepTimer.onPlaybackEnded()
+            ) {
+                mediaSession?.player?.let { player ->
+                    player.pause()
+                    snapshotStore.save(player)
+                }
+            }
+        }
     }
 
     private val sessionCallback = object : MediaSession.Callback {
@@ -118,10 +142,14 @@ class MusePlaybackService : MediaSessionService() {
 
                 SleepTimerProtocol.ActionStart -> {
                     val minutes = args.getInt(SleepTimerProtocol.KeyMinutes, 30)
+                    val mode = args.getString(
+                        SleepTimerProtocol.KeyMode,
+                        SleepTimerProtocol.ModeDuration,
+                    )
                     Futures.immediateFuture(
                         SessionResult(
                             SessionResult.RESULT_SUCCESS,
-                            sleepTimer.start(minutes),
+                            sleepTimer.start(mode, minutes),
                         )
                     )
                 }
@@ -159,13 +187,13 @@ class MusePlaybackService : MediaSessionService() {
                 playWhenReady = false
             }
 
-        snapshotStore.restore(player)
-        player.addListener(playerListener)
-        audioEffects.attach(player.audioSessionId)
         sleepTimer = SleepTimerEngine(this) {
             player.pause()
             snapshotStore.save(player)
         }
+        snapshotStore.restore(player)
+        player.addListener(playerListener)
+        audioEffects.attach(player.audioSessionId)
 
         val sessionIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
