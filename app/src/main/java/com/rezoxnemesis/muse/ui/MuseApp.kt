@@ -1725,35 +1725,83 @@ private fun ArtistScreen(
     navController: NavHostController,
 ) {
     val artist by viewModel.selectedArtist.collectAsStateWithLifecycle()
-    val tracks = viewModel.artistTracks(artist)
+    val library by viewModel.libraryState.collectAsStateWithLifecycle()
+    val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val tracks = if (artist == null) {
+        emptyList()
+    } else {
+        library.tracks.filter { it.artist == artist }
+    }
+    val albumCount = tracks.map { it.album }.distinct().size
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        item { ScreenHeader(artist ?: "Artist", { navController.popBackStack() }) }
         item {
-            Text(
-                "${tracks.size} local tracks",
-                color = MuseMuted,
-                style = MaterialTheme.typography.titleMedium,
+            ScreenHeader(
+                title = artist ?: "Artist",
+                onBack = { navController.popBackStack() },
             )
         }
+
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                TrackArtwork(
+                    track = tracks.firstOrNull(),
+                    modifier = Modifier.size(164.dp),
+                    contentDescription = artist?.let { "$it artwork" },
+                    shape = CircleShape,
+                )
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    artist ?: "Artist",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "${tracks.size} local tracks • $albumCount albums",
+                    color = MuseMuted,
+                )
+            }
+        }
+
         if (tracks.isNotEmpty()) {
             item {
                 Button(
-                    onClick = { viewModel.playTracks(tracks) },
-                    colors = ButtonDefaults.buttonColors(containerColor = MuseGreen, contentColor = MuseBackground),
+                    onClick = { viewModel.playTracksInOrder(tracks) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MuseGreen,
+                        contentColor = MuseBackground,
+                    ),
                 ) {
                     Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                    Text(" Play")
+                    Text(" Play Local Tracks")
                 }
             }
+            item {
+                SectionTitle(
+                    title = "Local Tracks",
+                    trailing = "${tracks.size}",
+                )
+            }
+        } else {
+            item {
+                EmptyCard(
+                    title = "No local tracks",
+                    body = "Muse only shows artist content available in your own library.",
+                )
+            }
         }
+
         items(tracks, key = { it.id }) { track ->
             TrackRow(
                 track = track,
-                favorite = false,
+                favorite = track.id in favourites,
                 onPlay = { viewModel.playTrack(track) },
                 onFavorite = { viewModel.toggleFavorite(track.id) },
                 onArtist = {},
@@ -1772,35 +1820,121 @@ private fun AlbumScreen(
     navController: NavHostController,
 ) {
     val album by viewModel.selectedAlbum.collectAsStateWithLifecycle()
-    val tracks = viewModel.albumTracks(album)
+    val library by viewModel.libraryState.collectAsStateWithLifecycle()
+    val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val tracks = if (album == null) {
+        emptyList()
+    } else {
+        library.tracks
+            .filter { it.album == album }
+            .sortedWith(
+                compareBy<Track> { it.trackNumber ?: Int.MAX_VALUE }
+                    .thenBy { it.title }
+            )
+    }
+    val representative = tracks.firstOrNull()
+    val totalDuration = tracks.sumOf { it.durationMs }
+    val year = tracks.mapNotNull { it.year }.firstOrNull()
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        item { ScreenHeader(album ?: "Album", { navController.popBackStack() }) }
         item {
-            Text(
-                "${tracks.size} tracks",
-                color = MuseMuted,
-                style = MaterialTheme.typography.titleMedium,
+            ScreenHeader(
+                title = "Album",
+                onBack = { navController.popBackStack() },
             )
         }
-        if (tracks.isNotEmpty()) {
-            item {
-                Button(
-                    onClick = { viewModel.playTracks(tracks) },
-                    colors = ButtonDefaults.buttonColors(containerColor = MuseGreen, contentColor = MuseBackground),
-                ) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                    Text(" Play album")
+
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                TrackArtwork(
+                    track = representative,
+                    modifier = Modifier
+                        .fillMaxWidth(0.72f)
+                        .aspectRatio(1f),
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    album ?: "Album",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (representative != null) {
+                    Text(
+                        representative.artist,
+                        color = MuseMuted,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
                 }
+                Text(
+                    buildString {
+                        year?.let {
+                            append(it)
+                            append(" • ")
+                        }
+                        append(tracks.size)
+                        append(if (tracks.size == 1) " song" else " songs")
+                        if (totalDuration > 0L) {
+                            append(" • ")
+                            append(formatDuration(totalDuration))
+                        }
+                    },
+                    color = MuseMuted,
+                )
             }
         }
+
+        if (tracks.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Button(
+                        onClick = { viewModel.playTracksInOrder(tracks) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MuseGreen,
+                            contentColor = MuseBackground,
+                        ),
+                    ) {
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                        Text(" Play")
+                    }
+                    Button(
+                        onClick = { viewModel.playTracksShuffled(tracks) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MuseSurface,
+                        ),
+                    ) {
+                        Icon(Icons.Rounded.Shuffle, contentDescription = null)
+                        Text(" Shuffle")
+                    }
+                }
+            }
+        } else {
+            item {
+                EmptyCard(
+                    title = "Album unavailable",
+                    body = "No matching local tracks are currently available.",
+                )
+            }
+        }
+
         items(tracks, key = { it.id }) { track ->
             TrackRow(
                 track = track,
-                favorite = false,
+                favorite = track.id in favourites,
                 onPlay = { viewModel.playTrack(track) },
                 onFavorite = { viewModel.toggleFavorite(track.id) },
                 onArtist = {
