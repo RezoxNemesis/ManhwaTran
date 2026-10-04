@@ -191,46 +191,49 @@ class MuseViewModel(
 
     fun refreshLibrary() {
         viewModelScope.launch {
-            _libraryState.value = _libraryState.value.copy(loading = true, error = null)
-            runCatching {
-                val deviceTracks = libraryRepository.loadTracks()
-                val managedUris = preferences.managedMediaUris.first()
-                var unavailableManagedCount = 0
-                val managedTracks = managedUris.mapNotNull { value ->
-                    runCatching {
-                        managedMediaRepository.inspectAndPersist(Uri.parse(value))
-                    }.getOrElse {
-                        unavailableManagedCount += 1
-                        null
-                    }
-                }
+            _libraryState.value = _libraryState.value.copy(
+                loading = true,
+                error = null,
+            )
 
-                Triple(deviceTracks, managedTracks, unavailableManagedCount)
+            val deviceResult = runCatching {
+                libraryRepository.loadTracks()
             }
-                .onSuccess { (deviceTracks, managedTracks, unavailableManagedCount) ->
-                    _managedMediaState.value = ManagedMediaUiState(
-                        tracks = managedTracks,
-                        error = if (unavailableManagedCount > 0) {
-                            "$unavailableManagedCount imported file(s) are currently unavailable."
-                        } else {
-                            null
-                        },
-                    )
-                    _libraryState.value = LibraryState(
-                        tracks = (deviceTracks + managedTracks)
-                            .distinctBy { it.id }
-                            .sortedByDescending { it.dateAddedSeconds },
-                    )
+
+            val managedUris = preferences.managedMediaUris.first()
+            var unavailableManagedCount = 0
+            val managedTracks = managedUris.mapNotNull { value ->
+                runCatching {
+                    managedMediaRepository.inspectAndPersist(Uri.parse(value))
+                }.getOrElse {
+                    unavailableManagedCount += 1
+                    null
                 }
-                .onFailure { error ->
-                    _libraryState.value = LibraryState(
-                        tracks = _libraryState.value.tracks,
-                        error = when (error) {
-                            is SecurityException -> "Music access is required to scan your library."
-                            else -> error.message ?: "Could not load the music library."
-                        },
-                    )
-                }
+            }
+
+            _managedMediaState.value = ManagedMediaUiState(
+                tracks = managedTracks,
+                error = if (unavailableManagedCount > 0) {
+                    "$unavailableManagedCount imported file(s) are currently unavailable."
+                } else {
+                    null
+                },
+            )
+
+            val deviceTracks = deviceResult.getOrDefault(emptyList())
+            val deviceError = deviceResult.exceptionOrNull()
+            _libraryState.value = LibraryState(
+                tracks = (deviceTracks + managedTracks)
+                    .distinctBy { it.id }
+                    .sortedByDescending { it.dateAddedSeconds },
+                error = when (deviceError) {
+                    null -> null
+                    is SecurityException ->
+                        "Device-library access is off. Imported files are still available."
+                    else ->
+                        deviceError.message ?: "Could not scan the device music library."
+                },
+            )
         }
     }
 
