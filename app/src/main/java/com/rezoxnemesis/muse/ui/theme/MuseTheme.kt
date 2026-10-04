@@ -6,14 +6,20 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val MuseBackground = Color(0xFF061108)
-val MuseBackgroundRaised = Color(0xFF0B1B10)
-val MuseSurface = Color(0xCC102817)
-val MuseSurfaceStrong = Color(0xEE14331D)
-val MuseGreen = Color(0xFF8BFF83)
-val MuseGreenStrong = Color(0xFF55E85E)
-val MuseBorder = Color(0x665CCB6A)
-val MuseMuted = Color(0xFFAAC2AF)
+val MuseBackground = Color(0xFF030805)
+val MuseBackgroundRaised = Color(0xFF07120A)
+val MuseSurface = Color(0xC70A1C10)
+val MuseSurfaceStrong = Color(0xEA0C2414)
+val MuseGlass = Color(0xC70A1C10)
+val MuseGlassStrong = Color(0xE20B2112)
+val MuseGlassElevated = Color(0xEA0E2917)
+val MuseGreen = Color(0xFF9BFF8D)
+val MuseGreenStrong = Color(0xFF59F064)
+val MuseGlow = Color(0xFF8EFF73)
+val MuseGlowSoft = Color(0x665CFF6B)
+val MuseBorder = Color(0x6F65C96D)
+val MuseBorderBright = Color(0xB784FF8B)
+val MuseMuted = Color(0xFFB8C9BB)
 val MuseError = Color(0xFFFF6B6B)
 val MuseWarning = Color(0xFFFFC857)
 
