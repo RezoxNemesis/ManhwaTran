@@ -58,6 +58,7 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -103,6 +104,7 @@ import androidx.navigation.compose.rememberNavController
 import com.rezoxnemesis.muse.MuseViewModel
 import com.rezoxnemesis.muse.R
 import com.rezoxnemesis.muse.data.Track
+import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.PlaybackUiState
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseBorder
@@ -217,6 +219,9 @@ fun MuseApp(
                 }
                 composable("playlists") {
                     PlaylistsScreen(viewModel, navController)
+                }
+                composable("playlistDetail") {
+                    PlaylistDetailScreen(viewModel, navController)
                 }
                 composable("artist") {
                     ArtistScreen(viewModel, navController)
@@ -861,6 +866,7 @@ private fun PlaylistsScreen(
     val liked by viewModel.likedTracks.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     var name by remember { mutableStateOf("") }
+    var playlistPendingDelete by remember { mutableStateOf<UserPlaylist?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -920,7 +926,12 @@ private fun PlaylistsScreen(
         } else {
             items(playlists, key = { it.id }) { playlist ->
                 val tracks = viewModel.playlistTracks(playlist)
-                GlassCard {
+                GlassCard(
+                    modifier = Modifier.clickable {
+                        viewModel.selectPlaylist(playlist.id)
+                        navController.navigate("playlistDetail")
+                    },
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -939,8 +950,191 @@ private fun PlaylistsScreen(
                         ) {
                             Icon(Icons.Rounded.PlayArrow, contentDescription = "Play playlist")
                         }
-                        IconButton(onClick = { viewModel.deletePlaylist(playlist.id) }) {
+                        IconButton(onClick = { playlistPendingDelete = playlist }) {
                             Icon(Icons.Rounded.Delete, contentDescription = "Delete playlist")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    playlistPendingDelete?.let { playlist ->
+        AlertDialog(
+            onDismissRequest = { playlistPendingDelete = null },
+            title = { Text("Delete playlist?") },
+            text = {
+                Text(
+                    "Delete “${playlist.name}”? The playlist will be removed, but your music files will stay on the device."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deletePlaylist(playlist.id)
+                        playlistPendingDelete = null
+                    },
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { playlistPendingDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun PlaylistDetailScreen(
+    viewModel: MuseViewModel,
+    navController: NavHostController,
+) {
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val selectedId by viewModel.selectedPlaylistId.collectAsStateWithLifecycle()
+    val playlist = playlists.firstOrNull { it.id == selectedId }
+    val tracks = playlist?.let(viewModel::playlistTracks).orEmpty()
+    var renameText by remember(playlist?.id, playlist?.name) {
+        mutableStateOf(playlist?.name.orEmpty())
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            ScreenHeader(
+                title = playlist?.name ?: "Playlist",
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        if (playlist == null) {
+            item {
+                EmptyCard(
+                    title = "Playlist unavailable",
+                    body = "This playlist may have been deleted.",
+                )
+            }
+        } else {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = renameText,
+                        onValueChange = { renameText = it },
+                        singleLine = true,
+                        label = { Text("Playlist name") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                    )
+                    Button(
+                        enabled = renameText.isNotBlank() && renameText.trim() != playlist.name,
+                        onClick = { viewModel.renamePlaylist(playlist.id, renameText) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MuseGreen,
+                            contentColor = MuseBackground,
+                        ),
+                    ) {
+                        Text("Save")
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Button(
+                        enabled = tracks.isNotEmpty(),
+                        onClick = { viewModel.playTracks(tracks) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MuseGreen,
+                            contentColor = MuseBackground,
+                        ),
+                    ) {
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                        Text(" Play")
+                    }
+                    Text(
+                        text = "${tracks.size} songs",
+                        color = MuseMuted,
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                    )
+                }
+            }
+
+            if (tracks.isEmpty()) {
+                item {
+                    EmptyCard(
+                        title = "This playlist is empty",
+                        body = "Open a song’s More Options menu and add it to this playlist.",
+                    )
+                }
+            } else {
+                itemsIndexed(tracks, key = { index, track -> "${track.id}:$index" }) { index, track ->
+                    GlassCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.playTracks(tracks, index) },
+                            ) {
+                                Text(
+                                    track.title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    track.artist,
+                                    color = MuseMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            TextButton(
+                                enabled = index > 0,
+                                onClick = {
+                                    viewModel.moveTrackInPlaylist(
+                                        playlist.id,
+                                        index,
+                                        index - 1,
+                                    )
+                                },
+                            ) { Text("↑") }
+                            TextButton(
+                                enabled = index < tracks.lastIndex,
+                                onClick = {
+                                    viewModel.moveTrackInPlaylist(
+                                        playlist.id,
+                                        index,
+                                        index + 1,
+                                    )
+                                },
+                            ) { Text("↓") }
+                            IconButton(
+                                onClick = {
+                                    viewModel.removeTrackFromPlaylist(playlist.id, track.id)
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = "Remove from playlist",
+                                )
+                            }
                         }
                     }
                 }
