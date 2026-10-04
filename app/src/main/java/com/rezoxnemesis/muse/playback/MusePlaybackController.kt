@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
@@ -40,6 +41,7 @@ data class PlaybackUiState(
     val shuffleEnabled: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val queue: List<QueueUiItem> = emptyList(),
+    val errorMessage: String? = null,
 )
 
 data class SleepTimerUiState(
@@ -102,6 +104,25 @@ class MusePlaybackController(
 
         override fun onAudioSessionIdChanged(audioSessionId: Int) {
             refreshAudioEffects()
+        }
+
+        override fun onMediaItemTransition(
+            mediaItem: MediaItem?,
+            reason: Int,
+        ) {
+            _state.value = _state.value.copy(errorMessage = null)
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) {
+                _state.value = _state.value.copy(errorMessage = null)
+            }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            _state.value = _state.value.copy(
+                errorMessage = "Muse could not play this track. You can skip it or remove it from the queue.",
+            )
         }
     }
 
@@ -488,6 +509,7 @@ class MusePlaybackController(
             shuffleEnabled = player.shuffleModeEnabled,
             repeatMode = player.repeatMode,
             queue = queue,
+            errorMessage = _state.value.errorMessage,
         )
     }
 
