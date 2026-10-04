@@ -40,7 +40,7 @@ class PlaybackSnapshotStore(
                     .put("artist", item.mediaMetadata.artist?.toString().orEmpty())
                     .put("album", item.mediaMetadata.albumTitle?.toString().orEmpty())
                     .put("albumArtist", item.mediaMetadata.albumArtist?.toString().orEmpty())
-                    .put("genre", item.mediaMetadata.genre.orEmpty())
+                    .put("genre", item.mediaMetadata.genre?.toString().orEmpty())
                     .put(
                         "bitrateBps",
                         item.mediaMetadata.extras
