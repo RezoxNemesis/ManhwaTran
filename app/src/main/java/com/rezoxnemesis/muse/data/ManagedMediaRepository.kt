@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import java.nio.ByteBuffer
 import java.security.MessageDigest
@@ -42,6 +43,10 @@ class ManagedMediaRepository(
             year = metadata.year,
             sizeBytes = displayInfo.sizeBytes,
             managedByMuse = true,
+            albumArtist = metadata.albumArtist,
+            genre = metadata.genre,
+            bitrateBps = metadata.bitrateBps,
+            sampleRateHz = metadata.sampleRateHz,
         )
     }
 
@@ -99,6 +104,26 @@ class ManagedMediaRepository(
                 title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE),
                 artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST),
                 album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM),
+                albumArtist = retriever.extractMetadata(
+                    MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST,
+                ),
+                genre = retriever.extractMetadata(
+                    MediaMetadataRetriever.METADATA_KEY_GENRE,
+                ),
+                bitrateBps = retriever
+                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                    ?.toIntOrNull()
+                    ?.takeIf { it > 0 },
+                sampleRateHz = if (
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                ) {
+                    retriever
+                        .extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
+                        ?.toIntOrNull()
+                        ?.takeIf { it > 0 }
+                } else {
+                    null
+                },
                 durationMs = retriever
                     .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull()
@@ -137,6 +162,10 @@ class ManagedMediaRepository(
         val title: String?,
         val artist: String?,
         val album: String?,
+        val albumArtist: String?,
+        val genre: String?,
+        val bitrateBps: Int?,
+        val sampleRateHz: Int?,
         val durationMs: Long,
         val trackNumber: Int?,
         val year: Int?,
