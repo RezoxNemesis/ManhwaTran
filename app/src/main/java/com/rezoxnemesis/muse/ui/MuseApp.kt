@@ -507,10 +507,23 @@ private fun ExploreScreen(
     viewModel: MuseViewModel,
     navController: NavHostController,
 ) {
+    val library by viewModel.libraryState.collectAsStateWithLifecycle()
     val trending by viewModel.localTrendingTracks.collectAsStateWithLifecycle()
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf<MuseMood?>(null) }
+    var exploreQuery by remember { mutableStateOf("") }
     val moodTracks = selectedMood?.let(viewModel::moodTracks).orEmpty()
+    val exploreResults = if (exploreQuery.isBlank()) {
+        emptyList()
+    } else {
+        val needle = exploreQuery.trim()
+        library.tracks.filter { track ->
+            track.title.contains(needle, ignoreCase = true) ||
+                track.artist.contains(needle, ignoreCase = true) ||
+                track.album.contains(needle, ignoreCase = true) ||
+                track.genre?.contains(needle, ignoreCase = true) == true
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -521,102 +534,55 @@ private fun ExploreScreen(
             ScreenHeader(title = "Explore")
         }
         item {
-            SectionTitle("Trending in Your Library", trailing = "Local")
-        }
-        if (trending.isEmpty()) {
-            item {
-                EmptyCard(
-                    title = "Your library is quiet",
-                    body = "Play and like music to shape local trends. Muse does not fabricate online popularity.",
-                )
-            }
-        } else {
-            items(trending.take(8), key = { it.id }) { track ->
-                TrackRow(
-                    track = track,
-                    favorite = track.id in favourites,
-                    onPlay = { viewModel.playTrack(track) },
-                    onFavorite = { viewModel.toggleFavorite(track.id) },
-                    onArtist = {
-                        viewModel.selectArtist(track.artist)
-                        navController.navigate("artist")
-                    },
-                    onAlbum = {
-                        viewModel.selectAlbum(track.album)
-                        navController.navigate("album")
-                    },
-                )
-            }
-        }
-
-        item {
-            SectionTitle(
-                title = "Browse by Mood",
-                trailing = selectedMood?.let { "Local ${it.name} mix" } ?: "6 mixes",
-            )
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(MuseMood.entries) { mood ->
-                    FilterChip(
-                        selected = selectedMood == mood,
-                        onClick = {
-                            selectedMood = if (selectedMood == mood) null else mood
-                        },
-                        label = { Text(mood.name) },
-                    )
-                }
-            }
-        }
-
-        if (selectedMood != null) {
-            item {
-                GlassCard {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text(
-                            "${selectedMood!!.name} Mix",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            "Built only from your local library using metadata, favourites, recent listening and deterministic rules.",
-                            color = MuseMuted,
-                        )
-                        Button(
-                            enabled = moodTracks.isNotEmpty(),
-                            onClick = { viewModel.playTracks(moodTracks) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MuseGreen,
-                                contentColor = MuseBackground,
-                            ),
-                        ) {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                            Text(" Play Mix")
+            OutlinedTextField(
+                value = exploreQuery,
+                onValueChange = { exploreQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Rounded.Search, contentDescription = null)
+                },
+                trailingIcon = {
+                    if (exploreQuery.isNotBlank()) {
+                        IconButton(onClick = { exploreQuery = "" }) {
+                            Icon(
+                                Icons.Rounded.Clear,
+                                contentDescription = "Clear Explore search",
+                            )
                         }
                     }
-                }
+                },
+                placeholder = {
+                    Text("Search songs, artists, albums…")
+                },
+                shape = RoundedCornerShape(20.dp),
+            )
+        }
+
+        if (exploreQuery.isNotBlank()) {
+            item {
+                SectionTitle(
+                    title = "Search Results",
+                    trailing = "${exploreResults.size} local",
+                )
             }
 
-            if (moodTracks.isEmpty()) {
+            if (exploreResults.isEmpty()) {
                 item {
                     EmptyCard(
                         title = "No local matches",
-                        body = "Add or play more music and Muse will have more signals to build this mix.",
+                        body = "Muse searches only music already available to you on this device.",
                     )
                 }
             } else {
-                items(moodTracks.take(12), key = { it.id }) { track ->
+                items(exploreResults.take(30), key = { it.id }) { track ->
                     TrackRow(
                         track = track,
                         favorite = track.id in favourites,
-                        onPlay = {
-                            val index = moodTracks.indexOfFirst { it.id == track.id }
-                            viewModel.playTracks(moodTracks, index.coerceAtLeast(0))
+                        onPlay = { viewModel.playTrack(track) },
+                        onFavorite = {
+                            viewModel.toggleFavorite(track.id)
                         },
-                        onFavorite = { viewModel.toggleFavorite(track.id) },
                         onArtist = {
                             viewModel.selectArtist(track.artist)
                             navController.navigate("artist")
@@ -626,6 +592,140 @@ private fun ExploreScreen(
                             navController.navigate("album")
                         },
                     )
+                }
+            }
+        } else {
+            item {
+                SectionTitle(
+                    "Trending in Your Library",
+                    trailing = "Local",
+                )
+            }
+            if (trending.isEmpty()) {
+                item {
+                    EmptyCard(
+                        title = "Your library is quiet",
+                        body = "Play and like music to shape local trends. Muse does not fabricate online popularity.",
+                    )
+                }
+            } else {
+                items(trending.take(8), key = { it.id }) { track ->
+                    TrackRow(
+                        track = track,
+                        favorite = track.id in favourites,
+                        onPlay = { viewModel.playTrack(track) },
+                        onFavorite = {
+                            viewModel.toggleFavorite(track.id)
+                        },
+                        onArtist = {
+                            viewModel.selectArtist(track.artist)
+                            navController.navigate("artist")
+                        },
+                        onAlbum = {
+                            viewModel.selectAlbum(track.album)
+                            navController.navigate("album")
+                        },
+                    )
+                }
+            }
+
+            item {
+                SectionTitle(
+                    title = "Browse by Mood",
+                    trailing = selectedMood?.let {
+                        "Local ${it.name} mix"
+                    } ?: "6 mixes",
+                )
+            }
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(MuseMood.entries) { mood ->
+                        FilterChip(
+                            selected = selectedMood == mood,
+                            onClick = {
+                                selectedMood =
+                                    if (selectedMood == mood) null else mood
+                            },
+                            label = { Text(mood.name) },
+                        )
+                    }
+                }
+            }
+
+            if (selectedMood != null) {
+                item {
+                    GlassCard {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "${selectedMood!!.name} Mix",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                "Built only from your local library using metadata, favourites, recent listening and deterministic rules.",
+                                color = MuseMuted,
+                            )
+                            Button(
+                                enabled = moodTracks.isNotEmpty(),
+                                onClick = {
+                                    viewModel.playTracks(moodTracks)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MuseGreen,
+                                    contentColor = MuseBackground,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                )
+                                Text(" Play Mix")
+                            }
+                        }
+                    }
+                }
+
+                if (moodTracks.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "No local matches",
+                            body = "Add or play more music and Muse will have more signals to build this mix.",
+                        )
+                    }
+                } else {
+                    items(
+                        moodTracks.take(12),
+                        key = { it.id },
+                    ) { track ->
+                        TrackRow(
+                            track = track,
+                            favorite = track.id in favourites,
+                            onPlay = {
+                                val index = moodTracks
+                                    .indexOfFirst { it.id == track.id }
+                                viewModel.playTracks(
+                                    moodTracks,
+                                    index.coerceAtLeast(0),
+                                )
+                            },
+                            onFavorite = {
+                                viewModel.toggleFavorite(track.id)
+                            },
+                            onArtist = {
+                                viewModel.selectArtist(track.artist)
+                                navController.navigate("artist")
+                            },
+                            onAlbum = {
+                                viewModel.selectAlbum(track.album)
+                                navController.navigate("album")
+                            },
+                        )
+                    }
                 }
             }
         }
