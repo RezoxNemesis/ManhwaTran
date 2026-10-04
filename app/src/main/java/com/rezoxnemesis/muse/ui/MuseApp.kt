@@ -908,6 +908,27 @@ private fun NowPlayingScreen(
                 )
             }
         }
+        if (playback.errorMessage != null) {
+            Spacer(Modifier.height(14.dp))
+            GlassCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        playback.errorMessage.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = viewModel.playback::next) {
+                        Text("Skip")
+                    }
+                }
+            }
+        }
+
         Spacer(Modifier.height(22.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
