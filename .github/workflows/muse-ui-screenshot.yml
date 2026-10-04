@@ -126,6 +126,7 @@ jobs:
         run: |
           set -euo pipefail
           cp ui-captures/muse-home-runtime.png /tmp/muse-home-runtime.png
+          rm -rf ui-captures
           git fetch origin muse-ui-captures
           git checkout muse-ui-captures
           mkdir -p ui-captures
