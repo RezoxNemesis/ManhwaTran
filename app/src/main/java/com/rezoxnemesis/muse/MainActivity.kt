@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -176,6 +177,7 @@ private fun MusicPermissionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .testTag("MuseRoot")
             .background(
                 Brush.verticalGradient(
                     colors = listOf(MuseBackground, MaterialTheme.colorScheme.surfaceVariant),
