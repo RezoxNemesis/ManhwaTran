@@ -1,9 +1,12 @@
 package com.rezoxnemesis.muse
 
 import android.app.Application
+import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.rezoxnemesis.muse.data.LyricsDocument
+import com.rezoxnemesis.muse.data.LyricsRepository
 import com.rezoxnemesis.muse.data.MediaLibraryRepository
 import com.rezoxnemesis.muse.data.MusePreferences
 import com.rezoxnemesis.muse.data.Track
@@ -32,10 +35,18 @@ data class SleepTimerState(
     val remainingMs: Long = 0L,
 )
 
+data class LyricsUiState(
+    val trackId: Long? = null,
+    val loading: Boolean = false,
+    val document: LyricsDocument? = null,
+    val error: String? = null,
+)
+
 class MuseViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     private val libraryRepository = MediaLibraryRepository(application)
+    private val lyricsRepository = LyricsRepository(application)
     private val preferences = MusePreferences(application)
 
     val playback = MusePlaybackController(application)
@@ -130,6 +141,9 @@ class MuseViewModel(
     val sleepTimer = _sleepTimer.asStateFlow()
     private var sleepTimerJob: Job? = null
 
+    private val _lyricsState = MutableStateFlow(LyricsUiState())
+    val lyricsState = _lyricsState.asStateFlow()
+
     fun refreshLibrary() {
         viewModelScope.launch {
             _libraryState.value = _libraryState.value.copy(loading = true, error = null)
@@ -218,6 +232,63 @@ class MuseViewModel(
         if (name == null) emptyList() else _libraryState.value.tracks
             .filter { it.album == name }
             .sortedWith(compareBy<Track> { it.trackNumber ?: Int.MAX_VALUE }.thenBy { it.title })
+
+    fun loadLyrics(trackId: Long) {
+        viewModelScope.launch {
+            _lyricsState.value = LyricsUiState(trackId = trackId, loading = true)
+            runCatching { lyricsRepository.loadLyrics(trackId) }
+                .onSuccess { document ->
+                    _lyricsState.value = LyricsUiState(
+                        trackId = trackId,
+                        document = document,
+                    )
+                }
+                .onFailure { error ->
+                    _lyricsState.value = LyricsUiState(
+                        trackId = trackId,
+                        error = error.message ?: "Could not load lyrics.",
+                    )
+                }
+        }
+    }
+
+    fun importLyrics(trackId: Long, source: Uri) {
+        viewModelScope.launch {
+            _lyricsState.value = _lyricsState.value.copy(
+                trackId = trackId,
+                loading = true,
+                error = null,
+            )
+            lyricsRepository.importLyrics(trackId, source)
+                .onSuccess {
+                    val document = lyricsRepository.loadLyrics(trackId)
+                    _lyricsState.value = LyricsUiState(
+                        trackId = trackId,
+                        document = document,
+                    )
+                }
+                .onFailure { error ->
+                    _lyricsState.value = LyricsUiState(
+                        trackId = trackId,
+                        error = error.message ?: "Could not import lyrics.",
+                    )
+                }
+        }
+    }
+
+    fun removeLyrics(trackId: Long) {
+        viewModelScope.launch {
+            val removed = lyricsRepository.removeLyrics(trackId)
+            _lyricsState.value = if (removed) {
+                LyricsUiState(trackId = trackId)
+            } else {
+                LyricsUiState(
+                    trackId = trackId,
+                    error = "Could not remove the imported lyrics.",
+                )
+            }
+        }
+    }
 
     fun startSleepTimer(minutes: Int) {
         if (minutes <= 0) return
