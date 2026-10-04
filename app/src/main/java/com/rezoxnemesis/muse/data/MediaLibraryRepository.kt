@@ -2,6 +2,7 @@ package com.rezoxnemesis.muse.data
 
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.os.Build
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
@@ -11,33 +12,31 @@ class MediaLibraryRepository(
     private val context: Context,
 ) {
     suspend fun loadTracks(): List<Track> = withContext(Dispatchers.IO) {
-        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val projection = buildList {
-            add(MediaStore.Audio.Media._ID)
-            add(MediaStore.Audio.Media.TITLE)
-            add(MediaStore.Audio.Media.ARTIST)
-            add(MediaStore.Audio.Media.ALBUM)
-            add(MediaStore.Audio.Media.ALBUM_ID)
-            add(MediaStore.Audio.Media.DURATION)
-            add(MediaStore.Audio.Media.DATE_ADDED)
-            add(MediaStore.Audio.Media.MIME_TYPE)
-            add(MediaStore.Audio.Media.TRACK)
-            add(MediaStore.Audio.Media.YEAR)
-            add(MediaStore.Audio.Media.SIZE)
+        val baseProjection = baseProjection()
+        val enhancedProjection = enhancedProjection(baseProjection)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                add(MediaStore.MediaColumns.ALBUM_ARTIST)
-                add(MediaStore.Audio.AudioColumns.GENRE)
-                add(MediaStore.MediaColumns.BITRATE)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                add(MediaStore.Audio.AudioColumns.SAMPLERATE)
-            }
-        }.toTypedArray()
+        if (enhancedProjection.contentEquals(baseProjection)) {
+            return@withContext queryTracks(baseProjection)
+        }
+
+        try {
+            queryTracks(enhancedProjection)
+        } catch (error: IllegalArgumentException) {
+            // Some OEM MediaStore providers omit optional metadata columns even
+            // when the platform API exposes them. Core library discovery must
+            // still work, so retry with the portable projection.
+            queryTracks(baseProjection)
+        }
+    }
+
+    private fun queryTracks(
+        projection: Array<String>,
+    ): List<Track> {
+        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
-        buildList {
+        return buildList {
             context.contentResolver.query(
                 collection,
                 projection,
@@ -45,61 +44,68 @@ class MediaLibraryRepository(
                 null,
                 sortOrder,
             )?.use { cursor ->
-                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-                val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-                val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-                val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-                val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-                val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-                val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
-                val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-                val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
-                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-                val albumArtistColumn = cursor.getColumnIndex("album_artist")
-                val genreColumn = cursor.getColumnIndex("genre")
-                val bitrateColumn = cursor.getColumnIndex("bitrate")
-                val sampleRateColumn = cursor.getColumnIndex("samplerate")
+                val columns = Columns(cursor)
 
                 while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idColumn)
-                    val title = cursor.getString(titleColumn)
+                    val id = cursor.getLong(columns.id)
+                    val title = cursor.getString(columns.title)
                         ?.takeIf { it.isNotBlank() }
                         ?: "Unknown title"
-                    val artist = cursor.getString(artistColumn)
-                        ?.takeIf { it.isNotBlank() && it != MediaStore.UNKNOWN_STRING }
+                    val artist = cursor.getString(columns.artist)
+                        ?.takeIf {
+                            it.isNotBlank() &&
+                                it != MediaStore.UNKNOWN_STRING
+                        }
                         ?: "Unknown artist"
-                    val album = cursor.getString(albumColumn)
-                        ?.takeIf { it.isNotBlank() && it != MediaStore.UNKNOWN_STRING }
+                    val album = cursor.getString(columns.album)
+                        ?.takeIf {
+                            it.isNotBlank() &&
+                                it != MediaStore.UNKNOWN_STRING
+                        }
                         ?: "Unknown album"
-                    val albumId = cursor.getLong(albumIdColumn).takeIf { it > 0L }
-                    val duration = cursor.getLong(durationColumn).coerceAtLeast(0L)
-                    val dateAdded = cursor.getLong(dateAddedColumn).coerceAtLeast(0L)
-                    val mimeType = cursor.getString(mimeTypeColumn)
-                    val trackNumber = cursor.getInt(trackColumn).takeIf { it > 0 }
-                    val year = cursor.getInt(yearColumn).takeIf { it > 0 }
-                    val sizeBytes = cursor.getLong(sizeColumn).takeIf { it > 0L }
-                    val albumArtist = albumArtistColumn
-                        .takeIf { it >= 0 }
-                        ?.let(cursor::getString)
-                        ?.takeIf { it.isNotBlank() && it != MediaStore.UNKNOWN_STRING }
-                    val genre = genreColumn
-                        .takeIf { it >= 0 }
-                        ?.let(cursor::getString)
-                        ?.takeIf { it.isNotBlank() }
-                    val bitrateBps = bitrateColumn
-                        .takeIf { it >= 0 && !cursor.isNull(it) }
-                        ?.let(cursor::getInt)
-                        ?.takeIf { it > 0 }
-                    val sampleRateHz = sampleRateColumn
-                        .takeIf { it >= 0 && !cursor.isNull(it) }
-                        ?.let(cursor::getInt)
-                        ?.takeIf { it > 0 }
+                    val albumId = cursor
+                        .getLong(columns.albumId)
+                        .takeIf { it > 0L }
+                    val duration = cursor
+                        .getLong(columns.duration)
+                        .coerceAtLeast(0L)
+                    val dateAdded = cursor
+                        .getLong(columns.dateAdded)
+                        .coerceAtLeast(0L)
+                    val mimeType = cursor.getString(columns.mimeType)
+                    val trackNumber = cursor
+                        .getInt(columns.track)
+                        .takeIf { it > 0 }
+                    val year = cursor
+                        .getInt(columns.year)
+                        .takeIf { it > 0 }
+                    val sizeBytes = cursor
+                        .getLong(columns.size)
+                        .takeIf { it > 0L }
+
+                    val albumArtist = cursor.optionalString(
+                        columns.albumArtist,
+                    )?.takeIf {
+                        it.isNotBlank() &&
+                            it != MediaStore.UNKNOWN_STRING
+                    }
+                    val genre = cursor.optionalString(
+                        columns.genre,
+                    )?.takeIf { it.isNotBlank() }
+                    val bitrateBps = cursor.optionalInt(
+                        columns.bitrate,
+                    )?.takeIf { it > 0 }
+                    val sampleRateHz = cursor.optionalInt(
+                        columns.sampleRate,
+                    )?.takeIf { it > 0 }
 
                     add(
                         Track(
                             id = id,
-                            uri = ContentUris.withAppendedId(collection, id),
+                            uri = ContentUris.withAppendedId(
+                                collection,
+                                id,
+                            ),
                             title = title,
                             artist = artist,
                             album = album,
@@ -120,4 +126,94 @@ class MediaLibraryRepository(
             }
         }
     }
+
+    private fun baseProjection(): Array<String> =
+        arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATE_ADDED,
+            MediaStore.Audio.Media.MIME_TYPE,
+            MediaStore.Audio.Media.TRACK,
+            MediaStore.Audio.Media.YEAR,
+            MediaStore.Audio.Media.SIZE,
+        )
+
+    private fun enhancedProjection(
+        base: Array<String>,
+    ): Array<String> =
+        buildList {
+            addAll(base)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                add(MediaStore.MediaColumns.ALBUM_ARTIST)
+                add(MediaStore.Audio.AudioColumns.GENRE)
+                add(MediaStore.MediaColumns.BITRATE)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(MediaStore.Audio.AudioColumns.SAMPLERATE)
+            }
+        }
+            .distinct()
+            .toTypedArray()
+
+    private class Columns(
+        cursor: Cursor,
+    ) {
+        val id = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media._ID,
+        )
+        val title = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.TITLE,
+        )
+        val artist = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.ARTIST,
+        )
+        val album = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.ALBUM,
+        )
+        val albumId = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.ALBUM_ID,
+        )
+        val duration = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.DURATION,
+        )
+        val dateAdded = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.DATE_ADDED,
+        )
+        val mimeType = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.MIME_TYPE,
+        )
+        val track = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.TRACK,
+        )
+        val year = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.YEAR,
+        )
+        val size = cursor.getColumnIndexOrThrow(
+            MediaStore.Audio.Media.SIZE,
+        )
+
+        val albumArtist = cursor.getColumnIndex("album_artist")
+        val genre = cursor.getColumnIndex("genre")
+        val bitrate = cursor.getColumnIndex("bitrate")
+        val sampleRate = cursor.getColumnIndex("samplerate")
+    }
+
+    private fun Cursor.optionalString(
+        index: Int,
+    ): String? =
+        index
+            .takeIf { it >= 0 && !isNull(it) }
+            ?.let(::getString)
+
+    private fun Cursor.optionalInt(
+        index: Int,
+    ): Int? =
+        index
+            .takeIf { it >= 0 && !isNull(it) }
+            ?.let(::getInt)
 }
