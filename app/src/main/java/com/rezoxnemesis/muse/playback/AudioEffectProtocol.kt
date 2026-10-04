@@ -11,6 +11,7 @@ object AudioEffectProtocol {
     val UpdateCommand = SessionCommand(ActionUpdate, Bundle.EMPTY)
 
     const val KeySessionReady = "session_ready"
+    const val KeyAudioSessionId = "audio_session_id"
     const val KeyMasterEnabled = "master_enabled"
     const val KeyBypass = "bypass"
 
