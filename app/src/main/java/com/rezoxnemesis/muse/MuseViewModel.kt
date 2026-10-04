@@ -9,6 +9,7 @@ import com.rezoxnemesis.muse.data.LyricsRepository
 import com.rezoxnemesis.muse.data.ManagedMediaRepository
 import com.rezoxnemesis.muse.data.MediaLibraryRepository
 import com.rezoxnemesis.muse.data.MusePreferences
+import com.rezoxnemesis.muse.data.MuseSoundProfile
 import com.rezoxnemesis.muse.data.Track
 import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.MusePlaybackController
@@ -106,6 +107,12 @@ class MuseViewModel(
     )
 
     val playlists = preferences.playlists.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
+    val soundProfiles = preferences.soundProfiles.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList(),
@@ -278,6 +285,35 @@ class MuseViewModel(
 
     fun createPlaylist(name: String) {
         viewModelScope.launch { preferences.createPlaylist(name) }
+    }
+
+    fun saveCurrentSoundProfile(name: String) {
+        val effects = playback.audioEffects.value
+        if (!effects.connected || !effects.sessionReady) return
+
+        viewModelScope.launch {
+            preferences.saveSoundProfile(
+                name = name,
+                eqCentersHz = effects.bandCentersHz,
+                eqLevelsMb = effects.bandLevelsMb,
+                bassEnabled = effects.bassEnabled,
+                bassStrength = effects.bassStrength,
+                virtualizerEnabled = effects.virtualizerEnabled,
+                virtualizerStrength = effects.virtualizerStrength,
+                loudnessEnabled = effects.loudnessEnabled,
+                loudnessGainMb = effects.loudnessGainMb,
+            )
+        }
+    }
+
+    fun applySoundProfile(profile: MuseSoundProfile) {
+        playback.applySoundProfile(profile)
+    }
+
+    fun deleteSoundProfile(profileId: String) {
+        viewModelScope.launch {
+            preferences.deleteSoundProfile(profileId)
+        }
     }
 
     fun saveCurrentQueueAsPlaylist(name: String) {
