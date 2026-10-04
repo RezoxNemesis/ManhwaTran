@@ -1728,7 +1728,11 @@ private fun SleepTimerScreen(
     viewModel: MuseViewModel,
     navController: NavHostController,
 ) {
-    val timer by viewModel.sleepTimer.collectAsStateWithLifecycle()
+    val timer by viewModel.playback.sleepTimer.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.playback.refreshSleepTimer()
+    }
     val presets = listOf(10, 30, 60, 90)
 
     Column(
@@ -1764,7 +1768,7 @@ private fun SleepTimerScreen(
         ) {
             presets.forEach { minutes ->
                 Button(
-                    onClick = { viewModel.startSleepTimer(minutes) },
+                    onClick = { viewModel.playback.startSleepTimer(minutes) },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (timer.active && timer.remainingMs <= minutes * 60_000L) Color(0x443DFF5E) else MuseSurface
@@ -1777,7 +1781,7 @@ private fun SleepTimerScreen(
         Spacer(Modifier.height(20.dp))
         if (timer.active) {
             Button(
-                onClick = viewModel::cancelSleepTimer,
+                onClick = viewModel.playback::cancelSleepTimer,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
             ) {
                 Text("Cancel Timer")
