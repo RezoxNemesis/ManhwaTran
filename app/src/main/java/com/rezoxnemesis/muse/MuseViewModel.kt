@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -237,27 +236,6 @@ class MuseViewModel(
             true,
             mediaStoreObserver,
         )
-
-        viewModelScope.launch {
-            var lastRecordedTrackId: Long? = null
-            playback.state
-                .map { state ->
-                    state.currentMediaId to state.isPlaying
-                }
-                .distinctUntilChanged()
-                .collect { (trackId, isPlaying) ->
-                    if (
-                        isPlaying &&
-                        trackId != null &&
-                        trackId != lastRecordedTrackId
-                    ) {
-                        preferences.recordPlayed(trackId)
-                        lastRecordedTrackId = trackId
-                    } else if (trackId != lastRecordedTrackId && !isPlaying) {
-                        lastRecordedTrackId = null
-                    }
-                }
-        }
 
         viewModelScope.launch {
             combine(
