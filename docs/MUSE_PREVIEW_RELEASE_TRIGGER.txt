@@ -1,5 +1,6 @@
 Muse preview release trigger
 
-Requested after high-resolution 15-screen Muse reference loader integration.
-Purpose: build the installable baseline APK that will receive the exact approved visual asset pack.
-Loader commit: 1634e3cdb72b8127de3baf230ad492b3632f9c3b
+Purpose: build the exact-PNG Muse visual baseline.
+The APK loader now expects the 15 approved 941x1672 PNG files directly under assets/muse_reference.
+Loader commit: a717f98da05c0a54f5b715b38ab062576775a02c
+Mapping test commit: d5e9b49614f56e7775183ad8ec6eb9c06d0ed8b2
