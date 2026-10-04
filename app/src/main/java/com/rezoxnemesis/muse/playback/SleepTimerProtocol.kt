@@ -16,4 +16,9 @@ object SleepTimerProtocol {
     const val KeyRemainingMs = "remaining_ms"
     const val KeyDeadlineWallMs = "deadline_wall_ms"
     const val KeyMinutes = "minutes"
+    const val KeyMode = "mode"
+
+    const val ModeDuration = "duration"
+    const val ModeAfterCurrent = "after_current"
+    const val ModeEndOfQueue = "end_of_queue"
 }
