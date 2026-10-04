@@ -65,3 +65,25 @@ jobs:
           du -h app/build/outputs/apk/debug/app-debug.apk
           du -h app/build/outputs/apk/release/app-release-unsigned.apk
 
+      - name: Stage APK artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Muse-preview-debug.apk
+          cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Muse-release-unsigned.apk
+          (
+            cd dist
+            sha256sum Muse-preview-debug.apk Muse-release-unsigned.apk > SHA256SUMS.txt
+          )
+
+      - name: Upload Muse APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Muse-APK
+          path: |
+            dist/Muse-preview-debug.apk
+            dist/Muse-release-unsigned.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+
