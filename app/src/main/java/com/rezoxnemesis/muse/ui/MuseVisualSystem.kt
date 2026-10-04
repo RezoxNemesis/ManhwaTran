@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -230,42 +231,42 @@ internal fun MuseGlassSurface(
                     end = Offset(900f, 1400f),
                 ),
             )
+            .drawBehind {
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.075f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.10f),
+                        ),
+                        endY = size.height * 0.80f,
+                    ),
+                    size = size,
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                        x = cornerRadius.toPx(),
+                        y = cornerRadius.toPx(),
+                    ),
+                )
+                drawLine(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.16f),
+                            MuseGlow.copy(alpha = 0.16f),
+                            Color.Transparent,
+                        ),
+                    ),
+                    start = Offset(size.width * 0.08f, 1.2.dp.toPx()),
+                    end = Offset(size.width * 0.92f, 1.2.dp.toPx()),
+                    strokeWidth = 0.85.dp.toPx(),
+                )
+            }
             .border(
                 width = if (variant == MuseGlassVariant.Selected) 1.35.dp else 0.9.dp,
                 brush = Brush.linearGradient(rim),
                 shape = shape,
             ),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawRoundRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.075f),
-                        Color.Transparent,
-                        Color.Black.copy(alpha = 0.10f),
-                    ),
-                    endY = size.height * 0.80f,
-                ),
-                size = size,
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(
-                    x = cornerRadius.toPx(),
-                    y = cornerRadius.toPx(),
-                ),
-            )
-            drawLine(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        Color.White.copy(alpha = 0.16f),
-                        MuseGlow.copy(alpha = 0.16f),
-                        Color.Transparent,
-                    ),
-                ),
-                start = Offset(size.width * 0.08f, 1.2.dp.toPx()),
-                end = Offset(size.width * 0.92f, 1.2.dp.toPx()),
-                strokeWidth = 0.85.dp.toPx(),
-            )
-        }
         content()
     }
 }
