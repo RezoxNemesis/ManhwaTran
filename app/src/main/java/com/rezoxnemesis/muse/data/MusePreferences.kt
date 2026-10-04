@@ -78,6 +78,16 @@ class MusePreferences(
         mutatePlaylists { current -> current.filterNot { it.id == playlistId } }
     }
 
+    suspend fun renamePlaylist(playlistId: String, name: String) {
+        val cleanName = name.trim()
+        if (cleanName.isBlank()) return
+        mutatePlaylists { current ->
+            current.map { playlist ->
+                if (playlist.id == playlistId) playlist.copy(name = cleanName) else playlist
+            }
+        }
+    }
+
     suspend fun addTrackToPlaylist(playlistId: String, trackId: Long) {
         mutatePlaylists { current ->
             current.map { playlist ->
@@ -92,6 +102,30 @@ class MusePreferences(
             current.map { playlist ->
                 if (playlist.id != playlistId) playlist
                 else playlist.copy(trackIds = playlist.trackIds.filterNot { it == trackId })
+            }
+        }
+    }
+
+    suspend fun moveTrackInPlaylist(
+        playlistId: String,
+        fromIndex: Int,
+        toIndex: Int,
+    ) {
+        mutatePlaylists { current ->
+            current.map { playlist ->
+                if (playlist.id != playlistId) return@map playlist
+                if (
+                    fromIndex !in playlist.trackIds.indices ||
+                    toIndex !in playlist.trackIds.indices ||
+                    fromIndex == toIndex
+                ) {
+                    return@map playlist
+                }
+
+                val reordered = playlist.trackIds.toMutableList()
+                val moved = reordered.removeAt(fromIndex)
+                reordered.add(toIndex, moved)
+                playlist.copy(trackIds = reordered)
             }
         }
     }
