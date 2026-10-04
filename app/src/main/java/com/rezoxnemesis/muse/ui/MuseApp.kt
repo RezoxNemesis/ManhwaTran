@@ -98,6 +98,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -112,6 +113,7 @@ import com.rezoxnemesis.muse.R
 import com.rezoxnemesis.muse.data.Track
 import com.rezoxnemesis.muse.data.UserPlaylist
 import com.rezoxnemesis.muse.playback.PlaybackUiState
+import com.rezoxnemesis.muse.playback.SleepTimerProtocol
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseBorder
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
@@ -2000,65 +2002,212 @@ private fun SleepTimerScreen(
     navController: NavHostController,
 ) {
     val timer by viewModel.playback.sleepTimer.collectAsStateWithLifecycle()
+    val playback by viewModel.playback.state.collectAsStateWithLifecycle()
+    var customMinutes by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.playback.refreshSleepTimer()
     }
-    val presets = listOf(10, 30, 60, 90)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 22.dp),
+    val presets = listOf(10, 30, 60, 90)
+    val timerLabel = when (timer.mode) {
+        SleepTimerProtocol.ModeAfterCurrent -> "After Track"
+        SleepTimerProtocol.ModeEndOfQueue -> "End Queue"
+        SleepTimerProtocol.ModeDuration -> formatDuration(timer.remainingMs)
+        else -> "Off"
+    }
+    val timerCaption = when (timer.mode) {
+        SleepTimerProtocol.ModeAfterCurrent -> "pause when this track finishes"
+        SleepTimerProtocol.ModeEndOfQueue -> "pause when the queue finishes"
+        SleepTimerProtocol.ModeDuration -> "remaining"
+        else -> "Sleep Scene"
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 22.dp,
+            end = 22.dp,
+            bottom = 32.dp,
+        ),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        ScreenHeader("Sleep Timer", { navController.popBackStack() })
-        Spacer(Modifier.height(36.dp))
-        Surface(
-            modifier = Modifier.size(240.dp),
-            shape = CircleShape,
-            color = Color(0x5513301A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, MuseGreen),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.Timer, contentDescription = null, tint = MuseGreen)
-                    Text(
-                        if (timer.active) formatDuration(timer.remainingMs) else "Off",
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text("remaining", color = MuseMuted)
+        item {
+            ScreenHeader("Sleep Timer", { navController.popBackStack() })
+        }
+
+        item {
+            Surface(
+                modifier = Modifier.size(240.dp),
+                shape = CircleShape,
+                color = Color(0x5513301A),
+                border = androidx.compose.foundation.BorderStroke(2.dp, MuseGreen),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Rounded.Timer,
+                            contentDescription = null,
+                            tint = MuseGreen,
+                        )
+                        Text(
+                            timerLabel,
+                            style = if (
+                                timer.mode == SleepTimerProtocol.ModeDuration ||
+                                !timer.active
+                            ) {
+                                MaterialTheme.typography.displaySmall
+                            } else {
+                                MaterialTheme.typography.headlineMedium
+                            },
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            timerCaption,
+                            color = MuseMuted,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                        )
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(30.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            presets.forEach { minutes ->
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                presets.forEach { minutes ->
+                    Button(
+                        onClick = {
+                            viewModel.playback.startSleepTimer(minutes)
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (
+                                timer.active &&
+                                timer.mode == SleepTimerProtocol.ModeDuration &&
+                                timer.remainingMs <= minutes * 60_000L
+                            ) {
+                                Color(0x443DFF5E)
+                            } else {
+                                MuseSurface
+                            },
+                        ),
+                    ) {
+                        Text("$minutes")
+                    }
+                }
+            }
+        }
+
+        item {
+            GlassCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedTextField(
+                        value = customMinutes,
+                        onValueChange = { value ->
+                            customMinutes = value
+                                .filter(Char::isDigit)
+                                .take(3)
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        label = { Text("Custom minutes") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done,
+                        ),
+                        shape = RoundedCornerShape(18.dp),
+                    )
+                    Button(
+                        enabled = customMinutes.toIntOrNull()
+                            ?.let { it in 1..720 } == true,
+                        onClick = {
+                            customMinutes.toIntOrNull()?.let {
+                                viewModel.playback.startSleepTimer(it)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MuseGreen,
+                            contentColor = MuseBackground,
+                        ),
+                    ) {
+                        Text("Start")
+                    }
+                }
+            }
+        }
+
+        item {
+            GlassCard {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Sleep Scene",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "Use a playback boundary instead of a clock.",
+                        color = MuseMuted,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            enabled = playback.currentMediaId != null,
+                            onClick = viewModel.playback::startSleepAfterCurrentTrack,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MuseSurface,
+                            ),
+                        ) {
+                            Text("After Track")
+                        }
+                        Button(
+                            enabled = playback.queue.isNotEmpty(),
+                            onClick = viewModel.playback::startSleepAtEndOfQueue,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MuseSurface,
+                            ),
+                        ) {
+                            Text("End of Queue")
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            if (timer.active) {
                 Button(
-                    onClick = { viewModel.playback.startSleepTimer(minutes) },
-                    modifier = Modifier.weight(1f),
+                    onClick = viewModel.playback::cancelSleepTimer,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (timer.active && timer.remainingMs <= minutes * 60_000L) Color(0x443DFF5E) else MuseSurface
+                        containerColor = MaterialTheme.colorScheme.error,
                     ),
                 ) {
-                    Text("$minutes")
+                    Text("Cancel Sleep Scene")
                 }
+            } else {
+                Text(
+                    "Muse pauses playback at the selected time or playback boundary.",
+                    color = MuseMuted,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
             }
-        }
-        Spacer(Modifier.height(20.dp))
-        if (timer.active) {
-            Button(
-                onClick = viewModel.playback::cancelSleepTimer,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-            ) {
-                Text("Cancel Timer")
-            }
-        } else {
-            Text("Choose a duration. Muse pauses playback when the timer expires.", color = MuseMuted)
         }
     }
 }
