@@ -17,7 +17,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Muse">
+        android:theme="@style/Theme.Muse.Starting">
 
         <activity
             android:name=".MainActivity"
