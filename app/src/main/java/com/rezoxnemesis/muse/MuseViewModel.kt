@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rezoxnemesis.muse.data.LyricsDocument
 import com.rezoxnemesis.muse.data.LyricsRepository
+import com.rezoxnemesis.muse.data.ManagedMediaRepository
 import com.rezoxnemesis.muse.data.MediaLibraryRepository
 import com.rezoxnemesis.muse.data.MusePreferences
 import com.rezoxnemesis.muse.data.Track
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -33,11 +35,18 @@ data class LyricsUiState(
     val error: String? = null,
 )
 
+data class ManagedMediaUiState(
+    val importing: Boolean = false,
+    val tracks: List<Track> = emptyList(),
+    val error: String? = null,
+)
+
 class MuseViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     private val libraryRepository = MediaLibraryRepository(application)
     private val lyricsRepository = LyricsRepository(application)
+    private val managedMediaRepository = ManagedMediaRepository(application)
     private val preferences = MusePreferences(application)
 
     val playback = MusePlaybackController(application)
@@ -131,12 +140,41 @@ class MuseViewModel(
     private val _lyricsState = MutableStateFlow(LyricsUiState())
     val lyricsState = _lyricsState.asStateFlow()
 
+    private val _managedMediaState = MutableStateFlow(ManagedMediaUiState())
+    val managedMediaState = _managedMediaState.asStateFlow()
+
     fun refreshLibrary() {
         viewModelScope.launch {
             _libraryState.value = _libraryState.value.copy(loading = true, error = null)
-            runCatching { libraryRepository.loadTracks() }
-                .onSuccess { tracks ->
-                    _libraryState.value = LibraryState(tracks = tracks)
+            runCatching {
+                val deviceTracks = libraryRepository.loadTracks()
+                val managedUris = preferences.managedMediaUris.first()
+                var unavailableManagedCount = 0
+                val managedTracks = managedUris.mapNotNull { value ->
+                    runCatching {
+                        managedMediaRepository.inspectAndPersist(Uri.parse(value))
+                    }.getOrElse {
+                        unavailableManagedCount += 1
+                        null
+                    }
+                }
+
+                Triple(deviceTracks, managedTracks, unavailableManagedCount)
+            }
+                .onSuccess { (deviceTracks, managedTracks, unavailableManagedCount) ->
+                    _managedMediaState.value = ManagedMediaUiState(
+                        tracks = managedTracks,
+                        error = if (unavailableManagedCount > 0) {
+                            "$unavailableManagedCount imported file(s) are currently unavailable."
+                        } else {
+                            null
+                        },
+                    )
+                    _libraryState.value = LibraryState(
+                        tracks = (deviceTracks + managedTracks)
+                            .distinctBy { it.id }
+                            .sortedByDescending { it.dateAddedSeconds },
+                    )
                 }
                 .onFailure { error ->
                     _libraryState.value = LibraryState(
@@ -148,6 +186,64 @@ class MuseViewModel(
                     )
                 }
         }
+    }
+
+    fun importManagedMedia(uri: Uri) {
+        viewModelScope.launch {
+            _managedMediaState.value = _managedMediaState.value.copy(
+                importing = true,
+                error = null,
+            )
+
+            runCatching {
+                managedMediaRepository.inspectAndPersist(uri)
+            }
+                .onSuccess { track ->
+                    preferences.addManagedMediaUri(uri.toString())
+
+                    val managedTracks = (_managedMediaState.value.tracks + track)
+                        .distinctBy { it.id }
+                        .sortedByDescending { it.dateAddedSeconds }
+                    _managedMediaState.value = ManagedMediaUiState(
+                        tracks = managedTracks,
+                    )
+
+                    _libraryState.value = _libraryState.value.copy(
+                        tracks = (_libraryState.value.tracks + track)
+                            .distinctBy { it.id }
+                            .sortedByDescending { it.dateAddedSeconds },
+                        error = null,
+                    )
+                }
+                .onFailure { error ->
+                    _managedMediaState.value = _managedMediaState.value.copy(
+                        importing = false,
+                        error = error.message ?: "Could not import the selected audio file.",
+                    )
+                }
+        }
+    }
+
+    fun removeManagedMedia(track: Track) {
+        if (!track.managedByMuse) return
+        viewModelScope.launch {
+            managedMediaRepository.releasePersistedAccess(track.uri)
+            preferences.removeManagedMediaUri(track.uri.toString())
+            preferences.removeTrackReferences(track.id)
+
+            _managedMediaState.value = _managedMediaState.value.copy(
+                tracks = _managedMediaState.value.tracks.filterNot { it.id == track.id },
+                error = null,
+            )
+            _libraryState.value = _libraryState.value.copy(
+                tracks = _libraryState.value.tracks.filterNot { it.id == track.id },
+            )
+            playback.removeQueueItemsByMediaId(track.id)
+        }
+    }
+
+    fun clearManagedMediaError() {
+        _managedMediaState.value = _managedMediaState.value.copy(error = null)
     }
 
     fun setSearchQuery(query: String) {
