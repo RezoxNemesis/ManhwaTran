@@ -1,5 +1,3 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
-
 package com.rezoxnemesis.muse.playback
 
 import android.app.PendingIntent
@@ -19,6 +17,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.rezoxnemesis.muse.MainActivity
 
+@androidx.media3.common.util.UnstableApi
 class MusePlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private lateinit var snapshotStore: PlaybackSnapshotStore
