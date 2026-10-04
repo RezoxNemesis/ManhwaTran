@@ -12,17 +12,27 @@ The product does **not** require an account or paid cloud service for core use.
 
 Implemented on the Muse conversion branch:
 
-- Muse package/application identity
-- Jetpack Compose application shell
-- local audio discovery through MediaStore
-- runtime audio-library permission flow
-- Media3 ExoPlayer + MediaSessionService
-- background/session controller bridge
-- Home, Explore, Library, Now Playing, Queue, Lyrics empty state, Liked Songs, Playlists foundation, Artist, Album, Downloads empty state, Sleep Timer, Settings, More Options, Equalizer capability foundation, and Muse Lab navigation
-- persistent liked-song state with DataStore
-- real sleep timer that pauses playback
-- dark botanical Muse design tokens
-- GitHub Actions build/test/lint pipeline
+- canonical Muse package/application identity and exact approved Muse logo integration
+- Jetpack Compose navigation and dark botanical design system
+- local audio discovery through Android MediaStore
+- user-selected audio import through Android's Storage Access Framework with persistent read access
+- real Media3 ExoPlayer + MediaSessionService background playback
+- notification/lock-screen/system media-session integration path
+- play/pause/seek/next/previous, shuffle, repeat, queue reorder/remove, play-next, add-to-queue and queue-to-playlist
+- playback-session restoration for queue, position, repeat and shuffle, including imported content URIs
+- real local artwork loading with safe fallbacks
+- persistent liked songs, listening history and editable user playlists
+- Songs / Albums / Artists / Playlists library browsing and local search
+- deterministic local trending, six Muse mood mixes and local Song Radio without a fabricated cloud catalogue
+- local plain-text and synced LRC lyric import with active-line following and seek-by-line
+- real capability-aware Android Equalizer, BassBoost, Virtualizer and LoudnessEnhancer attachment with A/B bypass
+- persistent service-owned Sleep Timer with 10 / 30 / 60 / 90 minute presets
+- real imported-media management on the Downloads screen
+- actionable playback/error states and graceful unsupported-effect fallbacks
+- GitHub Actions unit-test, lint and debug-build pipeline
+- the authoritative 15-screen visual reference set is indexed in `design/MUSE_UI_REFERENCE_MANIFEST.md`
+
+Core Muse functionality remains local-first and requires no paid cloud API or subscription.
 
 ## Build requirements
 
