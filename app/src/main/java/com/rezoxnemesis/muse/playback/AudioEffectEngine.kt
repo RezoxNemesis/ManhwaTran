@@ -6,8 +6,6 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.os.Bundle
-import kotlin.math.abs
-import kotlin.math.ln
 
 class AudioEffectEngine(
     context: Context,
@@ -294,19 +292,22 @@ class AudioEffectEngine(
         val minimum = range.getOrNull(0)?.toInt() ?: return
         val maximum = range.getOrNull(1)?.toInt() ?: return
 
-        repeat(eq.numberOfBands.toInt()) { bandIndex ->
-            val actualHz = runCatching {
+        val targetCentersHz = IntArray(
+            eq.numberOfBands.toInt(),
+        ) { bandIndex ->
+            runCatching {
                 eq.getCenterFreq(bandIndex.toShort()) / 1000
-            }.getOrNull()?.coerceAtLeast(1) ?: return@repeat
+            }.getOrDefault(1)
+        }
+        val mappedLevels = SoundProfileBandMapper.mapLevels(
+            savedCentersHz = savedCentersHz,
+            savedLevelsMb = savedLevelsMb,
+            targetCentersHz = targetCentersHz,
+            minimumLevelMb = minimum,
+            maximumLevelMb = maximum,
+        )
 
-            val nearestSavedIndex = savedCentersHz.indices.minByOrNull { savedIndex ->
-                val savedHz = savedCentersHz[savedIndex].coerceAtLeast(1)
-                abs(ln(savedHz.toDouble() / actualHz.toDouble()))
-            } ?: return@repeat
-
-            val level = savedLevelsMb[nearestSavedIndex]
-                .coerceIn(minimum, maximum)
-
+        mappedLevels.forEachIndexed { bandIndex, level ->
             runCatching {
                 eq.setBandLevel(
                     bandIndex.toShort(),
