@@ -50,6 +50,7 @@ data class SleepTimerUiState(
     val active: Boolean = false,
     val remainingMs: Long = 0L,
     val deadlineWallMs: Long = 0L,
+    val mode: String = "",
 )
 
 data class AudioEffectsUiState(
@@ -256,10 +257,35 @@ class MusePlaybackController(
     }
 
     fun startSleepTimer(minutes: Int) {
+        startSleepTimerMode(
+            mode = SleepTimerProtocol.ModeDuration,
+            minutes = minutes,
+        )
+    }
+
+    fun startSleepAfterCurrentTrack() {
+        startSleepTimerMode(
+            mode = SleepTimerProtocol.ModeAfterCurrent,
+            minutes = 0,
+        )
+    }
+
+    fun startSleepAtEndOfQueue() {
+        startSleepTimerMode(
+            mode = SleepTimerProtocol.ModeEndOfQueue,
+            minutes = 0,
+        )
+    }
+
+    private fun startSleepTimerMode(
+        mode: String,
+        minutes: Int,
+    ) {
         val mediaController = controller ?: return
         val future = mediaController.sendCustomCommand(
             SleepTimerProtocol.StartCommand,
             Bundle().apply {
+                putString(SleepTimerProtocol.KeyMode, mode)
                 putInt(SleepTimerProtocol.KeyMinutes, minutes)
             },
         )
@@ -458,6 +484,7 @@ class MusePlaybackController(
             active = extras.getBoolean(SleepTimerProtocol.KeyActive),
             remainingMs = extras.getLong(SleepTimerProtocol.KeyRemainingMs),
             deadlineWallMs = extras.getLong(SleepTimerProtocol.KeyDeadlineWallMs),
+            mode = extras.getString(SleepTimerProtocol.KeyMode).orEmpty(),
         )
     }
 
