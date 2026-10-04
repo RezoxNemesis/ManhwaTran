@@ -203,6 +203,36 @@ class MuseViewModel(
         viewModelScope.launch { preferences.moveTrackInPlaylist(playlistId, fromIndex, toIndex) }
     }
 
+    fun playLocalSongRadio(seed: Track) {
+        val library = _libraryState.value.tracks
+        val favourites = favoriteIds.value
+        val recents = recentTracks.value.map { it.id }.toSet()
+
+        val related = library
+            .asSequence()
+            .filter { it.id != seed.id }
+            .map { candidate ->
+                val score =
+                    (if (candidate.artist == seed.artist) 6 else 0) +
+                    (if (candidate.album == seed.album) 4 else 0) +
+                    (if (candidate.id in favourites) 2 else 0) +
+                    (if (candidate.id in recents) 1 else 0)
+                candidate to score
+            }
+            .filter { (_, score) -> score > 0 }
+            .sortedWith(
+                compareByDescending<Pair<Track, Int>> { it.second }
+                    .thenByDescending { it.first.dateAddedSeconds }
+                    .thenBy { it.first.title.lowercase() }
+            )
+            .map { it.first }
+            .take(40)
+            .toList()
+
+        val radio = listOf(seed) + related
+        playback.playTracks(radio, 0)
+    }
+
     fun playlistTracks(playlist: UserPlaylist): List<Track> {
         val byId = _libraryState.value.tracks.associateBy { it.id }
         return playlist.trackIds.mapNotNull(byId::get)
