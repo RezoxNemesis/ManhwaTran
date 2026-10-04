@@ -3533,10 +3533,10 @@ private fun MoreOptionsScreen(
                 item {
                     OptionRow(
                         icon = Icons.Rounded.Tune,
-                        title = "Muse Local Radio",
-                        subtitle = "Build a mix from related music already in your library",
+                        title = "Muse Flow",
+                        subtitle = "Build an adaptive private queue from this track and your local listening signals",
                         onClick = {
-                            viewModel.playLocalSongRadio(activeTrack)
+                            viewModel.playMuseFlow(activeTrack)
                             navController.navigate("nowPlaying") {
                                 popUpTo("more") { inclusive = true }
                             }
@@ -4242,6 +4242,9 @@ private fun MuseLabScreen(
 ) {
     val playCounts by viewModel.playCounts.collectAsStateWithLifecycle()
     val topPlayed by viewModel.topPlayedTracks.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val recentTracks by viewModel.recentTracks.collectAsStateWithLifecycle()
+    val flowSeed = currentTrack ?: recentTracks.firstOrNull()
     val totalStarts = playCounts.values.sum()
 
     LazyColumn(
@@ -4277,6 +4280,24 @@ private fun MuseLabScreen(
                     )
                 }
             }
+        }
+
+        item {
+            SettingsRow(
+                Icons.Rounded.QueueMusic,
+                "Muse Flow",
+                if (flowSeed == null) {
+                    "Play a track first, then Muse can build your adaptive local queue"
+                } else {
+                    "Start from ${flowSeed.title} using private on-device listening signals"
+                },
+                {
+                    flowSeed?.let { seed ->
+                        viewModel.playMuseFlow(seed)
+                        navController.navigate("nowPlaying")
+                    }
+                },
+            )
         }
 
         if (topPlayed.isNotEmpty()) {
