@@ -16,4 +16,8 @@ data class Track(
     val year: Int?,
     val sizeBytes: Long? = null,
     val managedByMuse: Boolean = false,
+    val albumArtist: String? = null,
+    val genre: String? = null,
+    val bitrateBps: Int? = null,
+    val sampleRateHz: Int? = null,
 )
