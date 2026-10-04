@@ -54,6 +54,7 @@ class MusePlaybackService : MediaSessionService() {
                 events.contains(Player.EVENT_TIMELINE_CHANGED) ||
                 events.contains(Player.EVENT_REPEAT_MODE_CHANGED) ||
                 events.contains(Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED) ||
+                events.contains(Player.EVENT_PLAYBACK_PARAMETERS_CHANGED) ||
                 events.contains(Player.EVENT_POSITION_DISCONTINUITY)
             ) {
                 snapshotStore.save(player)
