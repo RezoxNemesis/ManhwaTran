@@ -204,6 +204,16 @@ class MusePlaybackController(
         controller?.addMediaItem(toMediaItem(track))
     }
 
+    fun removeQueueItemsByMediaId(mediaId: Long) {
+        controller?.let { player ->
+            for (index in player.mediaItemCount - 1 downTo 0) {
+                if (player.getMediaItemAt(index).mediaId.toLongOrNull() == mediaId) {
+                    player.removeMediaItem(index)
+                }
+            }
+        }
+    }
+
     fun removeQueueItem(index: Int) {
         controller?.let { player ->
             if (index in 0 until player.mediaItemCount) player.removeMediaItem(index)
@@ -537,7 +547,16 @@ class MusePlaybackController(
                     .setTitle(track.title)
                     .setArtist(track.artist)
                     .setAlbumTitle(track.album)
+                    .setExtras(
+                        Bundle().apply {
+                            putString(SourceUriExtraKey, track.uri.toString())
+                        }
+                    )
                     .build()
             )
             .build()
+
+    private companion object {
+        const val SourceUriExtraKey = "muse.source_uri"
+    }
 }
