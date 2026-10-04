@@ -6,7 +6,8 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.os.Bundle
-import kotlin.math.roundToInt
+import kotlin.math.abs
+import kotlin.math.ln
 
 class AudioEffectEngine(
     context: Context,
@@ -74,6 +75,24 @@ class AudioEffectEngine(
 
         if (args.containsKey(AudioEffectProtocol.KeyEqPresetIndex)) {
             useEqualizerPreset(args.getInt(AudioEffectProtocol.KeyEqPresetIndex))
+        }
+
+        val profileCenters = args.getIntArray(
+            AudioEffectProtocol.KeyEqProfileCentersHz,
+        )
+        val profileLevels = args.getIntArray(
+            AudioEffectProtocol.KeyEqProfileLevelsMb,
+        )
+        if (
+            profileCenters != null &&
+            profileLevels != null &&
+            profileCenters.isNotEmpty() &&
+            profileCenters.size == profileLevels.size
+        ) {
+            applyEqualizerProfile(
+                savedCentersHz = profileCenters,
+                savedLevelsMb = profileLevels,
+            )
         }
 
         if (args.containsKey(AudioEffectProtocol.KeyBassEnabled)) {
@@ -264,6 +283,39 @@ class AudioEffectEngine(
         }.onSuccess {
             persistEqualizerLevels(eq)
         }
+    }
+
+    private fun applyEqualizerProfile(
+        savedCentersHz: IntArray,
+        savedLevelsMb: IntArray,
+    ) {
+        val eq = equalizer ?: return
+        val range = runCatching { eq.bandLevelRange }.getOrNull() ?: return
+        val minimum = range.getOrNull(0)?.toInt() ?: return
+        val maximum = range.getOrNull(1)?.toInt() ?: return
+
+        repeat(eq.numberOfBands.toInt()) { bandIndex ->
+            val actualHz = runCatching {
+                eq.getCenterFreq(bandIndex.toShort()) / 1000
+            }.getOrNull()?.coerceAtLeast(1) ?: return@repeat
+
+            val nearestSavedIndex = savedCentersHz.indices.minByOrNull { savedIndex ->
+                val savedHz = savedCentersHz[savedIndex].coerceAtLeast(1)
+                abs(ln(savedHz.toDouble() / actualHz.toDouble()))
+            } ?: return@repeat
+
+            val level = savedLevelsMb[nearestSavedIndex]
+                .coerceIn(minimum, maximum)
+
+            runCatching {
+                eq.setBandLevel(
+                    bandIndex.toShort(),
+                    level.toShort(),
+                )
+            }
+        }
+
+        persistEqualizerLevels(eq)
     }
 
     private fun persistEqualizerLevels(eq: Equalizer) {
