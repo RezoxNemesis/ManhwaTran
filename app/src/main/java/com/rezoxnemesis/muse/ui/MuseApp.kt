@@ -3,9 +3,13 @@ package com.rezoxnemesis.muse.ui
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
@@ -224,6 +228,7 @@ fun MuseApp(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
+            contentColor = Color.White,
             bottomBar = {
                 if (showPrimaryNav) {
                     Column(
@@ -256,39 +261,88 @@ fun MuseApp(
                 startDestination = "home",
                 modifier = Modifier.padding(padding),
                 enterTransition = {
-                    fadeIn(animationSpec = tween(190)) +
-                        scaleIn(
-                            animationSpec = tween(230),
-                            initialScale = 0.985f,
-                        ) +
-                        slideInHorizontally(
-                            animationSpec = tween(240),
-                            initialOffsetX = { width -> width / 12 },
-                        )
+                    val targetRoute = targetState.destination.route
+                    val cinematicRoute = targetRoute in setOf(
+                        "nowPlaying",
+                        "lyrics",
+                        "queue",
+                        "artist",
+                        "album",
+                        "downloads",
+                        "sleep",
+                        "settings",
+                        "more",
+                    )
+                    if (cinematicRoute) {
+                        fadeIn(animationSpec = tween(210)) +
+                            scaleIn(
+                                animationSpec = spring(
+                                    dampingRatio = 0.80f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
+                                initialScale = 0.955f,
+                            ) +
+                            slideInVertically(
+                                animationSpec = spring(
+                                    dampingRatio = 0.82f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
+                                initialOffsetY = { height -> height / 8 },
+                            )
+                    } else {
+                        fadeIn(animationSpec = tween(180)) +
+                            scaleIn(
+                                animationSpec = spring(
+                                    dampingRatio = 0.84f,
+                                    stiffness = Spring.StiffnessMedium,
+                                ),
+                                initialScale = 0.975f,
+                            ) +
+                            slideInHorizontally(
+                                animationSpec = spring(
+                                    dampingRatio = 0.84f,
+                                    stiffness = Spring.StiffnessMedium,
+                                ),
+                                initialOffsetX = { width -> width / 18 },
+                            )
+                    }
                 },
                 exitTransition = {
-                    fadeOut(animationSpec = tween(140)) +
+                    fadeOut(animationSpec = tween(145)) +
                         scaleOut(
-                            animationSpec = tween(170),
-                            targetScale = 0.99f,
+                            animationSpec = tween(175),
+                            targetScale = 0.985f,
                         )
                 },
                 popEnterTransition = {
-                    fadeIn(animationSpec = tween(170)) +
+                    fadeIn(animationSpec = tween(190)) +
                         scaleIn(
-                            animationSpec = tween(210),
-                            initialScale = 0.99f,
+                            animationSpec = spring(
+                                dampingRatio = 0.84f,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                            initialScale = 0.98f,
                         ) +
-                        slideInHorizontally(
-                            animationSpec = tween(220),
-                            initialOffsetX = { width -> -width / 14 },
+                        slideInVertically(
+                            animationSpec = spring(
+                                dampingRatio = 0.86f,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                            initialOffsetY = { height -> -height / 22 },
                         )
                 },
                 popExitTransition = {
-                    fadeOut(animationSpec = tween(135)) +
-                        slideOutHorizontally(
-                            animationSpec = tween(210),
-                            targetOffsetX = { width -> width / 14 },
+                    fadeOut(animationSpec = tween(145)) +
+                        scaleOut(
+                            animationSpec = tween(175),
+                            targetScale = 0.97f,
+                        ) +
+                        slideOutVertically(
+                            animationSpec = spring(
+                                dampingRatio = 0.88f,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                            targetOffsetY = { height -> height / 12 },
                         )
                 },
             ) {
@@ -413,8 +467,11 @@ private fun ScreenHeader(
         }
         Text(
             text = title,
+            color = Color.White,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         action?.invoke()
@@ -4374,13 +4431,18 @@ private fun SettingsPanelItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 title,
+                color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 subtitle,
                 color = MuseMuted,
                 style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (onClick != null) {
@@ -6221,9 +6283,24 @@ private fun SectionTitle(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(
+            title,
+            color = Color.White,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
         Spacer(Modifier.weight(1f))
-        if (trailing != null) Text(trailing, color = MuseGreen)
+        if (trailing != null) {
+            Text(
+                trailing,
+                color = MuseGreen,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -6276,8 +6353,20 @@ private fun SettingsRow(
             Icon(icon, contentDescription = null, tint = MuseGreen)
             Spacer(Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Medium)
-                Text(subtitle, color = MuseMuted, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    subtitle,
+                    color = MuseMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
