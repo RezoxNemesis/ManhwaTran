@@ -2,6 +2,7 @@ package com.rezoxnemesis.muse.data
 
 import android.content.ContentUris
 import android.content.Context
+import android.os.Build
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -11,19 +12,28 @@ class MediaLibraryRepository(
 ) {
     suspend fun loadTracks(): List<Track> = withContext(Dispatchers.IO) {
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.MIME_TYPE,
-            MediaStore.Audio.Media.TRACK,
-            MediaStore.Audio.Media.YEAR,
-            MediaStore.Audio.Media.SIZE,
-        )
+        val projection = buildList {
+            add(MediaStore.Audio.Media._ID)
+            add(MediaStore.Audio.Media.TITLE)
+            add(MediaStore.Audio.Media.ARTIST)
+            add(MediaStore.Audio.Media.ALBUM)
+            add(MediaStore.Audio.Media.ALBUM_ID)
+            add(MediaStore.Audio.Media.DURATION)
+            add(MediaStore.Audio.Media.DATE_ADDED)
+            add(MediaStore.Audio.Media.MIME_TYPE)
+            add(MediaStore.Audio.Media.TRACK)
+            add(MediaStore.Audio.Media.YEAR)
+            add(MediaStore.Audio.Media.SIZE)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                add(MediaStore.MediaColumns.ALBUM_ARTIST)
+                add(MediaStore.Audio.AudioColumns.GENRE)
+                add(MediaStore.MediaColumns.BITRATE)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(MediaStore.Audio.AudioColumns.SAMPLERATE)
+            }
+        }.toTypedArray()
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
@@ -46,6 +56,18 @@ class MediaLibraryRepository(
                 val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
                 val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
                 val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                val albumArtistColumn = cursor.getColumnIndex(
+                    MediaStore.MediaColumns.ALBUM_ARTIST,
+                )
+                val genreColumn = cursor.getColumnIndex(
+                    MediaStore.Audio.AudioColumns.GENRE,
+                )
+                val bitrateColumn = cursor.getColumnIndex(
+                    MediaStore.MediaColumns.BITRATE,
+                )
+                val sampleRateColumn = cursor.getColumnIndex(
+                    MediaStore.Audio.AudioColumns.SAMPLERATE,
+                )
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -65,6 +87,22 @@ class MediaLibraryRepository(
                     val trackNumber = cursor.getInt(trackColumn).takeIf { it > 0 }
                     val year = cursor.getInt(yearColumn).takeIf { it > 0 }
                     val sizeBytes = cursor.getLong(sizeColumn).takeIf { it > 0L }
+                    val albumArtist = albumArtistColumn
+                        .takeIf { it >= 0 }
+                        ?.let(cursor::getString)
+                        ?.takeIf { it.isNotBlank() && it != MediaStore.UNKNOWN_STRING }
+                    val genre = genreColumn
+                        .takeIf { it >= 0 }
+                        ?.let(cursor::getString)
+                        ?.takeIf { it.isNotBlank() }
+                    val bitrateBps = bitrateColumn
+                        .takeIf { it >= 0 && !cursor.isNull(it) }
+                        ?.let(cursor::getInt)
+                        ?.takeIf { it > 0 }
+                    val sampleRateHz = sampleRateColumn
+                        .takeIf { it >= 0 && !cursor.isNull(it) }
+                        ?.let(cursor::getInt)
+                        ?.takeIf { it > 0 }
 
                     add(
                         Track(
@@ -80,6 +118,10 @@ class MediaLibraryRepository(
                             trackNumber = trackNumber,
                             year = year,
                             sizeBytes = sizeBytes,
+                            albumArtist = albumArtist,
+                            genre = genre,
+                            bitrateBps = bitrateBps,
+                            sampleRateHz = sampleRateHz,
                         )
                     )
                 }
