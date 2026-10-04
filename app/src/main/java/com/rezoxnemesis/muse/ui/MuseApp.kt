@@ -3,6 +3,13 @@ package com.rezoxnemesis.muse.ui
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -248,6 +255,42 @@ fun MuseApp(
                 navController = navController,
                 startDestination = "home",
                 modifier = Modifier.padding(padding),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(190)) +
+                        scaleIn(
+                            animationSpec = tween(230),
+                            initialScale = 0.985f,
+                        ) +
+                        slideInHorizontally(
+                            animationSpec = tween(240),
+                            initialOffsetX = { width -> width / 12 },
+                        )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(140)) +
+                        scaleOut(
+                            animationSpec = tween(170),
+                            targetScale = 0.99f,
+                        )
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(170)) +
+                        scaleIn(
+                            animationSpec = tween(210),
+                            initialScale = 0.99f,
+                        ) +
+                        slideInHorizontally(
+                            animationSpec = tween(220),
+                            initialOffsetX = { width -> -width / 14 },
+                        )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(135)) +
+                        slideOutHorizontally(
+                            animationSpec = tween(210),
+                            targetOffsetX = { width -> width / 14 },
+                        )
+                },
             ) {
                 composable("home") {
                     HomeScreen(viewModel, navController)
