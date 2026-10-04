@@ -14,4 +14,6 @@ data class Track(
     val mimeType: String?,
     val trackNumber: Int?,
     val year: Int?,
+    val sizeBytes: Long? = null,
+    val managedByMuse: Boolean = false,
 )
