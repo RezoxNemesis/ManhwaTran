@@ -1,6 +1,12 @@
 package com.rezoxnemesis.muse.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
@@ -175,6 +181,85 @@ internal fun MuseAtmosphere(
             rotationDegrees = 18f,
             alpha = 0.78f,
             foreground = false,
+        )
+    }
+}
+
+@Composable
+internal fun MuseLivingLightOverlay(
+    active: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!active) return
+
+    val transition = rememberInfiniteTransition(
+        label = "MuseLivingLight",
+    )
+    val drift by transition.animateFloat(
+        initialValue = -0.08f,
+        targetValue = 0.10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 12_000,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "MuseLivingLightDrift",
+    )
+    val pulse by transition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 7_000,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "MuseLivingLightPulse",
+    )
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val radius = size.minDimension * 0.72f
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFB9FF72).copy(alpha = 0.070f * pulse),
+                    MuseGlow.copy(alpha = 0.030f * pulse),
+                    Color.Transparent,
+                ),
+                center = Offset(
+                    x = size.width * (0.62f + drift),
+                    y = size.height * 0.15f,
+                ),
+                radius = radius,
+            ),
+            center = Offset(
+                x = size.width * (0.62f + drift),
+                y = size.height * 0.15f,
+            ),
+            radius = radius,
+        )
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    MuseGreen.copy(alpha = 0.035f * pulse),
+                    Color.Transparent,
+                ),
+                center = Offset(
+                    x = size.width * (0.20f - drift * 0.5f),
+                    y = size.height * 0.72f,
+                ),
+                radius = radius * 0.75f,
+            ),
+            center = Offset(
+                x = size.width * (0.20f - drift * 0.5f),
+                y = size.height * 0.72f,
+            ),
+            radius = radius * 0.75f,
         )
     }
 }
