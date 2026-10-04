@@ -663,19 +663,27 @@ class MuseViewModel(
             .filter { it.album == name }
             .sortedWith(compareBy<Track> { it.trackNumber ?: Int.MAX_VALUE }.thenBy { it.title })
 
-    fun loadLyrics(trackId: Long) {
+    fun loadLyrics(track: Track) {
         viewModelScope.launch {
-            _lyricsState.value = LyricsUiState(trackId = trackId, loading = true)
-            runCatching { lyricsRepository.loadLyrics(trackId) }
+            _lyricsState.value = LyricsUiState(
+                trackId = track.id,
+                loading = true,
+            )
+            runCatching {
+                lyricsRepository.loadLyrics(
+                    trackId = track.id,
+                    mediaUri = track.uri,
+                )
+            }
                 .onSuccess { document ->
                     _lyricsState.value = LyricsUiState(
-                        trackId = trackId,
+                        trackId = track.id,
                         document = document,
                     )
                 }
                 .onFailure { error ->
                     _lyricsState.value = LyricsUiState(
-                        trackId = trackId,
+                        trackId = track.id,
                         error = error.message ?: "Could not load lyrics.",
                     )
                 }
@@ -691,7 +699,12 @@ class MuseViewModel(
             )
             lyricsRepository.importLyrics(trackId, source)
                 .onSuccess {
-                    val document = lyricsRepository.loadLyrics(trackId)
+                    val track = _libraryState.value.tracks
+                        .firstOrNull { it.id == trackId }
+                    val document = lyricsRepository.loadLyrics(
+                        trackId = trackId,
+                        mediaUri = track?.uri,
+                    )
                     _lyricsState.value = LyricsUiState(
                         trackId = trackId,
                         document = document,
