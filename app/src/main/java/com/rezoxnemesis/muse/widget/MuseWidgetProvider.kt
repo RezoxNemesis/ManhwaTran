@@ -17,6 +17,11 @@ class MuseWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray,
     ) {
         MuseWidgetUpdater.updateAll(context)
+        connectToPlayback(
+            context = context,
+            action = null,
+            pendingResult = goAsync(),
+        )
     }
 
     override fun onReceive(
@@ -34,7 +39,18 @@ class MuseWidgetProvider : AppWidgetProvider() {
             return
         }
 
-        val pendingResult = goAsync()
+        connectToPlayback(
+            context = context,
+            action = action,
+            pendingResult = goAsync(),
+        )
+    }
+
+    private fun connectToPlayback(
+        context: Context,
+        action: String?,
+        pendingResult: PendingResult,
+    ) {
         val token = SessionToken(
             context,
             ComponentName(
