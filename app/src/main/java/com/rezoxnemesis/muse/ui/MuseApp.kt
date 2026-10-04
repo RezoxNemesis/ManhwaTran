@@ -1,6 +1,7 @@
 package com.rezoxnemesis.muse.ui
 
 import android.content.Intent
+import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
@@ -65,6 +66,8 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Security
@@ -165,6 +168,16 @@ private data class PrimaryDestination(
     val label: String,
     val icon: ImageVector,
 )
+
+private enum class ExploreCategory(
+    val label: String,
+) {
+    All("All"),
+    Songs("Songs"),
+    Albums("Albums"),
+    Artists("Artists"),
+    Playlists("Playlists"),
+}
 
 private enum class LibraryTab {
     Songs,
@@ -539,6 +552,33 @@ private fun HomeScreen(
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filtered by viewModel.filteredTracks.collectAsStateWithLifecycle()
     val recent by viewModel.recentTracks.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val voiceSearchIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+            )
+            putExtra(
+                RecognizerIntent.EXTRA_PROMPT,
+                "Search your Muse library",
+            )
+        }
+    }
+    val voiceSearchAvailable = remember(context) {
+        voiceSearchIntent.resolveActivity(context.packageManager) != null
+    }
+    val voiceSearchLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?.let(viewModel::setSearchQuery)
+        }
+    }
     val greeting = remember {
         when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
             in 5..11 -> "Good Morning"
@@ -577,15 +617,25 @@ private fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.Rounded.Tune,
-                            contentDescription = "Open Muse Lab",
+                            Icons.Rounded.Menu,
+                            contentDescription = "Open Muse menu",
                             tint = MuseGreen,
                         )
                     }
                 }
 
                 MuseGlassAction(
-                    onClick = { navController.navigate("settings") },
+                    onClick = {
+                        val intent = Intent(
+                            android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS,
+                        ).apply {
+                            putExtra(
+                                android.provider.Settings.EXTRA_APP_PACKAGE,
+                                context.packageName,
+                            )
+                        }
+                        context.startActivity(intent)
+                    },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .size(48.dp),
@@ -597,8 +647,8 @@ private fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.Rounded.Settings,
-                            contentDescription = "Open Settings",
+                            Icons.Rounded.Notifications,
+                            contentDescription = "Open notification settings",
                             tint = Color.White,
                         )
                     }
@@ -647,10 +697,36 @@ private fun HomeScreen(
                             tint = MuseGreen,
                         )
                     },
+                    trailingIcon = {
+                        if (query.isNotBlank()) {
+                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                Icon(
+                                    Icons.Rounded.Clear,
+                                    contentDescription = "Clear search",
+                                )
+                            }
+                        } else if (voiceSearchAvailable) {
+                            IconButton(
+                                onClick = {
+                                    voiceSearchLauncher.launch(
+                                        voiceSearchIntent
+                                    )
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Mic,
+                                    contentDescription = "Voice search",
+                                    tint = MuseGreen,
+                                )
+                            }
+                        }
+                    },
                     placeholder = {
                         Text(
                             "Search songs, artists, albums…",
                             color = MuseMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -756,13 +832,17 @@ private fun ExploreScreen(
     val library by viewModel.libraryState.collectAsStateWithLifecycle()
     val trending by viewModel.localTrendingTracks.collectAsStateWithLifecycle()
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf<MuseMood?>(null) }
+    var selectedCategory by remember {
+        mutableStateOf(ExploreCategory.All)
+    }
     var exploreQuery by remember { mutableStateOf("") }
-    val moodTracks = selectedMood?.let(viewModel::moodTracks).orEmpty()
-    val exploreResults = if (exploreQuery.isBlank()) {
-        emptyList()
+
+    val needle = exploreQuery.trim()
+    val categoryTracks = if (needle.isBlank()) {
+        library.tracks
     } else {
-        val needle = exploreQuery.trim()
         library.tracks.filter { track ->
             track.title.contains(needle, ignoreCase = true) ||
                 track.artist.contains(needle, ignoreCase = true) ||
@@ -770,6 +850,19 @@ private fun ExploreScreen(
                 track.genre?.contains(needle, ignoreCase = true) == true
         }
     }
+    val categoryAlbums = categoryTracks
+        .groupBy { it.album }
+        .entries
+        .sortedBy { it.key.lowercase() }
+    val categoryArtists = categoryTracks
+        .groupBy { it.artist }
+        .entries
+        .sortedBy { it.key.lowercase() }
+    val categoryPlaylists = playlists.filter { playlist ->
+        needle.isBlank() ||
+            playlist.name.contains(needle, ignoreCase = true)
+    }
+    val moodTracks = selectedMood?.let(viewModel::moodTracks).orEmpty()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -777,8 +870,28 @@ private fun ExploreScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            ScreenHeader(title = "Explore")
+            ScreenHeader(
+                title = "Explore",
+                action = {
+                    IconButton(
+                        onClick = {
+                            if (exploreQuery.isBlank()) {
+                                selectedCategory = ExploreCategory.All
+                            } else {
+                                exploreQuery = ""
+                            }
+                        },
+                    ) {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = "Explore search",
+                            tint = MuseGreen,
+                        )
+                    }
+                },
+            )
         }
+
         item {
             MuseGlassSurface(
                 modifier = Modifier.fillMaxWidth(),
@@ -811,6 +924,8 @@ private fun ExploreScreen(
                         Text(
                             "Search songs, artists, albums…",
                             color = MuseMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     },
                     shape = RoundedCornerShape(28.dp),
@@ -818,165 +933,51 @@ private fun ExploreScreen(
             }
         }
 
-        if (exploreQuery.isNotBlank()) {
-            item {
-                SectionTitle(
-                    title = "Search Results",
-                    trailing = "${exploreResults.size} local",
-                )
-            }
-
-            if (exploreResults.isEmpty()) {
-                item {
-                    EmptyCard(
-                        title = "No local matches",
-                        body = "Muse searches only music already available to you on this device.",
-                    )
-                }
-            } else {
-                items(exploreResults.take(30), key = { it.id }) { track ->
-                    TrackRow(
-                        track = track,
-                        favorite = track.id in favourites,
-                        onPlay = { viewModel.playTrack(track) },
-                        onFavorite = {
-                            viewModel.toggleFavorite(track.id)
-                        },
-                        onArtist = {
-                            viewModel.selectArtist(track.artist)
-                            navController.navigate("artist")
-                        },
-                        onAlbum = {
-                            viewModel.selectAlbum(track.album)
-                            navController.navigate("album")
-                        },
-                    )
-                }
-            }
-        } else {
-            item {
-                SectionTitle(
-                    "Trending in Your Library",
-                    trailing = "Local",
-                )
-            }
-            if (trending.isEmpty()) {
-                item {
-                    EmptyCard(
-                        title = "Your library is quiet",
-                        body = "Play and like music to shape local trends. Muse does not fabricate online popularity.",
-                    )
-                }
-            } else {
-                item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        items(trending.take(8), key = { it.id }) { track ->
-                            TrackPoster(
-                                track = track,
-                                favorite = track.id in favourites,
-                                onClick = { viewModel.playTrack(track) },
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                SectionTitle(
-                    title = "Browse by Mood",
-                    trailing = selectedMood?.let {
-                        "Local ${it.name} mix"
-                    } ?: "6 mixes",
-                )
-            }
-            item {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    MuseMood.entries
-                        .chunked(3)
-                        .forEach { moods ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                moods.forEach { mood ->
-                                    MuseMoodTile(
-                                        mood = mood,
-                                        selected = selectedMood == mood,
-                                        modifier = Modifier.weight(1f),
-                                        onClick = {
-                                            selectedMood =
-                                                if (selectedMood == mood) null else mood
-                                        },
-                                    )
-                                }
+        item {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(ExploreCategory.entries) { category ->
+                    MusePillTab(
+                        label = category.label,
+                        selected = selectedCategory == category,
+                        modifier = Modifier.width(
+                            when (category) {
+                                ExploreCategory.Playlists -> 104.dp
+                                ExploreCategory.Artists -> 88.dp
+                                else -> 82.dp
                             }
-                        }
+                        ),
+                        onClick = {
+                            selectedCategory = category
+                            selectedMood = null
+                        },
+                    )
                 }
             }
+        }
 
-            if (selectedMood != null) {
+        when {
+            selectedCategory == ExploreCategory.Songs -> {
                 item {
-                    GlassCard {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text(
-                                "${selectedMood!!.name} Mix",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                "Built only from your local library using metadata, favourites, recent listening and deterministic rules.",
-                                color = MuseMuted,
-                            )
-                            Button(
-                                enabled = moodTracks.isNotEmpty(),
-                                onClick = {
-                                    viewModel.playTracks(moodTracks)
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MuseGreen,
-                                    contentColor = MuseBackground,
-                                ),
-                            ) {
-                                Icon(
-                                    Icons.Rounded.PlayArrow,
-                                    contentDescription = null,
-                                )
-                                Text(" Play Mix")
-                            }
-                        }
-                    }
+                    SectionTitle(
+                        title = if (needle.isBlank()) "Songs" else "Song Results",
+                        trailing = "${categoryTracks.size} local",
+                    )
                 }
-
-                if (moodTracks.isEmpty()) {
+                if (categoryTracks.isEmpty()) {
                     item {
                         EmptyCard(
-                            title = "No local matches",
-                            body = "Add or play more music and Muse will have more signals to build this mix.",
+                            title = "No local songs",
+                            body = "Muse only shows music available in your local library.",
                         )
                     }
                 } else {
-                    items(
-                        moodTracks.take(12),
-                        key = { it.id },
-                    ) { track ->
+                    items(categoryTracks.take(40), key = { it.id }) { track ->
                         TrackRow(
                             track = track,
                             favorite = track.id in favourites,
-                            onPlay = {
-                                val index = moodTracks
-                                    .indexOfFirst { it.id == track.id }
-                                viewModel.playTracks(
-                                    moodTracks,
-                                    index.coerceAtLeast(0),
-                                )
-                            },
+                            onPlay = { viewModel.playTrack(track) },
                             onFavorite = {
                                 viewModel.toggleFavorite(track.id)
                             },
@@ -989,6 +990,310 @@ private fun ExploreScreen(
                                 navController.navigate("album")
                             },
                         )
+                    }
+                }
+            }
+
+            selectedCategory == ExploreCategory.Albums -> {
+                item {
+                    SectionTitle(
+                        title = if (needle.isBlank()) "Albums" else "Album Results",
+                        trailing = "${categoryAlbums.size} local",
+                    )
+                }
+                if (categoryAlbums.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "No local albums",
+                            body = "Album results come from your device metadata.",
+                        )
+                    }
+                } else {
+                    items(
+                        categoryAlbums.take(40),
+                        key = { it.key },
+                    ) { (album, tracks) ->
+                        SettingsRow(
+                            icon = Icons.Rounded.Album,
+                            title = album,
+                            subtitle = buildString {
+                                append(tracks.size)
+                                append(if (tracks.size == 1) " song" else " songs")
+                                tracks.firstOrNull()
+                                    ?.artist
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?.let {
+                                        append(" • ")
+                                        append(it)
+                                    }
+                            },
+                            onClick = {
+                                viewModel.selectAlbum(album)
+                                navController.navigate("album")
+                            },
+                        )
+                    }
+                }
+            }
+
+            selectedCategory == ExploreCategory.Artists -> {
+                item {
+                    SectionTitle(
+                        title = if (needle.isBlank()) "Artists" else "Artist Results",
+                        trailing = "${categoryArtists.size} local",
+                    )
+                }
+                if (categoryArtists.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "No local artists",
+                            body = "Artist results come from your device metadata.",
+                        )
+                    }
+                } else {
+                    items(
+                        categoryArtists.take(40),
+                        key = { it.key },
+                    ) { (artist, tracks) ->
+                        SettingsRow(
+                            icon = Icons.Rounded.Person,
+                            title = artist,
+                            subtitle = "${tracks.size} " +
+                                if (tracks.size == 1) "song" else "songs",
+                            onClick = {
+                                viewModel.selectArtist(artist)
+                                navController.navigate("artist")
+                            },
+                        )
+                    }
+                }
+            }
+
+            selectedCategory == ExploreCategory.Playlists -> {
+                item {
+                    SectionTitle(
+                        title = if (needle.isBlank()) {
+                            "Playlists"
+                        } else {
+                            "Playlist Results"
+                        },
+                        trailing = "${categoryPlaylists.size} local",
+                    )
+                }
+                if (categoryPlaylists.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "No local playlists",
+                            body = if (needle.isBlank()) {
+                                "Create a playlist and it will appear here."
+                            } else {
+                                "No playlist name matches this search."
+                            },
+                        )
+                    }
+                } else {
+                    items(
+                        categoryPlaylists.take(40),
+                        key = { it.id },
+                    ) { playlist ->
+                        SettingsRow(
+                            icon = Icons.Rounded.PlaylistPlay,
+                            title = playlist.name,
+                            subtitle = "${playlist.trackIds.size} " +
+                                if (playlist.trackIds.size == 1) {
+                                    "song"
+                                } else {
+                                    "songs"
+                                },
+                            onClick = {
+                                viewModel.selectPlaylist(playlist.id)
+                                navController.navigate("playlistDetail")
+                            },
+                        )
+                    }
+                }
+            }
+
+            needle.isNotBlank() -> {
+                item {
+                    SectionTitle(
+                        title = "Search Results",
+                        trailing = "${categoryTracks.size} local",
+                    )
+                }
+                if (categoryTracks.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "No local matches",
+                            body = "Muse searches only music already available to you on this device.",
+                        )
+                    }
+                } else {
+                    items(categoryTracks.take(30), key = { it.id }) { track ->
+                        TrackRow(
+                            track = track,
+                            favorite = track.id in favourites,
+                            onPlay = { viewModel.playTrack(track) },
+                            onFavorite = {
+                                viewModel.toggleFavorite(track.id)
+                            },
+                            onArtist = {
+                                viewModel.selectArtist(track.artist)
+                                navController.navigate("artist")
+                            },
+                            onAlbum = {
+                                viewModel.selectAlbum(track.album)
+                                navController.navigate("album")
+                            },
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                item {
+                    SectionTitle(
+                        "Trending in Your Library",
+                        trailing = "Local",
+                    )
+                }
+                if (trending.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "Your library is quiet",
+                            body = "Play and like music to shape local trends. Muse does not fabricate online popularity.",
+                        )
+                    }
+                } else {
+                    item {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            items(trending.take(8), key = { it.id }) { track ->
+                                TrackPoster(
+                                    track = track,
+                                    favorite = track.id in favourites,
+                                    onClick = { viewModel.playTrack(track) },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    SectionTitle(
+                        title = "Browse by Mood",
+                        trailing = selectedMood?.let {
+                            "Local ${it.name} mix"
+                        } ?: "6 mixes",
+                    )
+                }
+                item {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        MuseMood.entries
+                            .chunked(3)
+                            .forEach { moods ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    moods.forEach { mood ->
+                                        MuseMoodTile(
+                                            mood = mood,
+                                            selected = selectedMood == mood,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                selectedMood =
+                                                    if (selectedMood == mood) {
+                                                        null
+                                                    } else {
+                                                        mood
+                                                    }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                    }
+                }
+
+                if (selectedMood != null) {
+                    item {
+                        GlassCard {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(
+                                    "${selectedMood!!.name} Mix",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    "Built only from your local library using metadata, favourites, recent listening and deterministic rules.",
+                                    color = MuseMuted,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Button(
+                                    enabled = moodTracks.isNotEmpty(),
+                                    onClick = {
+                                        viewModel.playTracks(moodTracks)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MuseGreen,
+                                        contentColor = MuseBackground,
+                                    ),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                    )
+                                    Text(" Play Mix")
+                                }
+                            }
+                        }
+                    }
+
+                    if (moodTracks.isEmpty()) {
+                        item {
+                            EmptyCard(
+                                title = "No local matches",
+                                body = "Add or play more music and Muse will have more signals to build this mix.",
+                            )
+                        }
+                    } else {
+                        items(
+                            moodTracks.take(12),
+                            key = { it.id },
+                        ) { track ->
+                            TrackRow(
+                                track = track,
+                                favorite = track.id in favourites,
+                                onPlay = {
+                                    val index = moodTracks
+                                        .indexOfFirst { it.id == track.id }
+                                    viewModel.playTracks(
+                                        moodTracks,
+                                        index.coerceAtLeast(0),
+                                    )
+                                },
+                                onFavorite = {
+                                    viewModel.toggleFavorite(track.id)
+                                },
+                                onArtist = {
+                                    viewModel.selectArtist(track.artist)
+                                    navController.navigate("artist")
+                                },
+                                onAlbum = {
+                                    viewModel.selectAlbum(track.album)
+                                    navController.navigate("album")
+                                },
+                            )
+                        }
                     }
                 }
             }
