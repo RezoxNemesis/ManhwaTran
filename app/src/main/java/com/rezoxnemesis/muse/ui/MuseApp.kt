@@ -65,6 +65,9 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
@@ -4180,6 +4183,8 @@ private fun SettingsScreen(
         )
     }
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     val libraryPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -4257,6 +4262,31 @@ private fun SettingsScreen(
                     }
                     SettingsPanelDivider()
                     SettingsPanelItem(
+                        icon = Icons.Rounded.MusicNote,
+                        title = "Audio Quality",
+                        subtitle = "Original source • no fake upscaling or transcoding",
+                        onClick = { navController.navigate("diagnostics") },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Download,
+                        title = "Download Quality",
+                        subtitle = "Save-copy keeps the original audio bytes",
+                        onClick = { navController.navigate("downloads") },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Palette,
+                        title = "Theme",
+                        subtitle = "Nature • ${visualIntensity.label} botanical intensity",
+                        onClick = {
+                            onVisualIntensityChange(
+                                visualIntensity.next()
+                            )
+                        },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
                         icon = Icons.Rounded.Timer,
                         title = "Sleep Timer",
                         subtitle = "Timer and playback boundaries",
@@ -4268,6 +4298,23 @@ private fun SettingsScreen(
                         title = "Audio Enhancement",
                         subtitle = "Real EQ, bass, virtualizer and loudness when supported",
                         onClick = { navController.navigate("equalizer") },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Notifications,
+                        title = "Notifications",
+                        subtitle = "Android media and playback notification settings",
+                        onClick = {
+                            val intent = Intent(
+                                android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS,
+                            ).apply {
+                                putExtra(
+                                    android.provider.Settings.EXTRA_APP_PACKAGE,
+                                    context.packageName,
+                                )
+                            }
+                            context.startActivity(intent)
+                        },
                     )
                     SettingsPanelDivider()
                     SettingsPanelItem(
@@ -4385,17 +4432,44 @@ private fun SettingsScreen(
             ) {
                 Column {
                     SettingsPanelItem(
-                        icon = Icons.Rounded.Info,
-                        title = "Privacy & Storage",
+                        icon = Icons.Rounded.Language,
+                        title = "Language",
+                        subtitle = "System / Android app-language settings",
+                        onClick = {
+                            val intent = if (
+                                android.os.Build.VERSION.SDK_INT >=
+                                android.os.Build.VERSION_CODES.TIRAMISU
+                            ) {
+                                Intent(
+                                    android.provider.Settings.ACTION_APP_LOCALE_SETTINGS,
+                                    android.net.Uri.parse(
+                                        "package:${context.packageName}"
+                                    ),
+                                )
+                            } else {
+                                Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.parse(
+                                        "package:${context.packageName}"
+                                    ),
+                                )
+                            }
+                            context.startActivity(intent)
+                        },
+                    )
+                    SettingsPanelDivider()
+                    SettingsPanelItem(
+                        icon = Icons.Rounded.Security,
+                        title = "Privacy & Security",
                         subtitle = "No account required • Android-scoped file access",
-                        onClick = null,
+                        onClick = { showPrivacyDialog = true },
                     )
                     SettingsPanelDivider()
                     SettingsPanelItem(
                         icon = Icons.Rounded.Info,
                         title = "About",
                         subtitle = "Muse ${BuildConfig.VERSION_NAME} • local-first music player",
-                        onClick = null,
+                        onClick = { showAboutDialog = true },
                     )
                     SettingsPanelDivider()
                     SettingsPanelItem(
@@ -4419,6 +4493,44 @@ private fun SettingsScreen(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
+    }
+
+    if (showPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            title = { Text("Privacy & Security") },
+            text = {
+                Text(
+                    "Muse is local-first: no account is required for core playback, listening history stays on device, and file access uses Android-scoped permissions. Backups contain organisation data, not your audio files."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showPrivacyDialog = false },
+                ) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { Text("Muse") },
+            text = {
+                Text(
+                    "Version ${BuildConfig.VERSION_NAME}. Muse is a local-first Android music player using the approved botanical visual system and real device media state."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showAboutDialog = false },
+                ) {
+                    Text("Close")
+                }
+            },
+        )
     }
 
     pendingRestoreUri?.let { uri ->
