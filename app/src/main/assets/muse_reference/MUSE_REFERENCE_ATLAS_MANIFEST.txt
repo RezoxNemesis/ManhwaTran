@@ -1,0 +1,12 @@
+Muse full-resolution reference atlas
+format=WebP lossless
+atlas_dimensions=4705x5016
+cell_dimensions=941x1672
+grid=5x3
+screens=15
+byte_size=20754098
+base64_chars=27672132
+base64_chunks=28
+sha256=23ae0bcbe9edd0149eee3f035046ce4168e5b5d67ea797ac19c4be8c5acc37a1
+pixel_verification=All 15 decoded atlas cells were verified byte-identical to the source RGBA pixels before packaging.
+order=Splash,Home,NowPlaying,Lyrics,Queue,Explore,Library,Playlists,Equalizer,Settings,Artist,Album,Downloads,SleepTimer,MoreOptions

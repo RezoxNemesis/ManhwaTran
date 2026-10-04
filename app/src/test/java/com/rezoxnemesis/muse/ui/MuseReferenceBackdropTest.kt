@@ -5,28 +5,32 @@ import org.junit.Test
 
 class MuseReferenceBackdropTest {
     @Test
-    fun everyReferenceScreenUsesTheApprovedHighResolutionAsset() {
+    fun everyReferenceScreenUsesItsApprovedLosslessAtlasCell() {
         val expected = mapOf(
-            MuseReferenceScreen.Splash to "muse_ref_splash.png",
-            MuseReferenceScreen.Home to "muse_ref_home.png",
-            MuseReferenceScreen.NowPlaying to "muse_ref_now_playing.png",
-            MuseReferenceScreen.Lyrics to "muse_ref_lyrics.png",
-            MuseReferenceScreen.Queue to "muse_ref_queue.png",
-            MuseReferenceScreen.Explore to "muse_ref_explore.png",
-            MuseReferenceScreen.Library to "muse_ref_library.png",
-            MuseReferenceScreen.Playlists to "muse_ref_playlists.png",
-            MuseReferenceScreen.Equalizer to "muse_ref_equalizer.png",
-            MuseReferenceScreen.Settings to "muse_ref_settings.png",
-            MuseReferenceScreen.Artist to "muse_ref_artist.png",
-            MuseReferenceScreen.Album to "muse_ref_album.png",
-            MuseReferenceScreen.Downloads to "muse_ref_downloads.png",
-            MuseReferenceScreen.SleepTimer to "muse_ref_sleep.png",
-            MuseReferenceScreen.MoreOptions to "muse_ref_more.png",
+            MuseReferenceScreen.Splash to 0,
+            MuseReferenceScreen.Home to 1,
+            MuseReferenceScreen.NowPlaying to 2,
+            MuseReferenceScreen.Lyrics to 3,
+            MuseReferenceScreen.Queue to 4,
+            MuseReferenceScreen.Explore to 5,
+            MuseReferenceScreen.Library to 6,
+            MuseReferenceScreen.Playlists to 7,
+            MuseReferenceScreen.Equalizer to 8,
+            MuseReferenceScreen.Settings to 9,
+            MuseReferenceScreen.Artist to 10,
+            MuseReferenceScreen.Album to 11,
+            MuseReferenceScreen.Downloads to 12,
+            MuseReferenceScreen.SleepTimer to 13,
+            MuseReferenceScreen.MoreOptions to 14,
         )
 
         assertEquals(
             expected,
-            MuseReferenceScreen.entries.associateWith { it.assetEntryName },
+            MuseReferenceScreen.entries.associateWith { it.atlasIndex },
+        )
+        assertEquals(
+            (0 until 15).toList(),
+            MuseReferenceScreen.entries.map { it.atlasIndex }.sorted(),
         )
     }
 }

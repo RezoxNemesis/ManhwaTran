@@ -2,7 +2,10 @@ package com.rezoxnemesis.muse.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BitmapRegionDecoder
+import android.graphics.Rect
 import android.util.Base64
+import android.util.Base64InputStream
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,6 +23,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.SequenceInputStream
+import java.util.Collections
 
 internal enum class MuseVisualIntensity(
     val storedValue: String,
@@ -44,23 +49,23 @@ internal enum class MuseVisualIntensity(
 }
 
 internal enum class MuseReferenceScreen(
-    val assetEntryName: String,
+    val atlasIndex: Int,
 ) {
-    Splash("muse_ref_splash.png"),
-    Home("muse_ref_home.png"),
-    NowPlaying("muse_ref_now_playing.png"),
-    Lyrics("muse_ref_lyrics.png"),
-    Queue("muse_ref_queue.png"),
-    Explore("muse_ref_explore.png"),
-    Library("muse_ref_library.png"),
-    Playlists("muse_ref_playlists.png"),
-    Equalizer("muse_ref_equalizer.png"),
-    Settings("muse_ref_settings.png"),
-    Artist("muse_ref_artist.png"),
-    Album("muse_ref_album.png"),
-    Downloads("muse_ref_downloads.png"),
-    SleepTimer("muse_ref_sleep.png"),
-    MoreOptions("muse_ref_more.png");
+    Splash(0),
+    Home(1),
+    NowPlaying(2),
+    Lyrics(3),
+    Queue(4),
+    Explore(5),
+    Library(6),
+    Playlists(7),
+    Equalizer(8),
+    Settings(9),
+    Artist(10),
+    Album(11),
+    Downloads(12),
+    SleepTimer(13),
+    MoreOptions(14);
 
     companion object {
         fun fromRoute(route: String?): MuseReferenceScreen =
@@ -85,14 +90,14 @@ internal enum class MuseReferenceScreen(
 }
 
 /**
- * The approved 15 Muse screens are packaged at high resolution and rendered as
- * the screen-specific visual foundation. They preserve the selected wet-leaf,
- * green-black glass, bokeh, glow and blur treatment instead of approximating it.
+ * The approved 15 Muse screens are stored at their original 941 x 1672 pixel
+ * dimensions inside one lossless 5 x 3 WebP atlas. The atlas is lossless, so
+ * wet-leaf detail, bokeh, glass blur, glow and colour values survive packaging
+ * without visual recompression.
  *
- * Native Compose content remains above the reference layer so playback, library,
- * navigation and accessibility stay real. Only narrow top/bottom safety veils
- * protect Android system chrome and long dynamic metadata; the central artwork
- * remains intentionally vivid.
+ * Native Compose content remains above this visual foundation so Muse keeps
+ * real playback, library, navigation and accessibility behavior. Only narrow
+ * Android system-chrome safety veils are applied over the source visuals.
  */
 @Composable
 internal fun MuseReferenceBackdrop(
@@ -137,9 +142,6 @@ internal fun MuseReferenceBackdrop(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // Keep the selected images visibly intact. Only protect the extreme
-            // top/bottom where the source mockups contain device chrome and where
-            // Android system/navigation UI may overlap.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -171,37 +173,98 @@ internal fun MuseReferenceBackdrop(
 
 private object MuseReferenceBackdropLoader {
     private const val AssetDirectory = "muse_reference"
+    private const val AtlasChunkPrefix = "muse_reference_atlas_lossless.b64."
+    private const val AtlasChunkCount = 28
+    private const val AtlasColumns = 5
+    private const val AtlasRows = 3
+    private const val CellWidth = 941
+    private const val CellHeight = 1672
+    private const val AtlasWidth = CellWidth * AtlasColumns
+    private const val AtlasHeight = CellHeight * AtlasRows
 
-    private val bitmapCache = object : LruCache<String, Bitmap>(52 * 1024) {
+    private val bitmapCache = object : LruCache<String, Bitmap>(32 * 1024) {
         override fun sizeOf(
             key: String,
             value: Bitmap,
         ): Int = value.byteCount / 1024
     }
 
+    private var compressedAtlas: ByteArray? = null
+
     @Synchronized
     fun peek(screen: MuseReferenceScreen): Bitmap? =
-        bitmapCache.get(screen.assetEntryName)
+        bitmapCache.get(screen.name)
 
     @Synchronized
     fun load(
         context: android.content.Context,
         screen: MuseReferenceScreen,
     ): Bitmap? {
-        bitmapCache.get(screen.assetEntryName)?.let { return it }
+        bitmapCache.get(screen.name)?.let { return it }
 
-        val options = BitmapFactory.Options().apply {
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
-        val bitmap = runCatching {
-            context.assets
-                .open("$AssetDirectory/${screen.assetEntryName}")
-                .use { input ->
-                    BitmapFactory.decodeStream(input, null, options)
-                }
+        val atlas = compressedAtlas ?: decodeAtlas(context)?.also {
+            compressedAtlas = it
+        } ?: return null
+
+        val decoder = runCatching {
+            BitmapRegionDecoder.newInstance(
+                atlas,
+                0,
+                atlas.size,
+                false,
+            )
         }.getOrNull() ?: return null
 
-        bitmapCache.put(screen.assetEntryName, bitmap)
+        val bitmap = try {
+            if (decoder.width != AtlasWidth || decoder.height != AtlasHeight) {
+                return null
+            }
+
+            val column = screen.atlasIndex % AtlasColumns
+            val row = screen.atlasIndex / AtlasColumns
+            if (row !in 0 until AtlasRows) return null
+
+            decoder.decodeRegion(
+                Rect(
+                    column * CellWidth,
+                    row * CellHeight,
+                    (column + 1) * CellWidth,
+                    (row + 1) * CellHeight,
+                ),
+                BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                },
+            )
+        } finally {
+            decoder.recycle()
+        } ?: return null
+
+        bitmapCache.put(screen.name, bitmap)
         return bitmap
+    }
+
+    private fun decodeAtlas(
+        context: android.content.Context,
+    ): ByteArray? {
+        val chunkNames = runCatching {
+            context.assets
+                .list(AssetDirectory)
+                ?.filter { it.startsWith(AtlasChunkPrefix) }
+                ?.sorted()
+                .orEmpty()
+        }.getOrDefault(emptyList())
+
+        if (chunkNames.size != AtlasChunkCount) return null
+
+        return runCatching {
+            val streams = chunkNames.map { name ->
+                context.assets.open("$AssetDirectory/$name")
+            }
+            SequenceInputStream(Collections.enumeration(streams)).use { encoded ->
+                Base64InputStream(encoded, Base64.DEFAULT).use { decoded ->
+                    decoded.readBytes()
+                }
+            }
+        }.getOrNull()
     }
 }
