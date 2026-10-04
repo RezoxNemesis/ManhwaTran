@@ -164,6 +164,7 @@ fun MuseApp(
                         if (playback.currentMediaId != null) {
                             MiniPlayer(
                                 state = playback,
+                                track = currentTrack,
                                 onOpen = { navController.navigate("nowPlaying") },
                                 onPlayPause = viewModel.playback::playPause,
                             )
@@ -598,11 +599,11 @@ private fun NowPlayingScreen(
             },
         )
         Spacer(Modifier.height(18.dp))
-        ArtworkPlaceholder(
+        TrackArtwork(
+            track = track,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f),
-            icon = Icons.Rounded.MusicNote,
         )
         Spacer(Modifier.height(24.dp))
         Row(
@@ -1525,6 +1526,7 @@ private fun MuseLabScreen(
 @Composable
 private fun MiniPlayer(
     state: PlaybackUiState,
+    track: Track?,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
 ) {
@@ -1538,9 +1540,10 @@ private fun MiniPlayer(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ArtworkPlaceholder(
+            TrackArtwork(
+                track = track,
                 modifier = Modifier.size(46.dp),
-                icon = Icons.Rounded.MusicNote,
+                contentDescription = null,
             )
             Spacer(Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -1592,11 +1595,11 @@ private fun TrackPoster(
             .size(width = 142.dp, height = 190.dp)
             .clickable(onClick = onClick),
     ) {
-        ArtworkPlaceholder(
+        TrackArtwork(
+            track = track,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f),
-            icon = if (favorite) Icons.Rounded.Favorite else Icons.Rounded.MusicNote,
         )
         Spacer(Modifier.height(8.dp))
         Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1621,9 +1624,10 @@ private fun TrackRow(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ArtworkPlaceholder(
+            TrackArtwork(
+                track = track,
                 modifier = Modifier.size(58.dp),
-                icon = Icons.Rounded.MusicNote,
+                contentDescription = null,
             )
             Spacer(Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f)) {
