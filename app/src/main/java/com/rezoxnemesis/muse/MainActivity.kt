@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -78,6 +79,9 @@ private fun PermissionAwareMuse(
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
         )
     }
+    var continueWithoutLibraryAccess by remember {
+        mutableStateOf(false)
+    }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -86,20 +90,28 @@ private fun PermissionAwareMuse(
         if (result) viewModel.refreshLibrary()
     }
 
-    LaunchedEffect(granted) {
-        if (granted) viewModel.refreshLibrary()
+    LaunchedEffect(granted, continueWithoutLibraryAccess) {
+        if (granted || continueWithoutLibraryAccess) {
+            viewModel.refreshLibrary()
+        }
     }
 
-    if (granted) {
+    if (granted || continueWithoutLibraryAccess) {
         MuseApp(viewModel = viewModel)
     } else {
-        MusicPermissionScreen(onRequestPermission = { launcher.launch(permission) })
+        MusicPermissionScreen(
+            onRequestPermission = { launcher.launch(permission) },
+            onContinueWithoutPermission = {
+                continueWithoutLibraryAccess = true
+            },
+        )
     }
 }
 
 @Composable
 private fun MusicPermissionScreen(
     onRequestPermission: () -> Unit,
+    onContinueWithoutPermission: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -146,6 +158,17 @@ private fun MusicPermissionScreen(
             ) {
                 Text("Allow music access")
             }
+            Spacer(Modifier.height(10.dp))
+            TextButton(onClick = onContinueWithoutPermission) {
+                Text("Continue with imported files")
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "You can grant device-library access later. Muse can still play files you choose through Android’s secure file picker.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
