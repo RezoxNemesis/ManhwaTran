@@ -66,14 +66,23 @@ class SleepTimerEngine(
         }
     }
 
-    fun onMediaItemTransition(): Boolean {
+    fun onMediaItemTransition(
+        completedNaturally: Boolean,
+    ): Boolean {
+        if (!completedNaturally) return false
         if (mode() != SleepTimerProtocol.ModeAfterCurrent) return false
         clearState()
         return true
     }
 
     fun onPlaybackEnded(): Boolean {
-        if (mode() != SleepTimerProtocol.ModeEndOfQueue) return false
+        val currentMode = mode()
+        if (
+            currentMode != SleepTimerProtocol.ModeAfterCurrent &&
+            currentMode != SleepTimerProtocol.ModeEndOfQueue
+        ) {
+            return false
+        }
         clearState()
         return true
     }
