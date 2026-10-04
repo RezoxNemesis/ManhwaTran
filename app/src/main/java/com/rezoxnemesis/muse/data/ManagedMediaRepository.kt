@@ -45,6 +45,15 @@ class ManagedMediaRepository(
         )
     }
 
+    suspend fun releasePersistedAccess(uri: Uri) = withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+    }
+
     private fun takeReadPermission(uri: Uri) {
         runCatching {
             context.contentResolver.takePersistableUriPermission(
