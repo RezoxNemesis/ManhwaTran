@@ -188,9 +188,16 @@ internal fun MuseAtmosphere(
 @Composable
 internal fun MuseLivingLightOverlay(
     active: Boolean,
+    intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
     modifier: Modifier = Modifier,
 ) {
     if (!active) return
+
+    val intensityScale = when (intensity) {
+        MuseVisualIntensity.Calm -> 0.60f
+        MuseVisualIntensity.Balanced -> 1.0f
+        MuseVisualIntensity.Vivid -> 1.35f
+    }
 
     val transition = rememberInfiniteTransition(
         label = "MuseLivingLight",
@@ -226,8 +233,8 @@ internal fun MuseLivingLightOverlay(
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFFB9FF72).copy(alpha = 0.070f * pulse),
-                    MuseGlow.copy(alpha = 0.030f * pulse),
+                    Color(0xFFB9FF72).copy(alpha = 0.070f * pulse * intensityScale),
+                    MuseGlow.copy(alpha = 0.030f * pulse * intensityScale),
                     Color.Transparent,
                 ),
                 center = Offset(
@@ -246,7 +253,7 @@ internal fun MuseLivingLightOverlay(
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    MuseGreen.copy(alpha = 0.035f * pulse),
+                    MuseGreen.copy(alpha = 0.035f * pulse * intensityScale),
                     Color.Transparent,
                 ),
                 center = Offset(
