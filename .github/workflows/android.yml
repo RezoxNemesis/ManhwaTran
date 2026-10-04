@@ -77,6 +77,7 @@ jobs:
           )
 
       - name: Upload Muse APKs
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: Muse-APK
@@ -87,3 +88,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+
+      - name: Record APK delivery status
+        if: always()
+        run: |
+          {
+            echo "## Muse APK build"
+            echo
+            echo "Debug and optimized release APKs were built and verified before the upload step."
+            echo "Actions artifact upload is best-effort because repository artifact storage quota is external to the Android build."
+            echo "For an installable preview when Actions artifact storage is unavailable, use the separate **Muse Preview APK Release** workflow, which publishes the same verified outputs as GitHub prerelease assets."
+          } >> "$GITHUB_STEP_SUMMARY"
