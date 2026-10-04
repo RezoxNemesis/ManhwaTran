@@ -75,6 +75,10 @@ data class AudioEffectsUiState(
     val loudnessAvailable: Boolean = false,
     val loudnessEnabled: Boolean = false,
     val loudnessGainMb: Int = 0,
+    val spatialSupported: Boolean = false,
+    val spatialAvailable: Boolean = false,
+    val spatialEnabled: Boolean = false,
+    val headTrackerAvailable: Boolean = false,
 )
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -575,6 +579,18 @@ class MusePlaybackController(
             ),
             loudnessGainMb = extras.getInt(
                 AudioEffectProtocol.KeyLoudnessGainMb,
+            ),
+            spatialSupported = extras.getBoolean(
+                AudioEffectProtocol.KeySpatialSupported,
+            ),
+            spatialAvailable = extras.getBoolean(
+                AudioEffectProtocol.KeySpatialAvailable,
+            ),
+            spatialEnabled = extras.getBoolean(
+                AudioEffectProtocol.KeySpatialEnabled,
+            ),
+            headTrackerAvailable = extras.getBoolean(
+                AudioEffectProtocol.KeyHeadTrackerAvailable,
             ),
         )
     }
