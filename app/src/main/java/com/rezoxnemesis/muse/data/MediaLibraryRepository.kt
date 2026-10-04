@@ -22,6 +22,7 @@ class MediaLibraryRepository(
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.TRACK,
             MediaStore.Audio.Media.YEAR,
+            MediaStore.Audio.Media.SIZE,
         )
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
@@ -44,6 +45,7 @@ class MediaLibraryRepository(
                 val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
                 val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
                 val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -62,6 +64,7 @@ class MediaLibraryRepository(
                     val mimeType = cursor.getString(mimeTypeColumn)
                     val trackNumber = cursor.getInt(trackColumn).takeIf { it > 0 }
                     val year = cursor.getInt(yearColumn).takeIf { it > 0 }
+                    val sizeBytes = cursor.getLong(sizeColumn).takeIf { it > 0L }
 
                     add(
                         Track(
@@ -76,6 +79,7 @@ class MediaLibraryRepository(
                             mimeType = mimeType,
                             trackNumber = trackNumber,
                             year = year,
+                            sizeBytes = sizeBytes,
                         )
                     )
                 }
