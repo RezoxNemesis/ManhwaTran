@@ -18,29 +18,27 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
-import java.io.ByteArrayInputStream
-import java.util.zip.ZipInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal enum class MuseReferenceScreen(
-    val assetEntry: String,
+    val atlasIndex: Int,
 ) {
-    Splash("01_splash_screen.webp"),
-    Home("02_home_screen.webp"),
-    NowPlaying("03_now_playing.webp"),
-    Lyrics("04_lyrics.webp"),
-    Queue("05_play_queue.webp"),
-    Explore("06_explore.webp"),
-    Library("07_library.webp"),
-    Playlists("08_playlists.webp"),
-    Equalizer("09_equalizer.webp"),
-    Settings("10_settings.webp"),
-    Artist("11_artist_page.webp"),
-    Album("12_album_page.webp"),
-    Downloads("13_downloads.webp"),
-    SleepTimer("14_sleep_timer.webp"),
-    MoreOptions("15_more_options.webp");
+    Splash(0),
+    Home(1),
+    NowPlaying(2),
+    Lyrics(3),
+    Queue(4),
+    Explore(5),
+    Library(6),
+    Playlists(7),
+    Equalizer(8),
+    Settings(9),
+    Artist(10),
+    Album(11),
+    Downloads(12),
+    SleepTimer(13),
+    MoreOptions(14);
 
     companion object {
         fun fromRoute(route: String?): MuseReferenceScreen =
@@ -65,12 +63,15 @@ internal enum class MuseReferenceScreen(
 }
 
 /**
- * Uses the approved Muse screen art as a photographic atmosphere layer, never
- * as a fake UI. The packaged derivatives deliberately remove readable mock
- * content while retaining the wet-leaf, forest-light and bokeh composition.
+ * The approved 15 Muse mockups are packaged as a compact atlas and used as
+ * screen-specific photographic atmosphere. The atlas cells are intentionally
+ * softened/darkened derivatives of the exact approved images, so they preserve
+ * the wet-leaf, forest-light, album-art and bokeh character without leaving
+ * readable example text underneath the live interface.
  *
- * All labels, icons, data and touch targets above this layer remain native
- * Compose components backed by real Muse state.
+ * Every label, icon, control, song title and action above this layer remains a
+ * native Compose element backed by real Muse state. The artwork never acts as a
+ * fake button or a screenshot pretending to be interactive UI.
  */
 @Composable
 internal fun MuseReferenceBackdrop(
@@ -79,14 +80,14 @@ internal fun MuseReferenceBackdrop(
 ) {
     val context = LocalContext.current
     val bitmap by produceState<Bitmap?>(
-        initialValue = MuseReferenceBackdropLoader.peek(screen.assetEntry),
+        initialValue = MuseReferenceBackdropLoader.peek(screen),
         key1 = screen,
     ) {
         if (value == null) {
             value = withContext(Dispatchers.IO) {
                 MuseReferenceBackdropLoader.load(
                     context = context.applicationContext,
-                    entryName = screen.assetEntry,
+                    screen = screen,
                 )
             }
         }
@@ -108,18 +109,18 @@ internal fun MuseReferenceBackdrop(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // Text-safety veil: preserves edge foliage and light depth while
-            // guaranteeing native labels remain readable over every screen.
+            // Layered text-safety veil: enough contrast for long/local metadata
+            // while allowing bright botanical highlights to remain visible.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0x3D010503),
-                                Color(0x62010503),
                                 Color(0x4A010503),
-                                Color(0x68010302),
+                                Color(0x64010503),
+                                Color(0x52010503),
+                                Color(0x6E010302),
                             )
                         )
                     ),
@@ -130,9 +131,9 @@ internal fun MuseReferenceBackdrop(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                Color(0x14000000),
-                                Color(0x3A020A05),
-                                Color(0x14000000),
+                                Color(0x16000000),
+                                Color(0x42020A05),
+                                Color(0x16000000),
                             )
                         )
                     ),
@@ -142,8 +143,10 @@ internal fun MuseReferenceBackdrop(
 }
 
 private object MuseReferenceBackdropLoader {
-    private const val AssetDirectory = "muse_reference"
-    private const val PartPrefix = "muse_backdrops.part"
+    private const val AssetPath =
+        "muse_reference/muse_reference_atlas.webp.b64"
+    private const val AtlasColumns = 5
+    private const val AtlasRows = 3
 
     private val bitmapCache = object : LruCache<String, Bitmap>(20 * 1024) {
         override fun sizeOf(
@@ -152,59 +155,63 @@ private object MuseReferenceBackdropLoader {
         ): Int = value.byteCount / 1024
     }
 
+    private var atlas: Bitmap? = null
+
     @Synchronized
-    fun peek(entryName: String): Bitmap? =
-        bitmapCache.get(entryName)
+    fun peek(screen: MuseReferenceScreen): Bitmap? =
+        bitmapCache.get(screen.name)
 
     @Synchronized
     fun load(
         context: android.content.Context,
-        entryName: String,
+        screen: MuseReferenceScreen,
     ): Bitmap? {
-        bitmapCache.get(entryName)?.let { return it }
+        bitmapCache.get(screen.name)?.let { return it }
 
-        val partNames = runCatching {
+        val activeAtlas = atlas ?: decodeAtlas(context)?.also {
+            atlas = it
+        } ?: return null
+
+        val cellWidth = activeAtlas.width / AtlasColumns
+        val cellHeight = activeAtlas.height / AtlasRows
+        if (cellWidth <= 0 || cellHeight <= 0) return null
+
+        val column = screen.atlasIndex % AtlasColumns
+        val row = screen.atlasIndex / AtlasColumns
+        if (row !in 0 until AtlasRows) return null
+
+        val bitmap = runCatching {
+            Bitmap.createBitmap(
+                activeAtlas,
+                column * cellWidth,
+                row * cellHeight,
+                cellWidth,
+                cellHeight,
+            )
+        }.getOrNull() ?: return null
+
+        bitmapCache.put(screen.name, bitmap)
+        return bitmap
+    }
+
+    private fun decodeAtlas(
+        context: android.content.Context,
+    ): Bitmap? {
+        val encoded = runCatching {
             context.assets
-                .list(AssetDirectory)
-                .orEmpty()
-                .filter { it.startsWith(PartPrefix) }
-                .sorted()
-        }.getOrDefault(emptyList())
+                .open(AssetPath)
+                .bufferedReader(Charsets.US_ASCII)
+                .use { it.readText() }
+        }.getOrNull() ?: return null
 
-        if (partNames.isEmpty()) return null
-
-        val encoded = buildString {
-            partNames.forEach { name ->
-                runCatching {
-                    context.assets
-                        .open("$AssetDirectory/$name")
-                        .bufferedReader(Charsets.US_ASCII)
-                        .use { reader -> append(reader.readText()) }
-                }.getOrElse { return null }
-            }
-        }
-
-        val archive = runCatching {
+        val bytes = runCatching {
             Base64.decode(encoded, Base64.DEFAULT)
         }.getOrNull() ?: return null
 
-        ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                if (!entry.isDirectory && entry.name.substringAfterLast('/') == entryName) {
-                    val bytes = zip.readBytes()
-                    val bitmap = BitmapFactory.decodeByteArray(
-                        bytes,
-                        0,
-                        bytes.size,
-                    ) ?: return null
-                    bitmapCache.put(entryName, bitmap)
-                    return bitmap
-                }
-                zip.closeEntry()
-            }
-        }
-
-        return null
+        return BitmapFactory.decodeByteArray(
+            bytes,
+            0,
+            bytes.size,
+        )
     }
 }
