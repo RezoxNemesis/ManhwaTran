@@ -9,7 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,9 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -48,6 +45,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rezoxnemesis.muse.ui.MuseApp
+import com.rezoxnemesis.muse.ui.MuseBrandMark
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
 import com.rezoxnemesis.muse.ui.theme.MuseTheme
@@ -195,11 +193,8 @@ private fun MusicPermissionScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Image(
-                painter = painterResource(R.drawable.muse_logo),
-                contentDescription = "Muse logo",
-                modifier = Modifier.size(128.dp),
-                contentScale = ContentScale.Fit,
+            MuseBrandMark(
+                modifier = Modifier.size(142.dp),
             )
             Spacer(Modifier.height(20.dp))
             Text(
