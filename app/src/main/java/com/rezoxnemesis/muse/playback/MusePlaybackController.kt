@@ -173,8 +173,13 @@ class MusePlaybackController(
         }
     }
 
-    fun clearQueue() {
-        controller?.clearMediaItems()
+    fun clearUpcomingQueue() {
+        controller?.let { player ->
+            val currentIndex = player.currentMediaItemIndex
+            if (currentIndex >= 0 && currentIndex < player.mediaItemCount - 1) {
+                player.removeMediaItems(currentIndex + 1, player.mediaItemCount)
+            }
+        }
     }
 
     fun refreshAudioEffects() {
