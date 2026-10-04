@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
