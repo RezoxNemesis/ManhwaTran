@@ -46,6 +46,7 @@ import com.rezoxnemesis.muse.ui.theme.MuseGlassElevated
 import com.rezoxnemesis.muse.ui.theme.MuseGlassStrong
 import com.rezoxnemesis.muse.ui.theme.MuseGlow
 import com.rezoxnemesis.muse.ui.theme.MuseGlowSoft
+import com.rezoxnemesis.muse.ui.theme.MuseGreen
 
 internal enum class MuseGlassVariant {
     Standard,
