@@ -62,14 +62,17 @@ class MusePreferences(
         }
     }
 
-    suspend fun createPlaylist(name: String) {
+    suspend fun createPlaylist(
+        name: String,
+        trackIds: List<Long> = emptyList(),
+    ) {
         val cleanName = name.trim()
         if (cleanName.isBlank()) return
         mutatePlaylists { current ->
             current + UserPlaylist(
                 id = UUID.randomUUID().toString(),
                 name = cleanName,
-                trackIds = emptyList(),
+                trackIds = trackIds.distinct(),
             )
         }
     }
