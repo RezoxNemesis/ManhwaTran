@@ -56,18 +56,10 @@ class MediaLibraryRepository(
                 val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
                 val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
                 val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-                val albumArtistColumn = cursor.getColumnIndex(
-                    MediaStore.MediaColumns.ALBUM_ARTIST,
-                )
-                val genreColumn = cursor.getColumnIndex(
-                    MediaStore.Audio.AudioColumns.GENRE,
-                )
-                val bitrateColumn = cursor.getColumnIndex(
-                    MediaStore.MediaColumns.BITRATE,
-                )
-                val sampleRateColumn = cursor.getColumnIndex(
-                    MediaStore.Audio.AudioColumns.SAMPLERATE,
-                )
+                val albumArtistColumn = cursor.getColumnIndex("album_artist")
+                val genreColumn = cursor.getColumnIndex("genre")
+                val bitrateColumn = cursor.getColumnIndex("bitrate")
+                val sampleRateColumn = cursor.getColumnIndex("samplerate")
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
