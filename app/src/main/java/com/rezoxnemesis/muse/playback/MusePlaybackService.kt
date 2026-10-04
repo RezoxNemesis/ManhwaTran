@@ -2,6 +2,7 @@ package com.rezoxnemesis.muse.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
@@ -10,11 +11,16 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.rezoxnemesis.muse.MainActivity
 
 class MusePlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private lateinit var snapshotStore: PlaybackSnapshotStore
+    private lateinit var audioEffects: AudioEffectEngine
     private val handler = Handler(Looper.getMainLooper())
 
     private val snapshotTicker = object : Runnable {
@@ -46,12 +52,67 @@ class MusePlaybackService : MediaSessionService() {
                 handler.postDelayed(snapshotTicker, SnapshotIntervalMs)
             }
         }
+
+        override fun onAudioSessionIdChanged(audioSessionId: Int) {
+            audioEffects.attach(audioSessionId)
+        }
+    }
+
+    private val sessionCallback = object : MediaSession.Callback {
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): MediaSession.ConnectionResult {
+            val defaultResult = super.onConnect(session, controller)
+            if (!defaultResult.isAccepted) return defaultResult
+
+            val commands = defaultResult.availableSessionCommands
+                .buildUpon()
+                .add(AudioEffectProtocol.GetStateCommand)
+                .add(AudioEffectProtocol.UpdateCommand)
+                .build()
+
+            return MediaSession.ConnectionResult.accept(
+                commands,
+                defaultResult.availablePlayerCommands,
+            )
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            command: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            return when (command.customAction) {
+                AudioEffectProtocol.ActionGetState -> {
+                    Futures.immediateFuture(
+                        SessionResult(
+                            SessionResult.RESULT_SUCCESS,
+                            audioEffects.snapshot(),
+                        )
+                    )
+                }
+
+                AudioEffectProtocol.ActionUpdate -> {
+                    Futures.immediateFuture(
+                        SessionResult(
+                            SessionResult.RESULT_SUCCESS,
+                            audioEffects.update(args),
+                        )
+                    )
+                }
+
+                else -> super.onCustomCommand(session, controller, command, args)
+            }
+        }
     }
 
     override fun onCreate() {
         super.onCreate()
 
         snapshotStore = PlaybackSnapshotStore(this)
+        audioEffects = AudioEffectEngine(this)
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -68,6 +129,7 @@ class MusePlaybackService : MediaSessionService() {
 
         snapshotStore.restore(player)
         player.addListener(playerListener)
+        audioEffects.attach(player.audioSessionId)
 
         val sessionIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -80,6 +142,7 @@ class MusePlaybackService : MediaSessionService() {
         )
 
         mediaSession = MediaSession.Builder(this, player)
+            .setCallback(sessionCallback)
             .setSessionActivity(sessionActivity)
             .build()
     }
@@ -93,6 +156,7 @@ class MusePlaybackService : MediaSessionService() {
         mediaSession?.run {
             snapshotStore.save(player)
             player.removeListener(playerListener)
+            audioEffects.release()
             player.release()
             release()
         }
