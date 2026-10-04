@@ -1,7 +1,9 @@
 package com.rezoxnemesis.muse.playback
 
 import android.content.ComponentName
+import android.content.ContentUris
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
@@ -629,6 +631,14 @@ class MusePlaybackController(
                     .setAlbumTitle(track.album)
                     .setAlbumArtist(track.albumArtist)
                     .setGenre(track.genre)
+                    .setArtworkUri(
+                        track.albumId?.let { albumId ->
+                            ContentUris.withAppendedId(
+                                Uri.parse(MediaStoreAlbumArtBaseUri),
+                                albumId,
+                            )
+                        }
+                    )
                     .setExtras(
                         Bundle().apply {
                             putString(SourceUriExtraKey, track.uri.toString())
@@ -648,5 +658,7 @@ class MusePlaybackController(
         const val SourceUriExtraKey = "muse.source_uri"
         const val BitrateExtraKey = "muse.bitrate_bps"
         const val SampleRateExtraKey = "muse.sample_rate_hz"
+        const val MediaStoreAlbumArtBaseUri =
+            "content://media/external/audio/albumart"
     }
 }
