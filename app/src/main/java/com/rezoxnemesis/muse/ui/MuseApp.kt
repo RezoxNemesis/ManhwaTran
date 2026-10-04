@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -223,8 +224,17 @@ fun MuseApp(
             .testTag("MuseRoot")
             .background(MuseBackground),
     ) {
-        MuseReferenceBackdrop(
-            screen = MuseReferenceScreen.fromRoute(currentRoute),
+        Crossfade(
+            targetState = MuseReferenceScreen.fromRoute(currentRoute),
+            animationSpec = tween(420),
+            label = "MuseReferenceBackdropCrossfade",
+        ) { referenceScreen ->
+            MuseReferenceBackdrop(
+                screen = referenceScreen,
+            )
+        }
+        MuseLivingLightOverlay(
+            active = playback.isPlaying,
         )
 
         Scaffold(
