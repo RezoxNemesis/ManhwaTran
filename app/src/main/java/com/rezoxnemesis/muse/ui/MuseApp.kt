@@ -2780,67 +2780,220 @@ private fun ArtistScreen(
     val artist by viewModel.selectedArtist.collectAsStateWithLifecycle()
     val library by viewModel.libraryState.collectAsStateWithLifecycle()
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val playCounts by viewModel.playCounts.collectAsStateWithLifecycle()
     val tracks = if (artist == null) {
         emptyList()
     } else {
         library.tracks.filter { it.artist == artist }
     }
     val albumCount = tracks.map { it.album }.distinct().size
+    val totalPlays = tracks.sumOf { playCounts[it.id] ?: 0 }
+    val popularTracks = tracks.sortedWith(
+        compareByDescending<Track> { playCounts[it.id] ?: 0 }
+            .thenBy { it.title.lowercase() }
+    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 18.dp,
+            end = 18.dp,
+            bottom = 28.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         item {
             ScreenHeader(
-                title = artist ?: "Artist",
+                title = "Artist",
                 onBack = { navController.popBackStack() },
             )
         }
 
         item {
             Column(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 TrackArtwork(
                     track = tracks.firstOrNull(),
-                    modifier = Modifier.size(164.dp),
-                    contentDescription = artist?.let { "$it artwork" },
+                    modifier = Modifier
+                        .size(190.dp)
+                        .border(
+                            width = 1.5.dp,
+                            color = MuseGreen.copy(alpha = 0.72f),
+                            shape = CircleShape,
+                        ),
+                    contentDescription = artist?.let { "${it} artwork" },
                     shape = CircleShape,
                 )
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
                 Text(
                     artist ?: "Artist",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "${tracks.size} local tracks • $albumCount albums",
+                    buildString {
+                        append(tracks.size)
+                        append(if (tracks.size == 1) " local track" else " local tracks")
+                        append(" • ")
+                        append(albumCount)
+                        append(if (albumCount == 1) " album" else " albums")
+                        if (totalPlays > 0) {
+                            append(" • ")
+                            append(totalPlays)
+                            append(if (totalPlays == 1) " play" else " plays")
+                        }
+                    },
                     color = MuseMuted,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
 
         if (tracks.isNotEmpty()) {
             item {
-                Button(
-                    onClick = { viewModel.playTracksInOrder(tracks) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MuseGreen,
-                        contentColor = MuseBackground,
-                    ),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                    Text(" Play Local Tracks")
+                    MuseGlassAction(
+                        onClick = { viewModel.playTracksInOrder(tracks) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp),
+                        variant = MuseGlassVariant.Selected,
+                        cornerRadius = 24.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = MuseGreen,
+                            )
+                            Spacer(Modifier.size(6.dp))
+                            Text(
+                                "Play All",
+                                color = MuseGreen,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                    MuseGlassAction(
+                        onClick = {
+                            viewModel.playMuseFlow(tracks.first())
+                            navController.navigate("nowPlaying")
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp),
+                        variant = MuseGlassVariant.Elevated,
+                        cornerRadius = 24.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Tune,
+                                contentDescription = null,
+                                tint = MuseGreen,
+                            )
+                            Spacer(Modifier.size(6.dp))
+                            Text("Muse Flow", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
+
             item {
                 SectionTitle(
-                    title = "Local Tracks",
-                    trailing = "${tracks.size}",
+                    title = "Popular",
+                    trailing = if (totalPlays > 0) "Local plays" else "Local",
                 )
+            }
+
+            itemsIndexed(
+                popularTracks,
+                key = { _, track -> track.id },
+            ) { index, track ->
+                MuseGlassAction(
+                    onClick = { viewModel.playTrack(track) },
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = if (index == 0 && totalPlays > 0) {
+                        MuseGlassVariant.Elevated
+                    } else {
+                        MuseGlassVariant.Standard
+                    },
+                    cornerRadius = 20.dp,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = (index + 1).toString(),
+                            color = if (index < 3) MuseGreen else MuseMuted,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.width(28.dp),
+                            textAlign = TextAlign.Center,
+                        )
+                        TrackArtwork(
+                            track = track,
+                            modifier = Modifier.size(58.dp),
+                            contentDescription = null,
+                        )
+                        Spacer(Modifier.size(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                track.title,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                (playCounts[track.id] ?: 0).let { count ->
+                                    if (count == 0) {
+                                        track.album
+                                    } else {
+                                        "${count} local ${if (count == 1) "play" else "plays"}"
+                                    }
+                                },
+                                color = MuseMuted,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        IconButton(
+                            onClick = { viewModel.toggleFavorite(track.id) },
+                        ) {
+                            Icon(
+                                if (track.id in favourites) {
+                                    Icons.Rounded.Favorite
+                                } else {
+                                    Icons.Rounded.FavoriteBorder
+                                },
+                                contentDescription = if (track.id in favourites) {
+                                    "Remove favorite"
+                                } else {
+                                    "Favorite"
+                                },
+                                tint = if (track.id in favourites) MuseGreen else Color.White,
+                            )
+                        }
+                    }
+                }
             }
         } else {
             item {
@@ -2849,20 +3002,6 @@ private fun ArtistScreen(
                     body = "Muse only shows artist content available in your own library.",
                 )
             }
-        }
-
-        items(tracks, key = { it.id }) { track ->
-            TrackRow(
-                track = track,
-                favorite = track.id in favourites,
-                onPlay = { viewModel.playTrack(track) },
-                onFavorite = { viewModel.toggleFavorite(track.id) },
-                onArtist = {},
-                onAlbum = {
-                    viewModel.selectAlbum(track.album)
-                    navController.navigate("album")
-                },
-            )
         }
     }
 }
@@ -2891,7 +3030,11 @@ private fun AlbumScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 18.dp,
+            end = 18.dp,
+            bottom = 30.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -2907,25 +3050,39 @@ private fun AlbumScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                TrackArtwork(
-                    track = representative,
-                    modifier = Modifier
-                        .fillMaxWidth(0.72f)
-                        .aspectRatio(1f),
-                )
-                Spacer(Modifier.height(16.dp))
+                MuseGlassSurface(
+                    modifier = Modifier.fillMaxWidth(0.78f),
+                    variant = MuseGlassVariant.Elevated,
+                    cornerRadius = 30.dp,
+                ) {
+                    TrackArtwork(
+                        track = representative,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .padding(6.dp),
+                        contentDescription = album?.let { "${it} artwork" },
+                        shape = RoundedCornerShape(25.dp),
+                    )
+                }
+                Spacer(Modifier.height(18.dp))
                 Text(
                     album ?: "Album",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
                 )
                 if (representative != null) {
                     Text(
                         representative.artist,
-                        color = MuseMuted,
+                        color = Color.White.copy(alpha = 0.92f),
                         style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.clickable {
+                            viewModel.selectArtist(representative.artist)
+                            navController.navigate("artist")
+                        },
                     )
                 }
                 Text(
@@ -2950,28 +3107,69 @@ private fun AlbumScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Button(
+                    MuseGlassAction(
                         onClick = { viewModel.playTracksInOrder(tracks) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MuseGreen,
-                            contentColor = MuseBackground,
-                        ),
+                        modifier = Modifier
+                            .weight(1.15f)
+                            .height(58.dp),
+                        variant = MuseGlassVariant.Selected,
+                        cornerRadius = 24.dp,
                     ) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                        Text(" Play")
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = MuseGreen,
+                            )
+                            Spacer(Modifier.size(6.dp))
+                            Text("Play", color = MuseGreen, fontWeight = FontWeight.Bold)
+                        }
                     }
-                    Button(
+                    MuseGlassAction(
                         onClick = { viewModel.playTracksShuffled(tracks) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MuseSurface,
-                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp),
+                        variant = MuseGlassVariant.Elevated,
+                        cornerRadius = 24.dp,
                     ) {
-                        Icon(Icons.Rounded.Shuffle, contentDescription = null)
-                        Text(" Shuffle")
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.Shuffle, contentDescription = null)
+                            Spacer(Modifier.size(6.dp))
+                            Text("Shuffle", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    MuseGlassAction(
+                        onClick = {
+                            representative?.let {
+                                viewModel.playMuseFlow(it)
+                                navController.navigate("nowPlaying")
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(0.72f)
+                            .height(58.dp),
+                        variant = MuseGlassVariant.Standard,
+                        cornerRadius = 24.dp,
+                        enabled = representative != null,
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Rounded.Tune,
+                                contentDescription = "Muse Flow",
+                                tint = MuseGreen,
+                            )
+                        }
                     }
                 }
             }
@@ -2984,18 +3182,64 @@ private fun AlbumScreen(
             }
         }
 
-        items(tracks, key = { it.id }) { track ->
-            TrackRow(
-                track = track,
-                favorite = track.id in favourites,
-                onPlay = { viewModel.playTrack(track) },
-                onFavorite = { viewModel.toggleFavorite(track.id) },
-                onArtist = {
-                    viewModel.selectArtist(track.artist)
-                    navController.navigate("artist")
-                },
-                onAlbum = {},
-            )
+        itemsIndexed(
+            tracks,
+            key = { _, track -> track.id },
+        ) { index, track ->
+            MuseGlassAction(
+                onClick = { viewModel.playTracks(tracks, index) },
+                modifier = Modifier.fillMaxWidth(),
+                variant = MuseGlassVariant.Standard,
+                cornerRadius = 19.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = (track.trackNumber ?: index + 1).toString(),
+                        color = MuseMuted,
+                        modifier = Modifier.width(30.dp),
+                        textAlign = TextAlign.Center,
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            track.title,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            if (track.durationMs > 0L) {
+                                formatDuration(track.durationMs)
+                            } else {
+                                track.artist
+                            },
+                            color = MuseMuted,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.toggleFavorite(track.id) },
+                    ) {
+                        Icon(
+                            if (track.id in favourites) {
+                                Icons.Rounded.Favorite
+                            } else {
+                                Icons.Rounded.FavoriteBorder
+                            },
+                            contentDescription = if (track.id in favourites) {
+                                "Remove favorite"
+                            } else {
+                                "Favorite"
+                            },
+                            tint = if (track.id in favourites) MuseGreen else Color.White,
+                        )
+                    }
+                }
+            }
         }
     }
 }
