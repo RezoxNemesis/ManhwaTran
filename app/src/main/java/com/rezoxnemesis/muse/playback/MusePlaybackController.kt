@@ -180,6 +180,10 @@ class MusePlaybackController(
         controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
     }
 
+    fun setShuffleEnabled(enabled: Boolean) {
+        controller?.shuffleModeEnabled = enabled
+    }
+
     fun cycleRepeat() {
         controller?.let {
             it.repeatMode = when (it.repeatMode) {
