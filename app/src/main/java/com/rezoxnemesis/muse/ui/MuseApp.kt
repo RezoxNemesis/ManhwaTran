@@ -2239,6 +2239,8 @@ private fun EqualizerScreen(
     playback: PlaybackUiState,
 ) {
     val effects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
+    val soundProfiles by viewModel.soundProfiles.collectAsStateWithLifecycle()
+    var profileName by remember { mutableStateOf("") }
 
     LaunchedEffect(playback.currentMediaId) {
         viewModel.playback.refreshAudioEffects()
@@ -2312,6 +2314,96 @@ private fun EqualizerScreen(
                                 Text(if (effects.bypass) "Original" else "Processed")
                             },
                         )
+                    }
+                }
+            }
+
+            item {
+                SectionTitle(
+                    title = "Sound Profiles",
+                    trailing = if (soundProfiles.isEmpty()) {
+                        "Local"
+                    } else {
+                        "${soundProfiles.size} saved"
+                    },
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = profileName,
+                    onValueChange = { profileName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Save current tuning") },
+                    placeholder = { Text("Profile name") },
+                    trailingIcon = {
+                        TextButton(
+                            enabled = profileName.isNotBlank() && effects.sessionReady,
+                            onClick = {
+                                viewModel.saveCurrentSoundProfile(profileName)
+                                profileName = ""
+                            },
+                        ) {
+                            Text("Save")
+                        }
+                    },
+                    shape = RoundedCornerShape(18.dp),
+                )
+            }
+
+            if (soundProfiles.isEmpty()) {
+                item {
+                    EmptyCard(
+                        title = "No sound profiles yet",
+                        body = "Tune the available effects and save the result here. Profiles stay local on this device.",
+                    )
+                }
+            } else {
+                items(soundProfiles, key = { it.id }) { profile ->
+                    GlassCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    profile.name,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    buildString {
+                                        append(profile.eqLevelsMb.size)
+                                        append(" EQ bands")
+                                        if (profile.bassEnabled) append(" • Bass")
+                                        if (profile.virtualizerEnabled) append(" • Virtualizer")
+                                        if (profile.loudnessEnabled) append(" • Loudness")
+                                    },
+                                    color = MuseMuted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            TextButton(
+                                enabled = effects.sessionReady,
+                                onClick = {
+                                    viewModel.applySoundProfile(profile)
+                                },
+                            ) {
+                                Text("Apply")
+                            }
+                            IconButton(
+                                onClick = {
+                                    viewModel.deleteSoundProfile(profile.id)
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = "Delete sound profile",
+                                )
+                            }
+                        }
                     }
                 }
             }
