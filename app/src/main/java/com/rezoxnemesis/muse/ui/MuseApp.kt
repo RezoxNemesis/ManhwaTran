@@ -229,7 +229,7 @@ fun MuseApp(
                     EqualizerScreen(viewModel, playback)
                 }
                 composable("tools") {
-                    MuseLabScreen(navController)
+                    MuseLabScreen(viewModel, navController)
                 }
                 composable("nowPlaying") {
                     NowPlayingScreen(viewModel, navController)
@@ -3397,28 +3397,136 @@ private fun AudioEffectControl(
 
 @Composable
 private fun MuseLabScreen(
+    viewModel: MuseViewModel,
     navController: NavHostController,
 ) {
+    val playCounts by viewModel.playCounts.collectAsStateWithLifecycle()
+    val topPlayed by viewModel.topPlayedTracks.collectAsStateWithLifecycle()
+    val totalStarts = playCounts.values.sum()
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { ScreenHeader("Muse Lab") }
+
         item {
-            SettingsRow(Icons.Rounded.QueueMusic, "Play Queue", "Current session", { navController.navigate("queue") })
+            GlassCard {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Listening Insights",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        if (totalStarts == 0) {
+                            "Play music in Muse to build private on-device listening insights."
+                        } else {
+                            "$totalStarts playback starts recorded locally"
+                        },
+                        color = MuseMuted,
+                    )
+                    Text(
+                        "Counts are updated only when a new track actually begins playback. No listening data leaves this device.",
+                        color = MuseMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+
+        if (topPlayed.isNotEmpty()) {
+            item {
+                SectionTitle(
+                    title = "Most Played",
+                    trailing = "Local",
+                )
+            }
+            items(topPlayed.take(5), key = { it.first.id }) { (track, count) ->
+                GlassCard(
+                    modifier = Modifier.clickable {
+                        viewModel.playTrack(track)
+                    },
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TrackArtwork(
+                            track = track,
+                            modifier = Modifier.size(52.dp),
+                            contentDescription = null,
+                        )
+                        Spacer(Modifier.size(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                track.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                track.artist,
+                                color = MuseMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Text(
+                            "$count×",
+                            color = MuseGreen,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            SettingsRow(
+                Icons.Rounded.QueueMusic,
+                "Play Queue",
+                "Current session",
+                { navController.navigate("queue") },
+            )
         }
         item {
-            SettingsRow(Icons.Rounded.PlaylistPlay, "Playlists", "Liked songs and playlists", { navController.navigate("playlists") })
+            SettingsRow(
+                Icons.Rounded.PlaylistPlay,
+                "Playlists",
+                "Liked songs and playlists",
+                { navController.navigate("playlists") },
+            )
         }
         item {
-            SettingsRow(Icons.Rounded.Timer, "Sleep Timer", "10 / 30 / 60 / 90 minutes", { navController.navigate("sleep") })
+            SettingsRow(
+                Icons.Rounded.Timer,
+                "Sleep Scene",
+                "Timers and playback-boundary stopping",
+                { navController.navigate("sleep") },
+            )
         }
         item {
-            SettingsRow(Icons.Rounded.Download, "Downloads", "Muse-managed offline files", { navController.navigate("downloads") })
+            SettingsRow(
+                Icons.Rounded.Download,
+                "Downloads",
+                "Muse-managed offline files",
+                { navController.navigate("downloads") },
+            )
         }
         item {
-            SettingsRow(Icons.Rounded.Settings, "Settings", "Library, privacy and playback", { navController.navigate("settings") })
+            SettingsRow(
+                Icons.Rounded.Settings,
+                "Settings",
+                "Library, privacy and playback",
+                { navController.navigate("settings") },
+            )
         }
     }
 }
