@@ -4127,6 +4127,7 @@ private fun SettingsScreen(
 ) {
     val state by viewModel.libraryState.collectAsStateWithLifecycle()
     val backup by viewModel.backupState.collectAsStateWithLifecycle()
+    val hiddenTracks by viewModel.hiddenTrackIds.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val libraryPermission = if (
         android.os.Build.VERSION.SDK_INT >=
@@ -4209,6 +4210,15 @@ private fun SettingsScreen(
                             onClick = {
                                 libraryPermissionLauncher.launch(libraryPermission)
                             },
+                        )
+                    }
+                    if (hiddenTracks.isNotEmpty()) {
+                        SettingsPanelDivider()
+                        SettingsPanelItem(
+                            icon = Icons.Rounded.LibraryMusic,
+                            title = "Hidden from Muse",
+                            subtitle = "${hiddenTracks.size} track(s) hidden • tap to restore all",
+                            onClick = viewModel::restoreHiddenTracks,
                         )
                     }
                     SettingsPanelDivider()
@@ -5161,30 +5171,43 @@ private fun MoreOptionsScreen(
                     }
                 }
 
-                if (activeTrack.managedByMuse) {
-                    item {
-                        MuseGlassAction(
-                            onClick = { confirmRemove = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            variant = MuseGlassVariant.Destructive,
-                            cornerRadius = 20.dp,
+                item {
+                    MuseGlassAction(
+                        onClick = { confirmRemove = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = MuseGlassVariant.Destructive,
+                        cornerRadius = 20.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                            Icon(
+                                Icons.Rounded.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                            Spacer(Modifier.size(14.dp))
+                            Column(
+                                modifier = Modifier.weight(1f),
                             ) {
-                                Icon(
-                                    Icons.Rounded.Delete,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                                Spacer(Modifier.size(14.dp))
                                 Text(
-                                    "Remove imported file from Muse",
+                                    "Remove from Library",
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    if (activeTrack.managedByMuse) {
+                                        "Release Muse access; the original file is not deleted"
+                                    } else {
+                                        "Hide this track from Muse; the device file is not deleted"
+                                    },
+                                    color = MuseMuted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
@@ -5198,13 +5221,17 @@ private fun MoreOptionsScreen(
                     title = { Text("Remove from Muse?") },
                     text = {
                         Text(
-                            "Muse will forget “${activeTrack.title}” and release saved access. The original file is not deleted."
+                            if (activeTrack.managedByMuse) {
+                                "Muse will forget “${activeTrack.title}” and release saved access. The original file is not deleted."
+                            } else {
+                                "Muse will hide “${activeTrack.title}” from the library and current queue. The device file is not deleted, and hidden tracks can be restored from Settings."
+                            }
                         )
                     },
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                viewModel.removeManagedMedia(activeTrack)
+                                viewModel.hideFromLibrary(activeTrack)
                                 confirmRemove = false
                                 navController.popBackStack()
                             },
