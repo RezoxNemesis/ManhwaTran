@@ -704,13 +704,17 @@ class MuseViewModel(
 
             val queueIds = museFlowEngine.buildQueue(
                 seedId = seed.id,
-                library = library.map(Track::toMuseFlowTrack),
+                library = library.map { track -> track.toMuseFlowTrack() },
                 signals = MuseFlowSignals(
                     favoriteIds = preferences.favoriteIds.first(),
                     recentTrackIds = preferences.recentTrackIds.first(),
                     playCounts = preferences.playCounts.first(),
-                    sessionTrackIds = playback.state.value.queue
-                        .mapNotNull { item -> item.mediaId },
+                    sessionTrackIds = playback.state.value.let { state ->
+                        state.queue
+                            .take((state.currentIndex + 1).coerceAtLeast(0))
+                            .takeLast(10)
+                            .mapNotNull { item -> item.mediaId }
+                    },
                 ),
                 limit = 40,
             )
