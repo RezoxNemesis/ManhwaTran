@@ -37,4 +37,9 @@ object AudioEffectProtocol {
     const val KeyLoudnessAvailable = "loudness_available"
     const val KeyLoudnessEnabled = "loudness_enabled"
     const val KeyLoudnessGainMb = "loudness_gain_mb"
+
+    const val KeySpatialSupported = "spatial_supported"
+    const val KeySpatialAvailable = "spatial_available"
+    const val KeySpatialEnabled = "spatial_enabled"
+    const val KeyHeadTrackerAvailable = "head_tracker_available"
 }
