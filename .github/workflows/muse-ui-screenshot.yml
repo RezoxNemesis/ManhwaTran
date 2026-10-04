@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: muse-runtime-ui-capture
@@ -82,8 +82,10 @@ jobs:
         with:
           api-level: 35
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_4
           target: google_apis
+          disk-size: 2048M
+          ram-size: 2048M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
@@ -118,3 +120,22 @@ jobs:
           path: ui-captures/muse-home-runtime.png
           if-no-files-found: error
           retention-days: 7
+
+      - name: Publish capture for review
+        run: |
+          set -euo pipefail
+          cp ui-captures/muse-home-runtime.png /tmp/muse-home-runtime.png
+          git fetch origin muse-ui-captures
+          git checkout muse-ui-captures
+          mkdir -p ui-captures
+          cp /tmp/muse-home-runtime.png ui-captures/muse-home-runtime.png
+          base64 -w0 ui-captures/muse-home-runtime.png > ui-captures/muse-home-runtime.b64
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ui-captures/muse-home-runtime.png ui-captures/muse-home-runtime.b64
+          if git diff --cached --quiet; then
+            echo "Capture unchanged"
+          else
+            git commit -m "chore: refresh Muse runtime UI capture [ui-capture]"
+            git push origin muse-ui-captures
+          fi
