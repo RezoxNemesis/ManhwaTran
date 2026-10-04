@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Favorite
@@ -94,8 +96,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -1238,6 +1242,9 @@ private fun QueueScreen(
 ) {
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
     var saveName by remember { mutableStateOf("") }
+    val dragThresholdPx = with(LocalDensity.current) {
+        48.dp.toPx()
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1314,8 +1321,75 @@ private fun QueueScreen(
                             enabled = index < playback.queue.lastIndex,
                             onClick = { viewModel.playback.moveQueueItem(index, index + 1) },
                         ) { Text("↓") }
-                        IconButton(onClick = { viewModel.playback.removeQueueItem(index) }) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Remove from queue")
+                        var dragIndex by remember(item.mediaId, index) {
+                            mutableStateOf(index)
+                        }
+                        var dragDistance by remember(item.mediaId, index) {
+                            mutableStateOf(0f)
+                        }
+                        Icon(
+                            Icons.Rounded.DragHandle,
+                            contentDescription = "Drag to reorder queue",
+                            tint = MuseMuted,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .padding(8.dp)
+                                .pointerInput(
+                                    item.mediaId,
+                                    index,
+                                    playback.queue.size,
+                                ) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            dragIndex = index
+                                            dragDistance = 0f
+                                        },
+                                        onDragEnd = {
+                                            dragDistance = 0f
+                                        },
+                                        onDragCancel = {
+                                            dragDistance = 0f
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            dragDistance += dragAmount.y
+
+                                            while (
+                                                dragDistance >= dragThresholdPx &&
+                                                dragIndex < playback.queue.lastIndex
+                                            ) {
+                                                viewModel.playback.moveQueueItem(
+                                                    dragIndex,
+                                                    dragIndex + 1,
+                                                )
+                                                dragIndex += 1
+                                                dragDistance -= dragThresholdPx
+                                            }
+
+                                            while (
+                                                dragDistance <= -dragThresholdPx &&
+                                                dragIndex > 0
+                                            ) {
+                                                viewModel.playback.moveQueueItem(
+                                                    dragIndex,
+                                                    dragIndex - 1,
+                                                )
+                                                dragIndex -= 1
+                                                dragDistance += dragThresholdPx
+                                            }
+                                        },
+                                    )
+                                },
+                        )
+                        IconButton(
+                            onClick = {
+                                viewModel.playback.removeQueueItem(index)
+                            },
+                        ) {
+                            Icon(
+                                Icons.Rounded.Delete,
+                                contentDescription = "Remove from queue",
+                            )
                         }
                     }
                 }
