@@ -21,6 +21,7 @@ private val SoundProfilesJson = stringPreferencesKey("sound_profiles_json")
 private val SelectedSoundProfileId = stringPreferencesKey("selected_sound_profile_id")
 private val PlayCountsJson = stringPreferencesKey("play_counts_json")
 private val ListeningSignalsJson = stringPreferencesKey("listening_signals_json")
+private val HiddenTrackIds = stringSetPreferencesKey("hidden_track_ids")
 
 data class UserPlaylist(
     val id: String,
@@ -88,6 +89,14 @@ class MusePreferences(
             decodeListeningSignals(prefs[ListeningSignalsJson].orEmpty())
         }
 
+    val hiddenTrackIds: Flow<Set<Long>> =
+        context.museDataStore.data.map { prefs ->
+            prefs[HiddenTrackIds]
+                .orEmpty()
+                .mapNotNull(String::toLongOrNull)
+                .toSet()
+        }
+
     suspend fun exportBackupJson(): String {
         val prefs = context.museDataStore.data.first()
 
@@ -124,12 +133,18 @@ class MusePreferences(
         val listeningSignals = decodeListeningSignals(
             prefs[ListeningSignalsJson].orEmpty(),
         )
+        val hiddenTracks = prefs[HiddenTrackIds]
+            .orEmpty()
+            .mapNotNull(String::toLongOrNull)
+            .filter { it != 0L }
+            .distinct()
 
         return JSONObject()
             .put("schema", BackupSchemaVersion)
             .put("kind", "muse-local-backup")
             .put("favorites", JSONArray(favorites))
             .put("recentTracks", JSONArray(recent))
+            .put("hiddenTracks", JSONArray(hiddenTracks))
             .put("playlists", JSONArray(encodePlaylists(playlists)))
             .put("soundProfiles", JSONArray(encodeSoundProfiles(profiles)))
             .put("selectedSoundProfileId", selectedProfileId)
@@ -173,6 +188,12 @@ class MusePreferences(
             .distinct()
             .take(100)
 
+        val hiddenTracks = root
+            .optJSONArray("hiddenTracks")
+            .toLongList()
+            .filter { it != 0L }
+            .distinct()
+
         val playlists = decodePlaylists(
             root.optJSONArray("playlists")
                 ?.toString()
@@ -204,6 +225,9 @@ class MusePreferences(
                 .map(Long::toString)
                 .toSet()
             prefs[RecentTrackIds] = recent.joinToString(",")
+            prefs[HiddenTrackIds] = hiddenTracks
+                .map(Long::toString)
+                .toSet()
             prefs[PlaylistsJson] = encodePlaylists(playlists)
             prefs[SoundProfilesJson] = encodeSoundProfiles(profiles)
             prefs[SelectedSoundProfileId] = selectedProfileId
@@ -217,6 +241,20 @@ class MusePreferences(
             playlists = playlists.size,
             soundProfiles = profiles.size,
         )
+    }
+
+    suspend fun hideTrack(trackId: Long) {
+        if (trackId == 0L) return
+        context.museDataStore.edit { prefs ->
+            prefs[HiddenTrackIds] =
+                prefs[HiddenTrackIds].orEmpty() + trackId.toString()
+        }
+    }
+
+    suspend fun restoreHiddenTracks() {
+        context.museDataStore.edit { prefs ->
+            prefs.remove(HiddenTrackIds)
+        }
     }
 
     suspend fun addManagedMediaUri(uri: String) {
