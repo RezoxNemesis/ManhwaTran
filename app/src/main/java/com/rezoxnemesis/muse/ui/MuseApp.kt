@@ -390,44 +390,111 @@ private fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item {
-            Column(
+            Box(
                 modifier = Modifier
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Image(
-                    painter = painterResource(R.drawable.muse_logo),
-                    contentDescription = "Muse logo",
+                MuseGlassAction(
+                    onClick = { navController.navigate("tools") },
                     modifier = Modifier
-                        .size(104.dp)
-                        .clip(RoundedCornerShape(26.dp)),
-                    contentScale = ContentScale.Fit,
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(greeting, style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    "FEEL THE MUSIC",
-                    color = MuseGreen,
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                        .align(Alignment.TopStart)
+                        .size(48.dp),
+                    variant = MuseGlassVariant.Elevated,
+                    cornerRadius = 18.dp,
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.Tune,
+                            contentDescription = "Open Muse Lab",
+                            tint = MuseGreen,
+                        )
+                    }
+                }
+
+                MuseGlassAction(
+                    onClick = { navController.navigate("settings") },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(48.dp),
+                    variant = MuseGlassVariant.Elevated,
+                    cornerRadius = 18.dp,
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.Settings,
+                            contentDescription = "Open Settings",
+                            tint = Color.White,
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.muse_logo),
+                        contentDescription = "Muse logo",
+                        modifier = Modifier
+                            .size(112.dp)
+                            .clip(RoundedCornerShape(28.dp)),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        greeting,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "FEEL THE MUSIC",
+                        color = MuseGreen,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
             }
         }
 
         item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::setSearchQuery,
+            MuseGlassSurface(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                placeholder = { Text("Search songs, artists, albums…") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = { navController.navigate("library") }
-                ),
-                shape = RoundedCornerShape(22.dp),
-            )
+                variant = MuseGlassVariant.Strong,
+                cornerRadius = 28.dp,
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = viewModel::setSearchQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = null,
+                            tint = MuseGreen,
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            "Search songs, artists, albums…",
+                            color = MuseMuted,
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { navController.navigate("library") }
+                    ),
+                    shape = RoundedCornerShape(28.dp),
+                )
+            }
         }
 
         item {
@@ -548,29 +615,42 @@ private fun ExploreScreen(
             ScreenHeader(title = "Explore")
         }
         item {
-            OutlinedTextField(
-                value = exploreQuery,
-                onValueChange = { exploreQuery = it },
+            MuseGlassSurface(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = {
-                    Icon(Icons.Rounded.Search, contentDescription = null)
-                },
-                trailingIcon = {
-                    if (exploreQuery.isNotBlank()) {
-                        IconButton(onClick = { exploreQuery = "" }) {
-                            Icon(
-                                Icons.Rounded.Clear,
-                                contentDescription = "Clear Explore search",
-                            )
+                variant = MuseGlassVariant.Strong,
+                cornerRadius = 28.dp,
+            ) {
+                OutlinedTextField(
+                    value = exploreQuery,
+                    onValueChange = { exploreQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = null,
+                            tint = MuseGreen,
+                        )
+                    },
+                    trailingIcon = {
+                        if (exploreQuery.isNotBlank()) {
+                            IconButton(onClick = { exploreQuery = "" }) {
+                                Icon(
+                                    Icons.Rounded.Clear,
+                                    contentDescription = "Clear Explore search",
+                                )
+                            }
                         }
-                    }
-                },
-                placeholder = {
-                    Text("Search songs, artists, albums…")
-                },
-                shape = RoundedCornerShape(20.dp),
-            )
+                    },
+                    placeholder = {
+                        Text(
+                            "Search songs, artists, albums…",
+                            color = MuseMuted,
+                        )
+                    },
+                    shape = RoundedCornerShape(28.dp),
+                )
+            }
         }
 
         if (exploreQuery.isNotBlank()) {
@@ -623,23 +703,18 @@ private fun ExploreScreen(
                     )
                 }
             } else {
-                items(trending.take(8), key = { it.id }) { track ->
-                    TrackRow(
-                        track = track,
-                        favorite = track.id in favourites,
-                        onPlay = { viewModel.playTrack(track) },
-                        onFavorite = {
-                            viewModel.toggleFavorite(track.id)
-                        },
-                        onArtist = {
-                            viewModel.selectArtist(track.artist)
-                            navController.navigate("artist")
-                        },
-                        onAlbum = {
-                            viewModel.selectAlbum(track.album)
-                            navController.navigate("album")
-                        },
-                    )
+                item {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        items(trending.take(8), key = { it.id }) { track ->
+                            TrackPoster(
+                                track = track,
+                                favorite = track.id in favourites,
+                                onClick = { viewModel.playTrack(track) },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -652,19 +727,29 @@ private fun ExploreScreen(
                 )
             }
             item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(MuseMood.entries) { mood ->
-                        FilterChip(
-                            selected = selectedMood == mood,
-                            onClick = {
-                                selectedMood =
-                                    if (selectedMood == mood) null else mood
-                            },
-                            label = { Text(mood.name) },
-                        )
-                    }
+                    MuseMood.entries
+                        .chunked(3)
+                        .forEach { moods ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                moods.forEach { mood ->
+                                    MuseMoodTile(
+                                        mood = mood,
+                                        selected = selectedMood == mood,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = {
+                                            selectedMood =
+                                                if (selectedMood == mood) null else mood
+                                        },
+                                    )
+                                }
+                            }
+                        }
                 }
             }
 
@@ -4321,7 +4406,7 @@ private fun QuickAction(
 ) {
     MuseGlassAction(
         onClick = onClick,
-        modifier = modifier.height(94.dp),
+        modifier = modifier.height(98.dp),
         variant = MuseGlassVariant.Elevated,
         cornerRadius = 22.dp,
     ) {
@@ -4330,9 +4415,71 @@ private fun QuickAction(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(icon, contentDescription = label, tint = MuseGreen)
-            Spacer(Modifier.height(7.dp))
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = MuseGreen,
+                modifier = Modifier.size(28.dp),
+            )
+            Spacer(Modifier.height(8.dp))
             Text(label, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun MuseMoodTile(
+    mood: MuseMood,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val accent = when (mood) {
+        MuseMood.Chill -> Color(0xFF5EF2D0)
+        MuseMood.Workout -> Color(0xFFFFC857)
+        MuseMood.Love -> Color(0xFFFF75A8)
+        MuseMood.Focus -> Color(0xFF68B9FF)
+        MuseMood.Party -> Color(0xFFC98BFF)
+        MuseMood.Sleep -> Color(0xFFAAA8FF)
+    }
+    val icon = when (mood) {
+        MuseMood.Chill -> Icons.Rounded.MusicNote
+        MuseMood.Workout -> Icons.Rounded.Equalizer
+        MuseMood.Love -> Icons.Rounded.Favorite
+        MuseMood.Focus -> Icons.Rounded.Tune
+        MuseMood.Party -> Icons.Rounded.Explore
+        MuseMood.Sleep -> Icons.Rounded.Timer
+    }
+
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = modifier.height(112.dp),
+        variant = if (selected) {
+            MuseGlassVariant.Selected
+        } else {
+            MuseGlassVariant.Elevated
+        },
+        cornerRadius = 22.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = mood.name,
+                tint = accent,
+                modifier = Modifier.size(30.dp),
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                mood.name,
+                fontWeight = FontWeight.SemiBold,
+                color = if (selected) MuseGreen else Color.White,
+            )
         }
     }
 }
