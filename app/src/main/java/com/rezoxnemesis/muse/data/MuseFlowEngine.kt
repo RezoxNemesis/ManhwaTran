@@ -159,11 +159,6 @@ class MuseFlowEngine {
 
         if (candidate.id in sessionRank) score -= 12
 
-        val recentSessionArtists = signals.sessionTrackIds
-            .takeLast(3)
-            .mapNotNull { id -> null }
-        @Suppress("UNUSED_VARIABLE")
-        val unused = recentSessionArtists
 
         return score
     }
