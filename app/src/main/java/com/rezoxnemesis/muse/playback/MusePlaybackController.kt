@@ -73,7 +73,6 @@ data class AudioEffectsUiState(
     val loudnessGainMb: Int = 0,
 )
 
-@androidx.media3.common.util.UnstableApi
 class MusePlaybackController(
     context: Context,
 ) {
