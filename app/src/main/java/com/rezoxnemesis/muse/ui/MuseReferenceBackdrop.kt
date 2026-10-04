@@ -21,6 +21,28 @@ import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+internal enum class MuseVisualIntensity(
+    val storedValue: String,
+    val label: String,
+) {
+    Calm("calm", "Calm"),
+    Balanced("balanced", "Balanced"),
+    Vivid("vivid", "Vivid");
+
+    fun next(): MuseVisualIntensity =
+        when (this) {
+            Calm -> Balanced
+            Balanced -> Vivid
+            Vivid -> Calm
+        }
+
+    companion object {
+        fun fromStored(value: String?): MuseVisualIntensity =
+            entries.firstOrNull { it.storedValue == value }
+                ?: Balanced
+    }
+}
+
 internal enum class MuseReferenceScreen(
     val atlasIndex: Int,
 ) {
@@ -76,6 +98,7 @@ internal enum class MuseReferenceScreen(
 @Composable
 internal fun MuseReferenceBackdrop(
     screen: MuseReferenceScreen,
+    intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -102,6 +125,17 @@ internal fun MuseReferenceBackdrop(
         if (activeBitmap == null) {
             MuseAtmosphere()
         } else {
+            val verticalScrim = when (intensity) {
+                MuseVisualIntensity.Calm -> listOf(0.42f, 0.55f, 0.47f, 0.60f)
+                MuseVisualIntensity.Balanced -> listOf(0.29f, 0.39f, 0.32f, 0.43f)
+                MuseVisualIntensity.Vivid -> listOf(0.20f, 0.29f, 0.23f, 0.34f)
+            }
+            val centerScrim = when (intensity) {
+                MuseVisualIntensity.Calm -> 0.34f
+                MuseVisualIntensity.Balanced -> 0.26f
+                MuseVisualIntensity.Vivid -> 0.18f
+            }
+
             Image(
                 bitmap = activeBitmap.asImageBitmap(),
                 contentDescription = null,
@@ -117,10 +151,10 @@ internal fun MuseReferenceBackdrop(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0x4A010503),
-                                Color(0x64010503),
-                                Color(0x52010503),
-                                Color(0x6E010302),
+                                Color(0xFF010503).copy(alpha = verticalScrim[0]),
+                                Color(0xFF010503).copy(alpha = verticalScrim[1]),
+                                Color(0xFF010503).copy(alpha = verticalScrim[2]),
+                                Color(0xFF010302).copy(alpha = verticalScrim[3]),
                             )
                         )
                     ),
@@ -131,9 +165,9 @@ internal fun MuseReferenceBackdrop(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                Color(0x16000000),
-                                Color(0x42020A05),
-                                Color(0x16000000),
+                                Color.Black.copy(alpha = centerScrim * 0.34f),
+                                Color(0xFF020A05).copy(alpha = centerScrim),
+                                Color.Black.copy(alpha = centerScrim * 0.34f),
                             )
                         )
                     ),
