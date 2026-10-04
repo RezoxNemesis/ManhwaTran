@@ -2,6 +2,8 @@ package com.rezoxnemesis.muse.playback
 
 import android.content.ContentUris
 import android.content.Context
+import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -11,7 +13,8 @@ import org.json.JSONObject
 
 private const val PreferencesName = "muse_playback_session"
 private const val SnapshotKey = "snapshot"
-private const val SnapshotVersion = 1
+private const val SnapshotVersion = 2
+private const val SourceUriExtraKey = "muse.source_uri"
 
 class PlaybackSnapshotStore(
     context: Context,
@@ -34,6 +37,12 @@ class PlaybackSnapshotStore(
                     .put("title", item.mediaMetadata.title?.toString().orEmpty())
                     .put("artist", item.mediaMetadata.artist?.toString().orEmpty())
                     .put("album", item.mediaMetadata.albumTitle?.toString().orEmpty())
+                    .put(
+                        "uri",
+                        item.mediaMetadata.extras
+                            ?.getString(SourceUriExtraKey)
+                            .orEmpty(),
+                    )
             )
         }
 
@@ -57,19 +66,28 @@ class PlaybackSnapshotStore(
     fun restore(player: Player): Boolean {
         val raw = preferences.getString(SnapshotKey, null) ?: return false
         val snapshot = runCatching { JSONObject(raw) }.getOrNull() ?: return false
-        if (snapshot.optInt("version", -1) != SnapshotVersion) return false
+        val version = snapshot.optInt("version", -1)
+        if (version !in 1..SnapshotVersion) return false
 
         val queueJson = snapshot.optJSONArray("queue") ?: return false
         val items = buildList {
             for (index in 0 until queueJson.length()) {
                 val item = queueJson.optJSONObject(index) ?: continue
-                val id = item.optLong("id", -1L)
-                if (id < 0L) continue
+                val id = item.optLong("id", 0L)
+                if (id == 0L) continue
 
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    id,
-                )
+                val storedUri = item.optString("uri")
+                val uri = if (storedUri.isNotBlank()) {
+                    Uri.parse(storedUri)
+                } else if (id > 0L) {
+                    ContentUris.withAppendedId(
+                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                        id,
+                    )
+                } else {
+                    continue
+                }
+
                 add(
                     MediaItem.Builder()
                         .setMediaId(id.toString())
@@ -79,6 +97,11 @@ class PlaybackSnapshotStore(
                                 .setTitle(item.optString("title"))
                                 .setArtist(item.optString("artist"))
                                 .setAlbumTitle(item.optString("album"))
+                                .setExtras(
+                                    Bundle().apply {
+                                        putString(SourceUriExtraKey, uri.toString())
+                                    }
+                                )
                                 .build()
                         )
                         .build()
