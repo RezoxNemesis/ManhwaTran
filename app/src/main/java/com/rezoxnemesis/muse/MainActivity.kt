@@ -88,9 +88,22 @@ class MainActivity : ComponentActivity() {
             "com.rezoxnemesis.muse.extra.OPEN_ROUTE"
 
         private val AllowedExternalRoutes = setOf(
+            "home",
+            "explore",
+            "library",
+            "equalizer",
+            "tools",
             "nowPlaying",
             "queue",
             "lyrics",
+            "liked",
+            "recent",
+            "playlists",
+            "downloads",
+            "sleep",
+            "settings",
+            "diagnostics",
+            "more",
         )
     }
 }
