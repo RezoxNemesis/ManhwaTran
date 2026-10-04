@@ -1904,6 +1904,33 @@ private fun MoreOptionsScreen(
                     }
                 }
                 OptionRow(
+                    icon = Icons.Rounded.SkipNext,
+                    title = "Play Next",
+                    onClick = {
+                        viewModel.playback.playNext(track!!)
+                        navController.popBackStack()
+                    },
+                )
+                OptionRow(
+                    icon = Icons.Rounded.QueueMusic,
+                    title = "Add to Queue",
+                    onClick = {
+                        viewModel.playback.addToQueue(track!!)
+                        navController.popBackStack()
+                    },
+                )
+                OptionRow(
+                    icon = Icons.Rounded.Tune,
+                    title = "Muse Local Radio",
+                    subtitle = "Build a mix from related music already in your library",
+                    onClick = {
+                        viewModel.playLocalSongRadio(track!!)
+                        navController.navigate("nowPlaying") {
+                            popUpTo("more") { inclusive = true }
+                        }
+                    },
+                )
+                OptionRow(
                     icon = Icons.Rounded.Album,
                     title = "View Album",
                     onClick = {
