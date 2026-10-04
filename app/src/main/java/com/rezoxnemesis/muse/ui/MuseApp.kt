@@ -29,10 +29,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Album
@@ -1200,7 +1202,12 @@ private fun NowPlayingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 22.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(
+                start = 22.dp,
+                end = 22.dp,
+                bottom = 28.dp,
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         ScreenHeader(
