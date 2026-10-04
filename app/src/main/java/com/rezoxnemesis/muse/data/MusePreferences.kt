@@ -499,4 +499,9 @@ class MusePreferences(
             }
         }.getOrDefault(emptyList())
     }
+    private companion object {
+        const val BackupSchemaVersion = 1
+        const val MaxBackupChars = 2 * 1024 * 1024
+    }
+
 }
