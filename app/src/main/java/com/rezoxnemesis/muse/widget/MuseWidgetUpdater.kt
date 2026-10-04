@@ -104,6 +104,7 @@ object MuseWidgetUpdater {
         ).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.ExtraOpenRoute, "nowPlaying")
         }
         return PendingIntent.getActivity(
             context,
