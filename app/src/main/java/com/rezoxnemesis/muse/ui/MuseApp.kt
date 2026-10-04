@@ -1772,175 +1772,391 @@ private fun LyricsScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader(
-            title = "Lyrics",
-            onBack = { navController.popBackStack() },
-            action = {
-                if (track != null) {
-                    TextButton(onClick = { importLauncher.launch("text/*") }) {
-                        Text(if (document == null) "Import" else "Replace")
-                    }
-                }
-            },
-        )
-
-        if (track == null) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (track != null) {
+            TrackArtwork(
+                track = track,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = 0.30f
+                        scaleX = 1.18f
+                        scaleY = 1.18f
+                    },
+                contentDescription = null,
+                shape = RoundedCornerShape(0.dp),
+            )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(22.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                EmptyCard(
-                    title = "Nothing playing",
-                    body = "Start a track, then open Lyrics to attach or view local lyrics.",
-                )
-            }
-            return@Column
-        }
-
-        if (lyrics.loading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(22.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Loading lyrics…", color = MuseMuted)
-            }
-            return@Column
-        }
-
-        if (lyrics.error != null) {
-            Column(
-                modifier = Modifier.padding(horizontal = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                ErrorCard(
-                    message = lyrics.error.orEmpty(),
-                    onRetry = { track?.let(viewModel::loadLyrics) },
-                )
-            }
-        }
-
-        if (document == null || document.lines.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(22.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                GlassCard {
-                    Column(
-                        modifier = Modifier.padding(22.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            "No local lyrics found",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Import a .lrc or plain-text lyric file you own. Muse stores the imported copy locally and never fabricates lyrics.",
-                            color = MuseMuted,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(18.dp))
-                        Button(
-                            onClick = { importLauncher.launch("text/*") },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MuseGreen,
-                                contentColor = MuseBackground,
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xE9020905),
+                                Color(0xAD041108),
+                                Color(0xD4020805),
                             ),
-                        ) {
-                            Text("Import Lyrics")
+                        )
+                    ),
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            ScreenHeader(
+                title = "Lyrics",
+                onBack = { navController.popBackStack() },
+                action = {
+                    if (track != null) {
+                        TextButton(onClick = { importLauncher.launch("text/*") }) {
+                            Text(if (document == null) "Import" else "Replace")
                         }
                     }
-                }
-            }
-        } else {
+                },
+            )
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(horizontal = 22.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        track!!.title,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        when {
-                            document.source == LyricsSource.Embedded ->
-                                "Embedded in audio file"
-                            document.synced ->
-                                "Synced imported lyrics"
-                            else ->
-                                "Plain imported lyrics"
-                        },
-                        color = MuseMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                MuseGlassAction(
+                    onClick = { navController.navigate("nowPlaying") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    variant = MuseGlassVariant.Standard,
+                    cornerRadius = 18.dp,
+                    enabled = track != null,
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Song", color = MuseMuted, fontWeight = FontWeight.SemiBold)
+                    }
                 }
-                if (document.synced) {
-                    Text("Auto-follow", color = MuseMuted)
-                    Switch(
-                        checked = autoFollow,
-                        onCheckedChange = { autoFollow = it },
-                    )
+                MuseGlassSurface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    variant = MuseGlassVariant.Selected,
+                    cornerRadius = 18.dp,
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Lyrics", color = MuseGreen, fontWeight = FontWeight.Bold)
+                    }
                 }
-                if (document.source == LyricsSource.Imported) {
-                    IconButton(onClick = { confirmRemove = true }) {
-                        Icon(
-                            Icons.Rounded.Delete,
-                            contentDescription = "Remove imported lyrics",
-                        )
+                MuseGlassAction(
+                    onClick = {
+                        track?.let { seed ->
+                            viewModel.playMuseFlow(seed)
+                            navController.navigate("nowPlaying")
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    variant = MuseGlassVariant.Standard,
+                    cornerRadius = 18.dp,
+                    enabled = track != null,
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Muse Flow", color = MuseMuted, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 24.dp,
-                    end = 24.dp,
-                    top = 18.dp,
-                    bottom = 56.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
-            ) {
-                itemsIndexed(document.lines) { index, line ->
-                    val active = index == activeIndex
-                    val textColor = if (active) MuseGreen else Color.White.copy(alpha = 0.78f)
-                    Text(
-                        text = line.text.ifBlank { "♪" },
-                        color = textColor,
-                        style = if (active) {
-                            MaterialTheme.typography.headlineSmall
-                        } else {
-                            MaterialTheme.typography.titleMedium
-                        },
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+            when {
+                track == null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(22.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        EmptyCard(
+                            title = "Nothing playing",
+                            body = "Start a track, then open Lyrics to attach or view local lyrics.",
+                        )
+                    }
+                }
+
+                lyrics.loading -> {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(
-                                enabled = line.timeMs != null,
-                                onClick = {
-                                    line.timeMs?.let {
-                                        viewModel.playback.seekTo(it)
-                                        autoFollow = true
-                                    }
+                            .weight(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Loading lyrics…", color = MuseMuted)
+                    }
+                }
+
+                document == null || document.lines.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(22.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MuseGlassSurface(
+                            variant = MuseGlassVariant.Elevated,
+                            cornerRadius = 28.dp,
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    "No local lyrics found",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Import a .lrc or plain-text lyric file you own. Muse stores the imported copy locally and never fabricates lyrics.",
+                                    color = MuseMuted,
+                                    textAlign = TextAlign.Center,
+                                )
+                                Spacer(Modifier.height(18.dp))
+                                Button(
+                                    onClick = { importLauncher.launch("text/*") },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MuseGreen,
+                                        contentColor = MuseBackground,
+                                    ),
+                                ) {
+                                    Text("Import Lyrics")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                else -> {
+                    if (lyrics.error != null) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp),
+                        ) {
+                            ErrorCard(
+                                message = lyrics.error.orEmpty(),
+                                onRetry = { track?.let(viewModel::loadLyrics) },
+                            )
+                        }
+                    }
+
+                    MuseGlassSurface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 22.dp, vertical = 8.dp),
+                        variant = MuseGlassVariant.Strong,
+                        cornerRadius = 22.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TrackArtwork(
+                                track = track,
+                                modifier = Modifier.size(58.dp),
+                                contentDescription = null,
+                            )
+                            Spacer(Modifier.size(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    track!!.title,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    when {
+                                        document.source == LyricsSource.Embedded ->
+                                            "Embedded lyrics"
+                                        document.synced ->
+                                            "Synced local lyrics"
+                                        else ->
+                                            "Local lyrics"
+                                    },
+                                    color = MuseMuted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            if (document.synced) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Follow",
+                                        color = MuseMuted,
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                    Switch(
+                                        checked = autoFollow,
+                                        onCheckedChange = { autoFollow = it },
+                                    )
+                                }
+                            }
+                            if (document.source == LyricsSource.Imported) {
+                                IconButton(onClick = { confirmRemove = true }) {
+                                    Icon(
+                                        Icons.Rounded.Delete,
+                                        contentDescription = "Remove imported lyrics",
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            start = 24.dp,
+                            end = 24.dp,
+                            top = 18.dp,
+                            bottom = 20.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        itemsIndexed(document.lines) { index, line ->
+                            val active = index == activeIndex
+                            if (active) {
+                                MuseGlassSurface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    variant = MuseGlassVariant.Selected,
+                                    cornerRadius = 18.dp,
+                                ) {
+                                    Text(
+                                        text = line.text.ifBlank { "♪" },
+                                        color = MuseGreen,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(
+                                                enabled = line.timeMs != null,
+                                                onClick = {
+                                                    line.timeMs?.let {
+                                                        viewModel.playback.seekTo(it)
+                                                        autoFollow = true
+                                                    }
+                                                },
+                                            )
+                                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = line.text.ifBlank { "♪" },
+                                    color = Color.White.copy(alpha = 0.82f),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            enabled = line.timeMs != null,
+                                            onClick = {
+                                                line.timeMs?.let {
+                                                    viewModel.playback.seekTo(it)
+                                                    autoFollow = true
+                                                }
+                                            },
+                                        )
+                                        .padding(vertical = 6.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    val duration = playback.durationMs.coerceAtLeast(1L)
+                    MuseGlassSurface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        variant = MuseGlassVariant.Elevated,
+                        cornerRadius = 26.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        ) {
+                            Slider(
+                                value = playback.positionMs.coerceIn(0L, duration).toFloat(),
+                                onValueChange = {
+                                    viewModel.playback.seekTo(it.roundToLong())
                                 },
-                            ),
-                    )
+                                valueRange = 0f..duration.toFloat(),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    formatDuration(playback.positionMs),
+                                    color = MuseMuted,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    formatDuration(playback.durationMs),
+                                    color = MuseMuted,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                IconButton(onClick = viewModel.playback::toggleShuffle) {
+                                    Icon(
+                                        Icons.Rounded.Shuffle,
+                                        contentDescription = "Shuffle",
+                                        tint = if (playback.shuffleEnabled) MuseGreen else Color.White,
+                                    )
+                                }
+                                IconButton(onClick = viewModel.playback::previous) {
+                                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "Previous")
+                                }
+                                MuseGlassAction(
+                                    onClick = viewModel.playback::playPause,
+                                    modifier = Modifier.size(64.dp),
+                                    variant = MuseGlassVariant.Selected,
+                                    cornerRadius = 32.dp,
+                                ) {
+                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            if (playback.isPlaying) {
+                                                Icons.Rounded.Pause
+                                            } else {
+                                                Icons.Rounded.PlayArrow
+                                            },
+                                            contentDescription = if (playback.isPlaying) "Pause" else "Play",
+                                            tint = MuseGreen,
+                                            modifier = Modifier.size(34.dp),
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = viewModel.playback::next) {
+                                    Icon(Icons.Rounded.SkipNext, contentDescription = "Next")
+                                }
+                                IconButton(onClick = viewModel.playback::cycleRepeat) {
+                                    Icon(
+                                        Icons.Rounded.Repeat,
+                                        contentDescription = "Repeat",
+                                        tint = if (
+                                            playback.repeatMode ==
+                                            androidx.media3.common.Player.REPEAT_MODE_OFF
+                                        ) {
+                                            Color.White
+                                        } else {
+                                            MuseGreen
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
