@@ -16,11 +16,25 @@ private val FavoriteTrackIds = stringSetPreferencesKey("favorite_track_ids")
 private val RecentTrackIds = stringPreferencesKey("recent_track_ids")
 private val PlaylistsJson = stringPreferencesKey("playlists_json")
 private val ManagedMediaUris = stringSetPreferencesKey("managed_media_uris")
+private val SoundProfilesJson = stringPreferencesKey("sound_profiles_json")
 
 data class UserPlaylist(
     val id: String,
     val name: String,
     val trackIds: List<Long>,
+)
+
+data class MuseSoundProfile(
+    val id: String,
+    val name: String,
+    val eqCentersHz: List<Int>,
+    val eqLevelsMb: List<Int>,
+    val bassEnabled: Boolean,
+    val bassStrength: Int,
+    val virtualizerEnabled: Boolean,
+    val virtualizerStrength: Int,
+    val loudnessEnabled: Boolean,
+    val loudnessGainMb: Int,
 )
 
 class MusePreferences(
@@ -43,6 +57,10 @@ class MusePreferences(
 
     val managedMediaUris: Flow<Set<String>> = context.museDataStore.data.map { prefs ->
         prefs[ManagedMediaUris].orEmpty()
+    }
+
+    val soundProfiles: Flow<List<MuseSoundProfile>> = context.museDataStore.data.map { prefs ->
+        decodeSoundProfiles(prefs[SoundProfilesJson].orEmpty())
     }
 
     suspend fun addManagedMediaUri(uri: String) {
@@ -80,6 +98,50 @@ class MusePreferences(
                     )
                 }
             prefs[PlaylistsJson] = encodePlaylists(playlists)
+        }
+    }
+
+    suspend fun saveSoundProfile(
+        name: String,
+        eqCentersHz: List<Int>,
+        eqLevelsMb: List<Int>,
+        bassEnabled: Boolean,
+        bassStrength: Int,
+        virtualizerEnabled: Boolean,
+        virtualizerStrength: Int,
+        loudnessEnabled: Boolean,
+        loudnessGainMb: Int,
+    ) {
+        val cleanName = name.trim()
+        if (cleanName.isBlank()) return
+
+        mutateSoundProfiles { current ->
+            val existing = current.firstOrNull {
+                it.name.equals(cleanName, ignoreCase = true)
+            }
+            val profile = MuseSoundProfile(
+                id = existing?.id ?: UUID.randomUUID().toString(),
+                name = cleanName,
+                eqCentersHz = eqCentersHz,
+                eqLevelsMb = eqLevelsMb,
+                bassEnabled = bassEnabled,
+                bassStrength = bassStrength,
+                virtualizerEnabled = virtualizerEnabled,
+                virtualizerStrength = virtualizerStrength,
+                loudnessEnabled = loudnessEnabled,
+                loudnessGainMb = loudnessGainMb,
+            )
+            if (existing == null) {
+                current + profile
+            } else {
+                current.map { if (it.id == existing.id) profile else it }
+            }
+        }
+    }
+
+    suspend fun deleteSoundProfile(profileId: String) {
+        mutateSoundProfiles { current ->
+            current.filterNot { it.id == profileId }
         }
     }
 
@@ -172,6 +234,101 @@ class MusePreferences(
                 val moved = reordered.removeAt(fromIndex)
                 reordered.add(toIndex, moved)
                 playlist.copy(trackIds = reordered)
+            }
+        }
+    }
+
+    private suspend fun mutateSoundProfiles(
+        transform: (List<MuseSoundProfile>) -> List<MuseSoundProfile>,
+    ) {
+        context.museDataStore.edit { prefs ->
+            val current = decodeSoundProfiles(prefs[SoundProfilesJson].orEmpty())
+            prefs[SoundProfilesJson] = encodeSoundProfiles(transform(current))
+        }
+    }
+
+    private fun encodeSoundProfiles(
+        profiles: List<MuseSoundProfile>,
+    ): String {
+        val array = JSONArray()
+        profiles.forEach { profile ->
+            array.put(
+                JSONObject()
+                    .put("id", profile.id)
+                    .put("name", profile.name)
+                    .put("eqCentersHz", JSONArray(profile.eqCentersHz))
+                    .put("eqLevelsMb", JSONArray(profile.eqLevelsMb))
+                    .put("bassEnabled", profile.bassEnabled)
+                    .put("bassStrength", profile.bassStrength)
+                    .put("virtualizerEnabled", profile.virtualizerEnabled)
+                    .put("virtualizerStrength", profile.virtualizerStrength)
+                    .put("loudnessEnabled", profile.loudnessEnabled)
+                    .put("loudnessGainMb", profile.loudnessGainMb)
+            )
+        }
+        return array.toString()
+    }
+
+    private fun decodeSoundProfiles(
+        raw: String,
+    ): List<MuseSoundProfile> {
+        if (raw.isBlank()) return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val id = item.optString("id")
+                    val name = item.optString("name")
+                    if (id.isBlank() || name.isBlank()) continue
+
+                    val centers = item.optJSONArray("eqCentersHz")
+                        .toIntList()
+                    val levels = item.optJSONArray("eqLevelsMb")
+                        .toIntList()
+
+                    add(
+                        MuseSoundProfile(
+                            id = id,
+                            name = name,
+                            eqCentersHz = centers,
+                            eqLevelsMb = levels,
+                            bassEnabled = item.optBoolean("bassEnabled", false),
+                            bassStrength = item.optInt("bassStrength", 0),
+                            virtualizerEnabled = item.optBoolean(
+                                "virtualizerEnabled",
+                                false,
+                            ),
+                            virtualizerStrength = item.optInt(
+                                "virtualizerStrength",
+                                0,
+                            ),
+                            loudnessEnabled = item.optBoolean(
+                                "loudnessEnabled",
+                                false,
+                            ),
+                            loudnessGainMb = item.optInt(
+                                "loudnessGainMb",
+                                0,
+                            ),
+                        )
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun JSONArray?.toIntList(): List<Int> {
+        val source = this ?: return emptyList()
+        return buildList {
+            for (index in 0 until source.length()) {
+                val raw = source.opt(index)
+                val value = when (raw) {
+                    is Number -> raw.toInt()
+                    is String -> raw.toIntOrNull()
+                    else -> null
+                }
+                if (value != null) add(value)
             }
         }
     }
