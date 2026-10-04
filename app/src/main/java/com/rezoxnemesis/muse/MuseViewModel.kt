@@ -163,6 +163,30 @@ class MuseViewModel(
         initialValue = null,
     )
 
+    val playCounts = preferences.playCounts.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap(),
+    )
+
+    val topPlayedTracks = combine(
+        _libraryState,
+        playCounts,
+    ) { library, counts ->
+        library.tracks
+            .map { track -> track to (counts[track.id] ?: 0) }
+            .filter { (_, count) -> count > 0 }
+            .sortedWith(
+                compareByDescending<Pair<Track, Int>> { it.second }
+                    .thenBy { it.first.title.lowercase() }
+            )
+            .take(10)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
     val recentTracks = combine(_libraryState, preferences.recentTrackIds) { library, ids ->
         val byId = library.tracks.associateBy { it.id }
         ids.mapNotNull(byId::get)
