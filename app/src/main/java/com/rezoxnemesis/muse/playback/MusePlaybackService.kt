@@ -35,6 +35,7 @@ class MusePlaybackService : MediaSessionService() {
     private val serviceScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO,
     )
+    private var lastRecordedTrackId: Long? = null
 
     private val snapshotTicker = object : Runnable {
         override fun run() {
@@ -61,7 +62,12 @@ class MusePlaybackService : MediaSessionService() {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             handler.removeCallbacks(snapshotTicker)
-            mediaSession?.player?.let(snapshotStore::save)
+            mediaSession?.player?.let { player ->
+                snapshotStore.save(player)
+                if (isPlaying) {
+                    recordCurrentTrackIfNeeded(player)
+                }
+            }
             if (isPlaying) {
                 handler.postDelayed(snapshotTicker, SnapshotIntervalMs)
             }
@@ -75,15 +81,10 @@ class MusePlaybackService : MediaSessionService() {
             mediaItem: androidx.media3.common.MediaItem?,
             reason: Int,
         ) {
-            mediaItem
-                ?.mediaId
-                ?.toLongOrNull()
-                ?.takeIf { it != 0L }
-                ?.let { trackId ->
-                    serviceScope.launch {
-                        preferences.recordPlayed(trackId)
-                    }
-                }
+            lastRecordedTrackId = null
+            mediaSession?.player
+                ?.takeIf { it.isPlaying }
+                ?.let(::recordCurrentTrackIfNeeded)
 
             val completedNaturally =
                 reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
@@ -101,6 +102,9 @@ class MusePlaybackService : MediaSessionService() {
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) {
+                lastRecordedTrackId = null
+            }
             if (
                 playbackState == Player.STATE_ENDED &&
                 sleepTimer.onPlaybackEnded()
@@ -281,6 +285,22 @@ class MusePlaybackService : MediaSessionService() {
         mediaSession = null
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+    private fun recordCurrentTrackIfNeeded(
+        player: Player,
+    ) {
+        val trackId = player.currentMediaItem
+            ?.mediaId
+            ?.toLongOrNull()
+            ?.takeIf { it != 0L }
+            ?: return
+        if (trackId == lastRecordedTrackId) return
+
+        lastRecordedTrackId = trackId
+        serviceScope.launch {
+            preferences.recordPlayed(trackId)
+        }
     }
 
     private companion object {
