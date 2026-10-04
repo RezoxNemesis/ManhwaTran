@@ -121,12 +121,71 @@ private fun loadEmbeddedArtwork(
     return try {
         retriever.setDataSource(context, track.uri)
         val bytes = retriever.embeddedPicture ?: return null
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        decodeSampledArtwork(
+            bytes = bytes,
+            targetSizePx = ArtworkSizePx,
+        )
     } catch (_: RuntimeException) {
         null
     } finally {
         runCatching { retriever.release() }
     }
+}
+
+private fun decodeSampledArtwork(
+    bytes: ByteArray,
+    targetSizePx: Int,
+): Bitmap? {
+    val bounds = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
+    }
+    BitmapFactory.decodeByteArray(
+        bytes,
+        0,
+        bytes.size,
+        bounds,
+    )
+
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+        return null
+    }
+
+    var sampleSize = 1
+    while (
+        bounds.outWidth / (sampleSize * 2) >= targetSizePx &&
+        bounds.outHeight / (sampleSize * 2) >= targetSizePx
+    ) {
+        sampleSize *= 2
+    }
+
+    val decoded = BitmapFactory.decodeByteArray(
+        bytes,
+        0,
+        bytes.size,
+        BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        },
+    ) ?: return null
+
+    val longestSide = maxOf(
+        decoded.width,
+        decoded.height,
+    )
+    if (longestSide <= targetSizePx) {
+        return decoded
+    }
+
+    val scale = targetSizePx.toFloat() / longestSide.toFloat()
+    val scaled = Bitmap.createScaledBitmap(
+        decoded,
+        (decoded.width * scale).toInt().coerceAtLeast(1),
+        (decoded.height * scale).toInt().coerceAtLeast(1),
+        true,
+    )
+    if (scaled !== decoded) {
+        decoded.recycle()
+    }
+    return scaled
 }
 
 private const val ArtworkSizePx = 768
