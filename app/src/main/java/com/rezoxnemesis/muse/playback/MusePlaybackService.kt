@@ -215,6 +215,7 @@ class MusePlaybackService : MediaSessionService() {
 
         val sessionIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.ExtraOpenRoute, "nowPlaying")
         }
         val sessionActivity = PendingIntent.getActivity(
             this,
