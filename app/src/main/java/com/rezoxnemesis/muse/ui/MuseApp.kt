@@ -3555,6 +3555,56 @@ private fun EqualizerScreen(
                 }
             }
 
+            item {
+                GlassCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "3D / Spatial Audio",
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                when {
+                                    !effects.spatialSupported ->
+                                        "Not supported by this Android device"
+                                    effects.spatialEnabled &&
+                                        effects.spatialAvailable &&
+                                        effects.headTrackerAvailable ->
+                                        "System spatial audio active • head tracking available"
+                                    effects.spatialEnabled &&
+                                        effects.spatialAvailable ->
+                                        "System spatial audio active"
+                                    effects.spatialSupported &&
+                                        !effects.spatialAvailable ->
+                                        "Supported, but unavailable on the current audio route"
+                                    else ->
+                                        "Supported, but disabled in Android sound settings"
+                                },
+                                color = MuseMuted,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        if (effects.spatialSupported) {
+                            TextButton(
+                                onClick = {
+                                    val intent = Intent(
+                                        android.provider.Settings.ACTION_SOUND_SETTINGS
+                                    )
+                                    context.startActivity(intent)
+                                },
+                            ) {
+                                Text("Settings")
+                            }
+                        }
+                    }
+                }
+            }
+
             if (
                 !effects.equalizerAvailable &&
                 !effects.bassAvailable &&
