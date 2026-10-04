@@ -10,6 +10,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
@@ -41,6 +42,8 @@ data class PlaybackUiState(
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val playbackSpeed: Float = PlaybackTuning.DefaultSpeed,
+    val playbackPitch: Float = PlaybackTuning.DefaultPitch,
     val shuffleEnabled: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val queue: List<QueueUiItem> = emptyList(),
@@ -163,6 +166,14 @@ class MusePlaybackController(
         if (tracks.isEmpty()) return
         controller?.apply {
             val safeIndex = startIndex.coerceIn(tracks.indices)
+            // Playback tuning is session-scoped: a newly selected queue starts at
+            // normal speed/pitch, while process restoration keeps the same session.
+            setPlaybackParameters(
+                PlaybackParameters(
+                    PlaybackTuning.DefaultSpeed,
+                    PlaybackTuning.DefaultPitch,
+                )
+            )
             setMediaItems(tracks.map(::toMediaItem), safeIndex, 0L)
             prepare()
             play()
@@ -177,6 +188,44 @@ class MusePlaybackController(
 
     fun pause() {
         controller?.pause()
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        controller?.let { player ->
+            val current = player.playbackParameters
+            player.setPlaybackParameters(
+                PlaybackParameters(
+                    PlaybackTuning.sanitizeSpeed(speed),
+                    PlaybackTuning.sanitizePitch(current.pitch),
+                )
+            )
+            syncFrom(player)
+        }
+    }
+
+    fun setPlaybackPitch(pitch: Float) {
+        controller?.let { player ->
+            val current = player.playbackParameters
+            player.setPlaybackParameters(
+                PlaybackParameters(
+                    PlaybackTuning.sanitizeSpeed(current.speed),
+                    PlaybackTuning.sanitizePitch(pitch),
+                )
+            )
+            syncFrom(player)
+        }
+    }
+
+    fun resetPlaybackTuning() {
+        controller?.let { player ->
+            player.setPlaybackParameters(
+                PlaybackParameters(
+                    PlaybackTuning.DefaultSpeed,
+                    PlaybackTuning.DefaultPitch,
+                )
+            )
+            syncFrom(player)
+        }
     }
 
     fun seekTo(positionMs: Long) {
@@ -633,6 +682,12 @@ class MusePlaybackController(
             isPlaying = player.isPlaying,
             positionMs = player.currentPosition.coerceAtLeast(0L),
             durationMs = player.duration.takeIf { it > 0L } ?: 0L,
+            playbackSpeed = PlaybackTuning.sanitizeSpeed(
+                player.playbackParameters.speed,
+            ),
+            playbackPitch = PlaybackTuning.sanitizePitch(
+                player.playbackParameters.pitch,
+            ),
             shuffleEnabled = player.shuffleModeEnabled,
             repeatMode = player.repeatMode,
             queue = queue,
