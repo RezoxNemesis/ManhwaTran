@@ -8,12 +8,13 @@ import android.provider.MediaStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackParameters
 import org.json.JSONArray
 import org.json.JSONObject
 
 private const val PreferencesName = "muse_playback_session"
 private const val SnapshotKey = "snapshot"
-private const val SnapshotVersion = 4
+private const val SnapshotVersion = 5
 private const val SourceUriExtraKey = "muse.source_uri"
 private const val BitrateExtraKey = "muse.bitrate_bps"
 private const val SampleRateExtraKey = "muse.sample_rate_hz"
@@ -80,6 +81,14 @@ class PlaybackSnapshotStore(
             .put("positionMs", player.currentPosition.coerceAtLeast(0L))
             .put("repeatMode", player.repeatMode)
             .put("shuffle", player.shuffleModeEnabled)
+            .put(
+                "playbackSpeed",
+                PlaybackTuning.sanitizeSpeed(player.playbackParameters.speed),
+            )
+            .put(
+                "playbackPitch",
+                PlaybackTuning.sanitizePitch(player.playbackParameters.pitch),
+            )
             .put("savedAtMs", System.currentTimeMillis())
 
         preferences.edit().putString(SnapshotKey, payload.toString()).apply()
@@ -164,6 +173,22 @@ class PlaybackSnapshotStore(
             }
             ?: Player.REPEAT_MODE_OFF
         player.shuffleModeEnabled = snapshot.optBoolean("shuffle", false)
+        player.setPlaybackParameters(
+            PlaybackParameters(
+                PlaybackTuning.sanitizeSpeed(
+                    snapshot.optDouble(
+                        "playbackSpeed",
+                        PlaybackTuning.DefaultSpeed.toDouble(),
+                    ).toFloat()
+                ),
+                PlaybackTuning.sanitizePitch(
+                    snapshot.optDouble(
+                        "playbackPitch",
+                        PlaybackTuning.DefaultPitch.toDouble(),
+                    ).toFloat()
+                ),
+            )
+        )
         player.setMediaItems(items, index, positionMs)
         player.prepare()
         player.playWhenReady = false
