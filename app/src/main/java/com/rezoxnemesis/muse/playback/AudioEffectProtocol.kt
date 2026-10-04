@@ -23,6 +23,8 @@ object AudioEffectProtocol {
     const val KeyEqBandLevelMb = "eq_band_level_mb"
     const val KeyEqPresetIndex = "eq_preset_index"
     const val KeyEqPresetNames = "eq_preset_names"
+    const val KeyEqProfileCentersHz = "eq_profile_centers_hz"
+    const val KeyEqProfileLevelsMb = "eq_profile_levels_mb"
 
     const val KeyBassAvailable = "bass_available"
     const val KeyBassEnabled = "bass_enabled"
