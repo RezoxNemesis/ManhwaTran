@@ -192,17 +192,9 @@ fun MuseApp(
         modifier = Modifier
             .fillMaxSize()
             .testTag("MuseRoot")
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF07170B),
-                        MuseBackground,
-                        Color(0xFF020704),
-                    )
-                )
-            ),
+            .background(MuseBackground),
     ) {
-        BotanicalBackdrop()
+        MuseAtmosphere()
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -210,9 +202,7 @@ fun MuseApp(
             bottomBar = {
                 if (showPrimaryNav) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xE607120A)),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         if (playback.currentMediaId != null) {
                             MiniPlayer(
@@ -304,162 +294,40 @@ fun MuseApp(
 }
 
 @Composable
-private fun BotanicalBackdrop() {
-    Canvas(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        fun drawLeaf(
-            centerX: Float,
-            centerY: Float,
-            widthFraction: Float,
-            heightFraction: Float,
-            angle: Float,
-            alpha: Float,
-        ) {
-            val leafWidth = size.width * widthFraction
-            val leafHeight = size.height * heightFraction
-            val center = Offset(
-                x = size.width * centerX,
-                y = size.height * centerY,
-            )
-            rotate(
-                degrees = angle,
-                pivot = center,
-            ) {
-                drawOval(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF286C35).copy(alpha = alpha),
-                            Color(0xFF0E2B17).copy(alpha = alpha * 0.86f),
-                            Color(0xFF07120A).copy(alpha = alpha * 0.74f),
-                        ),
-                        start = Offset(
-                            center.x - leafWidth / 2f,
-                            center.y - leafHeight / 2f,
-                        ),
-                        end = Offset(
-                            center.x + leafWidth / 2f,
-                            center.y + leafHeight / 2f,
-                        ),
-                    ),
-                    topLeft = Offset(
-                        center.x - leafWidth / 2f,
-                        center.y - leafHeight / 2f,
-                    ),
-                    size = Size(
-                        width = leafWidth,
-                        height = leafHeight,
-                    ),
-                )
-                drawLine(
-                    color = Color(0xFF65B76C)
-                        .copy(alpha = alpha * 0.32f),
-                    start = Offset(
-                        center.x,
-                        center.y - leafHeight * 0.42f,
-                    ),
-                    end = Offset(
-                        center.x,
-                        center.y + leafHeight * 0.42f,
-                    ),
-                    strokeWidth = 1.5.dp.toPx(),
-                )
-            }
-        }
-
-        drawLeaf(
-            centerX = -0.02f,
-            centerY = 0.17f,
-            widthFraction = 0.34f,
-            heightFraction = 0.22f,
-            angle = -24f,
-            alpha = 0.58f,
-        )
-        drawLeaf(
-            centerX = 1.04f,
-            centerY = 0.33f,
-            widthFraction = 0.38f,
-            heightFraction = 0.25f,
-            angle = 31f,
-            alpha = 0.46f,
-        )
-        drawLeaf(
-            centerX = 0.08f,
-            centerY = 0.78f,
-            widthFraction = 0.30f,
-            heightFraction = 0.18f,
-            angle = 18f,
-            alpha = 0.36f,
-        )
-        drawLeaf(
-            centerX = 0.98f,
-            centerY = 0.88f,
-            widthFraction = 0.30f,
-            heightFraction = 0.20f,
-            angle = -28f,
-            alpha = 0.34f,
-        )
-
-        val dew = listOf(
-            Triple(0.12f, 0.10f, 2.4f),
-            Triple(0.89f, 0.18f, 1.8f),
-            Triple(0.07f, 0.64f, 1.6f),
-            Triple(0.92f, 0.73f, 2.0f),
-            Triple(0.78f, 0.94f, 1.4f),
-        )
-        dew.forEach { (x, y, radiusDp) ->
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.22f),
-                        MuseGreen.copy(alpha = 0.08f),
-                        Color.Transparent,
-                    ),
-                    center = Offset(
-                        size.width * x,
-                        size.height * y,
-                    ),
-                    radius = radiusDp.dp.toPx() * 4f,
-                ),
-                radius = radiusDp.dp.toPx() * 4f,
-                center = Offset(
-                    size.width * x,
-                    size.height * y,
-                ),
-            )
-        }
-    }
-}
-
-@Composable
 private fun MuseBottomNavigation(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
 ) {
-    NavigationBar(
-        containerColor = Color(0xF008170C),
-        contentColor = Color.White,
-        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+    MuseGlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        variant = MuseGlassVariant.Strong,
+        cornerRadius = 28.dp,
     ) {
-        PrimaryDestinations.forEach { destination ->
-            NavigationBarItem(
-                selected = currentRoute == destination.route,
-                onClick = { onNavigate(destination.route) },
-                icon = {
-                    Icon(
-                        imageVector = destination.icon,
-                        contentDescription = destination.label,
-                    )
-                },
-                label = { Text(destination.label) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MuseGreen,
-                    selectedTextColor = MuseGreen,
-                    indicatorColor = Color(0x332DFF4C),
-                    unselectedIconColor = MuseMuted,
-                    unselectedTextColor = MuseMuted,
-                ),
-            )
+        NavigationBar(
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+        ) {
+            PrimaryDestinations.forEach { destination ->
+                NavigationBarItem(
+                    selected = currentRoute == destination.route,
+                    onClick = { onNavigate(destination.route) },
+                    icon = {
+                        Icon(
+                            imageVector = destination.icon,
+                            contentDescription = destination.label,
+                        )
+                    },
+                    label = { Text(destination.label) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MuseGreen,
+                        selectedTextColor = MuseGreen,
+                        indicatorColor = Color(0x3D62FF6B),
+                        unselectedIconColor = MuseMuted,
+                        unselectedTextColor = MuseMuted,
+                    ),
+                )
+            }
         }
     }
 }
@@ -4399,30 +4267,45 @@ private fun MiniPlayer(
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
 ) {
-    Surface(
-        color = Color(0xF016321D),
+    MuseGlassAction(
+        onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpen),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        variant = MuseGlassVariant.Elevated,
+        cornerRadius = 22.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TrackArtwork(
                 track = track,
-                modifier = Modifier.size(46.dp),
+                modifier = Modifier.size(48.dp),
                 contentDescription = null,
             )
             Spacer(Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(state.title.ifBlank { "Muse" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(state.artist, color = MuseMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    state.title.ifBlank { "Muse" },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    state.artist,
+                    color = MuseMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             IconButton(onClick = onPlayPause) {
                 Icon(
                     if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
+                    tint = MuseGreen,
                 )
             }
         }
@@ -4436,10 +4319,11 @@ private fun QuickAction(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    GlassCard(
-        modifier = modifier
-            .height(94.dp)
-            .clickable(onClick = onClick),
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = modifier.height(94.dp),
+        variant = MuseGlassVariant.Elevated,
+        cornerRadius = 22.dp,
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -4562,10 +4446,10 @@ private fun GlassCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Card(
-        modifier = modifier.border(1.dp, MuseBorder, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MuseSurface),
+    MuseGlassSurface(
+        modifier = modifier,
+        variant = MuseGlassVariant.Standard,
+        cornerRadius = 20.dp,
     ) {
         content()
     }
@@ -4622,10 +4506,11 @@ private fun SettingsRow(
     subtitle: String,
     onClick: () -> Unit,
 ) {
-    GlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        variant = MuseGlassVariant.Standard,
+        cornerRadius = 20.dp,
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -4648,12 +4533,11 @@ private fun OptionRow(
     subtitle: String? = null,
     onClick: () -> Unit,
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        color = Color(0x99112718),
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        variant = MuseGlassVariant.Strong,
+        cornerRadius = 16.dp,
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
