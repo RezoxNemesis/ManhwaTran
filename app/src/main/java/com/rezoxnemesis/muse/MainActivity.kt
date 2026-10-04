@@ -112,15 +112,32 @@ private fun PermissionAwareMuse(
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
         )
     }
+    val onboardingPreferences = remember {
+        context.getSharedPreferences(
+            "muse_onboarding",
+            android.content.Context.MODE_PRIVATE,
+        )
+    }
     var continueWithoutLibraryAccess by remember {
-        mutableStateOf(false)
+        mutableStateOf(
+            onboardingPreferences.getBoolean(
+                "continue_without_library_access",
+                false,
+            )
+        )
     }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { result ->
         granted = result
-        if (result) viewModel.refreshLibrary()
+        if (result) {
+            onboardingPreferences.edit()
+                .remove("continue_without_library_access")
+                .apply()
+            continueWithoutLibraryAccess = false
+            viewModel.refreshLibrary()
+        }
     }
 
     LaunchedEffect(granted, continueWithoutLibraryAccess) {
@@ -139,6 +156,12 @@ private fun PermissionAwareMuse(
         MusicPermissionScreen(
             onRequestPermission = { launcher.launch(permission) },
             onContinueWithoutPermission = {
+                onboardingPreferences.edit()
+                    .putBoolean(
+                        "continue_without_library_access",
+                        true,
+                    )
+                    .apply()
                 continueWithoutLibraryAccess = true
             },
         )
