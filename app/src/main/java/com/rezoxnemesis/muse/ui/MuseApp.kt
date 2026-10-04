@@ -965,6 +965,37 @@ private fun NowPlayingScreen(
                 }
             }
         }
+        track?.let { activeTrack ->
+            val quality = buildList {
+                activeTrack.bitrateBps?.let { bitrate ->
+                    add("${bitrate / 1_000} kbps")
+                }
+                activeTrack.sampleRateHz?.let { sampleRate ->
+                    add(
+                        if (sampleRate >= 1_000) {
+                            String.format(
+                                java.util.Locale.US,
+                                "%.1f kHz",
+                                sampleRate / 1_000.0,
+                            )
+                        } else {
+                            "$sampleRate Hz"
+                        }
+                    )
+                }
+                activeTrack.genre?.let(::add)
+            }
+            if (quality.isNotEmpty()) {
+                Text(
+                    text = quality.joinToString(" • "),
+                    color = MuseGreen,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                )
+            }
+        }
         Slider(
             value = playback.positionMs.coerceIn(0L, duration).toFloat(),
             onValueChange = { viewModel.playback.seekTo(it.roundToLong()) },
@@ -2842,6 +2873,29 @@ private fun MoreOptionsScreen(
                                         activeTrack.year?.let {
                                             append(" • ")
                                             append(it)
+                                        }
+                                        activeTrack.albumArtist?.let {
+                                            append(" • ")
+                                            append(it)
+                                        }
+                                        activeTrack.genre?.let {
+                                            append(" • ")
+                                            append(it)
+                                        }
+                                        activeTrack.bitrateBps?.let {
+                                            append(" • ")
+                                            append(it / 1_000)
+                                            append(" kbps")
+                                        }
+                                        activeTrack.sampleRateHz?.let {
+                                            append(" • ")
+                                            append(
+                                                String.format(
+                                                    java.util.Locale.US,
+                                                    "%.1f kHz",
+                                                    it / 1_000.0,
+                                                )
+                                            )
                                         }
                                         activeTrack.mimeType?.let {
                                             append(" • ")
