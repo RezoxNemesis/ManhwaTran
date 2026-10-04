@@ -20,8 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayInputStream
-import java.util.zip.ZipInputStream
 
 internal enum class MuseVisualIntensity(
     val storedValue: String,
@@ -48,21 +46,21 @@ internal enum class MuseVisualIntensity(
 internal enum class MuseReferenceScreen(
     val assetEntryName: String,
 ) {
-    Splash("muse_ref_splash.webp"),
-    Home("muse_ref_home.webp"),
-    NowPlaying("muse_ref_now_playing.webp"),
-    Lyrics("muse_ref_lyrics.webp"),
-    Queue("muse_ref_queue.webp"),
-    Explore("muse_ref_explore.webp"),
-    Library("muse_ref_library.webp"),
-    Playlists("muse_ref_playlists.webp"),
-    Equalizer("muse_ref_equalizer.webp"),
-    Settings("muse_ref_settings.webp"),
-    Artist("muse_ref_artist.webp"),
-    Album("muse_ref_album.webp"),
-    Downloads("muse_ref_downloads.webp"),
-    SleepTimer("muse_ref_sleep.webp"),
-    MoreOptions("muse_ref_more.webp");
+    Splash("muse_ref_splash.png"),
+    Home("muse_ref_home.png"),
+    NowPlaying("muse_ref_now_playing.png"),
+    Lyrics("muse_ref_lyrics.png"),
+    Queue("muse_ref_queue.png"),
+    Explore("muse_ref_explore.png"),
+    Library("muse_ref_library.png"),
+    Playlists("muse_ref_playlists.png"),
+    Equalizer("muse_ref_equalizer.png"),
+    Settings("muse_ref_settings.png"),
+    Artist("muse_ref_artist.png"),
+    Album("muse_ref_album.png"),
+    Downloads("muse_ref_downloads.png"),
+    SleepTimer("muse_ref_sleep.png"),
+    MoreOptions("muse_ref_more.png");
 
     companion object {
         fun fromRoute(route: String?): MuseReferenceScreen =
@@ -173,16 +171,13 @@ internal fun MuseReferenceBackdrop(
 
 private object MuseReferenceBackdropLoader {
     private const val AssetDirectory = "muse_reference"
-    private const val ArchivePrefix = "muse_reference_assets.zip.b64."
 
-    private val bitmapCache = object : LruCache<String, Bitmap>(28 * 1024) {
+    private val bitmapCache = object : LruCache<String, Bitmap>(52 * 1024) {
         override fun sizeOf(
             key: String,
             value: Bitmap,
         ): Int = value.byteCount / 1024
     }
-
-    private var archiveBytes: ByteArray? = null
 
     @Synchronized
     fun peek(screen: MuseReferenceScreen): Bitmap? =
@@ -195,74 +190,18 @@ private object MuseReferenceBackdropLoader {
     ): Bitmap? {
         bitmapCache.get(screen.assetEntryName)?.let { return it }
 
-        val archive = archiveBytes ?: decodeArchive(context)?.also {
-            archiveBytes = it
-        } ?: return null
-
-        val encodedImage = findZipEntry(
-            archive = archive,
-            entryName = screen.assetEntryName,
-        ) ?: return null
-
         val options = BitmapFactory.Options().apply {
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
-        val bitmap = BitmapFactory.decodeByteArray(
-            encodedImage,
-            0,
-            encodedImage.size,
-            options,
-        ) ?: return null
+        val bitmap = runCatching {
+            context.assets
+                .open("$AssetDirectory/${screen.assetEntryName}")
+                .use { input ->
+                    BitmapFactory.decodeStream(input, null, options)
+                }
+        }.getOrNull() ?: return null
 
         bitmapCache.put(screen.assetEntryName, bitmap)
         return bitmap
     }
-
-    private fun decodeArchive(
-        context: android.content.Context,
-    ): ByteArray? {
-        val chunkNames = runCatching {
-            context.assets
-                .list(AssetDirectory)
-                ?.filter { it.startsWith(ArchivePrefix) }
-                ?.sorted()
-                .orEmpty()
-        }.getOrDefault(emptyList())
-
-        if (chunkNames.isEmpty()) return null
-
-        val encoded = buildString {
-            chunkNames.forEach { name ->
-                val chunk = runCatching {
-                    context.assets
-                        .open("$AssetDirectory/$name")
-                        .bufferedReader(Charsets.US_ASCII)
-                        .use { it.readText() }
-                }.getOrNull() ?: return null
-                append(chunk)
-            }
-        }
-
-        return runCatching {
-            Base64.decode(encoded, Base64.DEFAULT)
-        }.getOrNull()
-    }
-
-    private fun findZipEntry(
-        archive: ByteArray,
-        entryName: String,
-    ): ByteArray? =
-        runCatching {
-            ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
-                var entry = zip.nextEntry
-                while (entry != null) {
-                    if (!entry.isDirectory && entry.name == entryName) {
-                        return@runCatching zip.readBytes()
-                    }
-                    zip.closeEntry()
-                    entry = zip.nextEntry
-                }
-                null
-            }
-        }.getOrNull()
 }
