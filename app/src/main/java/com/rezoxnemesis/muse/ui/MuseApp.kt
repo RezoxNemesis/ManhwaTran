@@ -502,19 +502,15 @@ private fun HomeScreen(
                         .padding(top = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.muse_logo),
-                        contentDescription = "Muse logo",
-                        modifier = Modifier
-                            .size(112.dp)
-                            .clip(RoundedCornerShape(28.dp)),
-                        contentScale = ContentScale.Fit,
+                    MuseBrandMark(
+                        modifier = Modifier.size(126.dp),
                     )
                     Spacer(Modifier.height(10.dp))
                     Text(
                         greeting,
+                        color = Color.White,
                         style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                     )
                     Text(
                         "FEEL THE MUSIC",
