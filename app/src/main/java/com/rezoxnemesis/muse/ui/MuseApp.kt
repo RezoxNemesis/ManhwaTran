@@ -3,6 +3,7 @@ package com.rezoxnemesis.muse.ui
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -196,6 +197,8 @@ fun MuseApp(
                 )
             ),
     ) {
+        BotanicalBackdrop()
+
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
@@ -291,6 +294,134 @@ fun MuseApp(
                     MoreOptionsScreen(viewModel, navController)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BotanicalBackdrop() {
+    Canvas(
+        modifier = Modifier.matchParentSize(),
+    ) {
+        fun drawLeaf(
+            centerX: Float,
+            centerY: Float,
+            widthFraction: Float,
+            heightFraction: Float,
+            angle: Float,
+            alpha: Float,
+        ) {
+            val leafWidth = size.width * widthFraction
+            val leafHeight = size.height * heightFraction
+            val center = Offset(
+                x = size.width * centerX,
+                y = size.height * centerY,
+            )
+            rotate(
+                degrees = angle,
+                pivot = center,
+            ) {
+                drawOval(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF286C35).copy(alpha = alpha),
+                            Color(0xFF0E2B17).copy(alpha = alpha * 0.86f),
+                            Color(0xFF07120A).copy(alpha = alpha * 0.74f),
+                        ),
+                        start = Offset(
+                            center.x - leafWidth / 2f,
+                            center.y - leafHeight / 2f,
+                        ),
+                        end = Offset(
+                            center.x + leafWidth / 2f,
+                            center.y + leafHeight / 2f,
+                        ),
+                    ),
+                    topLeft = Offset(
+                        center.x - leafWidth / 2f,
+                        center.y - leafHeight / 2f,
+                    ),
+                    size = Size(
+                        width = leafWidth,
+                        height = leafHeight,
+                    ),
+                )
+                drawLine(
+                    color = Color(0xFF65B76C)
+                        .copy(alpha = alpha * 0.32f),
+                    start = Offset(
+                        center.x,
+                        center.y - leafHeight * 0.42f,
+                    ),
+                    end = Offset(
+                        center.x,
+                        center.y + leafHeight * 0.42f,
+                    ),
+                    strokeWidth = 1.5.dp.toPx(),
+                )
+            }
+        }
+
+        drawLeaf(
+            centerX = -0.02f,
+            centerY = 0.17f,
+            widthFraction = 0.34f,
+            heightFraction = 0.22f,
+            angle = -24f,
+            alpha = 0.58f,
+        )
+        drawLeaf(
+            centerX = 1.04f,
+            centerY = 0.33f,
+            widthFraction = 0.38f,
+            heightFraction = 0.25f,
+            angle = 31f,
+            alpha = 0.46f,
+        )
+        drawLeaf(
+            centerX = 0.08f,
+            centerY = 0.78f,
+            widthFraction = 0.30f,
+            heightFraction = 0.18f,
+            angle = 18f,
+            alpha = 0.36f,
+        )
+        drawLeaf(
+            centerX = 0.98f,
+            centerY = 0.88f,
+            widthFraction = 0.30f,
+            heightFraction = 0.20f,
+            angle = -28f,
+            alpha = 0.34f,
+        )
+
+        val dew = listOf(
+            Triple(0.12f, 0.10f, 2.4f),
+            Triple(0.89f, 0.18f, 1.8f),
+            Triple(0.07f, 0.64f, 1.6f),
+            Triple(0.92f, 0.73f, 2.0f),
+            Triple(0.78f, 0.94f, 1.4f),
+        )
+        dew.forEach { (x, y, radiusDp) ->
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.22f),
+                        MuseGreen.copy(alpha = 0.08f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(
+                        size.width * x,
+                        size.height * y,
+                    ),
+                    radius = radiusDp.dp.toPx() * 4f,
+                ),
+                radius = radiusDp.dp.toPx() * 4f,
+                center = Offset(
+                    size.width * x,
+                    size.height * y,
+                ),
+            )
         }
     }
 }
