@@ -2704,6 +2704,40 @@ private fun MoreOptionsScreen(
     var confirmRemove by remember(track?.id) {
         mutableStateOf(false)
     }
+    var pendingRingtoneTrack by remember(track?.id) {
+        mutableStateOf<Track?>(null)
+    }
+    var ringtoneMessage by remember(track?.id) {
+        mutableStateOf<String?>(null)
+    }
+
+    fun applyRingtone(candidate: Track) {
+        ringtoneMessage = runCatching {
+            android.media.RingtoneManager.setActualDefaultRingtoneUri(
+                context,
+                android.media.RingtoneManager.TYPE_RINGTONE,
+                candidate.uri,
+            )
+            "Set “${candidate.title}” as the default ringtone."
+        }.getOrElse { error ->
+            error.message ?: "Android could not set this track as the ringtone."
+        }
+    }
+
+    val ringtoneSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        val candidate = pendingRingtoneTrack
+        pendingRingtoneTrack = null
+        if (
+            candidate != null &&
+            android.provider.Settings.System.canWrite(context)
+        ) {
+            applyRingtone(candidate)
+        } else if (candidate != null) {
+            ringtoneMessage = "Ringtone permission was not granted."
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         ScreenHeader("More Options", { navController.popBackStack() })
@@ -2876,6 +2910,54 @@ private fun MoreOptionsScreen(
                             )
                         },
                     )
+                }
+
+                if (!activeTrack.managedByMuse) {
+                    item {
+                        OptionRow(
+                            icon = Icons.Rounded.Notifications,
+                            title = "Set as Ringtone",
+                            subtitle = "Uses Android's protected system ringtone setting",
+                            onClick = {
+                                if (
+                                    android.provider.Settings.System.canWrite(context)
+                                ) {
+                                    applyRingtone(activeTrack)
+                                } else {
+                                    pendingRingtoneTrack = activeTrack
+                                    val intent = Intent(
+                                        android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                                        android.net.Uri.parse("package:${context.packageName}"),
+                                    )
+                                    ringtoneSettingsLauncher.launch(intent)
+                                }
+                            },
+                        )
+                    }
+                }
+
+                ringtoneMessage?.let { message ->
+                    item {
+                        GlassCard {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    message,
+                                    color = MuseMuted,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(
+                                    onClick = { ringtoneMessage = null },
+                                ) {
+                                    Text("Dismiss")
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (activeTrack.managedByMuse) {
