@@ -119,6 +119,12 @@ class MuseViewModel(
         initialValue = emptySet(),
     )
 
+    val hiddenTrackIds = preferences.hiddenTrackIds.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptySet(),
+    )
+
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     val filteredTracks = combine(
         _libraryState,
@@ -382,7 +388,10 @@ class MuseViewModel(
                 },
             )
 
-            val deviceTracks = deviceResult.getOrDefault(emptyList())
+            val hiddenIds = preferences.hiddenTrackIds.first()
+            val deviceTracks = deviceResult
+                .getOrDefault(emptyList())
+                .filterNot { track -> track.id in hiddenIds }
             val deviceError = deviceResult.exceptionOrNull()
             _libraryState.value = LibraryState(
                 tracks = (deviceTracks + managedTracks)
@@ -450,6 +459,30 @@ class MuseViewModel(
                 tracks = _libraryState.value.tracks.filterNot { it.id == track.id },
             )
             playback.removeQueueItemsByMediaId(track.id)
+        }
+    }
+
+    fun hideFromLibrary(track: Track) {
+        if (track.managedByMuse) {
+            removeManagedMedia(track)
+            return
+        }
+
+        viewModelScope.launch {
+            preferences.hideTrack(track.id)
+            _libraryState.value = _libraryState.value.copy(
+                tracks = _libraryState.value.tracks.filterNot {
+                    it.id == track.id
+                },
+            )
+            playback.removeQueueItemsByMediaId(track.id)
+        }
+    }
+
+    fun restoreHiddenTracks() {
+        viewModelScope.launch {
+            preferences.restoreHiddenTracks()
+            refreshLibrary()
         }
     }
 
