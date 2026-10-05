@@ -26,6 +26,24 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
     private var bypass = false
 
     @Volatile
+    private var bassEnabled = false
+
+    @Volatile
+    private var bassStrength = 350
+
+    @Volatile
+    private var virtualizerEnabled = false
+
+    @Volatile
+    private var virtualizerStrength = 350
+
+    @Volatile
+    private var loudnessEnabled = false
+
+    @Volatile
+    private var loudnessGainMb = 0
+
+    @Volatile
     private var spatialEnabled = false
 
     @Volatile
@@ -43,6 +61,8 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
 
     private val leftFilters = Array(BandCentersHz.size) { Biquad() }
     private val rightFilters = Array(BandCentersHz.size) { Biquad() }
+    private val bassLeft = Biquad()
+    private val bassRight = Biquad()
 
     fun setProcessingEnabled(
         enabled: Boolean,
@@ -75,6 +95,36 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
     }
 
     fun currentLevels(): IntArray = levelsMb.copyOf()
+
+    fun setBassEnabled(enabled: Boolean) {
+        bassEnabled = enabled
+        revision++
+    }
+
+    fun setBassStrength(value: Int) {
+        bassStrength = value.coerceIn(0, 1000)
+        revision++
+    }
+
+    fun setVirtualizerEnabled(enabled: Boolean) {
+        virtualizerEnabled = enabled
+        revision++
+    }
+
+    fun setVirtualizerStrength(value: Int) {
+        virtualizerStrength = value.coerceIn(0, 1000)
+        revision++
+    }
+
+    fun setLoudnessEnabled(enabled: Boolean) {
+        loudnessEnabled = enabled
+        revision++
+    }
+
+    fun setLoudnessGainMb(value: Int) {
+        loudnessGainMb = value.coerceIn(0, 600)
+        revision++
+    }
 
     fun setSpatialEnabled(enabled: Boolean) {
         spatialEnabled = enabled
@@ -127,8 +177,23 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
         }
 
         val processEq = masterEnabled && !bypass
+        val processBass = processEq && bassEnabled
+        val processVirtualizer = processEq && virtualizerEnabled
         val processSpatial = processEq && spatialEnabled
-        val width = spatialWidth
+        val processLoudness = processEq && loudnessEnabled
+
+        val virtualWidth = if (processVirtualizer) {
+            1f + 0.34f * (virtualizerStrength / 1000f)
+        } else {
+            1f
+        }
+        val spatialField = if (processSpatial) spatialWidth else 1f
+        val combinedWidth = (virtualWidth * spatialField).coerceAtMost(1.88f)
+        val loudnessGain = if (processLoudness) {
+            10.0.pow((loudnessGainMb / 100f) / 20.0).toFloat()
+        } else {
+            1f
+        }
 
         while (inputBuffer.remaining() >= StereoFrameBytes) {
             var left = inputBuffer.short.toFloat()
@@ -141,14 +206,24 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
                 }
             }
 
-            if (processSpatial) {
-                // Mid/side widening is deterministic, low-latency and works on
-                // ordinary stereo PCM even when the device Spatializer reports
-                // "not supported". Keep some headroom to avoid hard clipping.
+            if (processBass) {
+                left = bassLeft.process(left)
+                right = bassRight.process(right)
+            }
+
+            if (combinedWidth > 1.001f) {
+                // Software virtualizer + spatial compatibility. This is a
+                // deterministic stereo field, not a claim of hardware Dolby or
+                // OEM head-tracked spatial audio.
                 val mid = (left + right) * 0.5f
-                val side = (left - right) * 0.5f * width
+                val side = (left - right) * 0.5f * combinedWidth
                 left = (mid + side) * SpatialHeadroom
                 right = (mid - side) * SpatialHeadroom
+            }
+
+            if (processLoudness) {
+                left *= loudnessGain
+                right *= loudnessGain
             }
 
             output.putShort(left.toPcm16())
@@ -186,12 +261,29 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
                 q = BandQ[index],
             )
         }
+
+        val bassGainDb = 7.0f * (bassStrength / 1000f)
+        val bassFrequency = 90f.coerceAtMost(sampleRateHz * 0.40f)
+        bassLeft.configurePeaking(
+            sampleRate = sampleRateHz,
+            frequencyHz = bassFrequency,
+            gainDb = bassGainDb,
+            q = 0.72f,
+        )
+        bassRight.configurePeaking(
+            sampleRate = sampleRateHz,
+            frequencyHz = bassFrequency,
+            gainDb = bassGainDb,
+            q = 0.72f,
+        )
         appliedRevision = localRevision
     }
 
     private fun resetFilterMemory() {
         leftFilters.forEach(Biquad::reset)
         rightFilters.forEach(Biquad::reset)
+        bassLeft.reset()
+        bassRight.reset()
     }
 
     private fun Float.toPcm16(): Short =
