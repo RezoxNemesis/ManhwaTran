@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -22,8 +23,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -227,6 +232,102 @@ internal fun MuseMiniProgress(
             start = Offset(0f, y),
             end = Offset(size.width * progress, y),
             strokeWidth = size.height,
+        )
+    }
+}
+
+
+@Composable
+internal fun MuseMotionToggle(
+    checked: Boolean,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 27.dp else 3.dp,
+        animationSpec = spring(
+            dampingRatio = 0.72f,
+            stiffness = 640f,
+        ),
+        label = "MuseToggleThumb",
+    )
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) {
+            Color(0xFF48DE58)
+        } else {
+            Color(0xFF173520)
+        },
+        animationSpec = tween(160),
+        label = "MuseToggleTrack",
+    )
+    val halo by animateFloatAsState(
+        targetValue = if (checked) 1f else 0f,
+        animationSpec = tween(180),
+        label = "MuseToggleHalo",
+    )
+    val interaction = remember { MutableInteractionSource() }
+
+    Box(
+        modifier = modifier
+            .width(58.dp)
+            .height(34.dp)
+            .graphicsLayer {
+                alpha = if (enabled) 1f else 0.44f
+            }
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                onClick = { onCheckedChange(!checked) },
+            )
+            .background(
+                brush = Brush.verticalGradient(
+                    listOf(
+                        trackColor.copy(alpha = 0.94f),
+                        trackColor.copy(alpha = 0.66f),
+                    )
+                ),
+                shape = RoundedCornerShape(18.dp),
+            ),
+    ) {
+        if (halo > 0.001f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.radialGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.10f * halo),
+                                MuseGlow.copy(alpha = 0.13f * halo),
+                                Color.Transparent,
+                            )
+                        ),
+                        shape = RoundedCornerShape(18.dp),
+                    )
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset, y = 3.dp)
+                .size(28.dp)
+                .shadow(
+                    elevation = if (checked) 8.dp else 4.dp,
+                    shape = CircleShape,
+                    ambientColor = Color.Black.copy(alpha = 0.55f),
+                    spotColor = if (checked) MuseGlow.copy(alpha = 0.42f) else Color.Black,
+                )
+                .background(
+                    brush = Brush.radialGradient(
+                        listOf(
+                            Color(0xFFE9FFD5),
+                            Color(0xFF8DFF71),
+                            Color(0xFF55D84D),
+                        )
+                    ),
+                    shape = CircleShape,
+                ),
         )
     }
 }
