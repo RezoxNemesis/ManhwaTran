@@ -54,6 +54,12 @@ import com.rezoxnemesis.muse.ui.theme.MuseGlow
 import com.rezoxnemesis.muse.ui.theme.MuseGlowSoft
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
 
+internal enum class MuseVisualIntensity {
+    Calm,
+    Balanced,
+    Vivid,
+}
+
 internal enum class MuseGlassVariant {
     Standard,
     Strong,
