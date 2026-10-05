@@ -82,6 +82,8 @@ data class AudioEffectsUiState(
     val spatialSupported: Boolean = false,
     val spatialAvailable: Boolean = false,
     val spatialEnabled: Boolean = false,
+    val spatialCompatibilityMode: Boolean = false,
+    val spatialWidth: Int = 680,
     val headTrackerAvailable: Boolean = false,
 )
 
@@ -539,6 +541,29 @@ class MusePlaybackController(
         )
     }
 
+    fun setSpatialEnabled(enabled: Boolean) {
+        _audioEffects.value = _audioEffects.value.copy(
+            spatialEnabled = enabled,
+        )
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putBoolean(AudioEffectProtocol.KeySpatialEnabled, enabled)
+            }
+        )
+    }
+
+    fun setSpatialWidth(width: Int) {
+        val clamped = width.coerceIn(0, 1000)
+        _audioEffects.value = _audioEffects.value.copy(
+            spatialWidth = clamped,
+        )
+        sendAudioEffectUpdate(
+            Bundle().apply {
+                putInt(AudioEffectProtocol.KeySpatialWidth, clamped)
+            }
+        )
+    }
+
     fun release() {
         tickerJob?.cancel()
         controller?.removeListener(listener)
@@ -667,6 +692,13 @@ class MusePlaybackController(
             ),
             spatialEnabled = extras.getBoolean(
                 AudioEffectProtocol.KeySpatialEnabled,
+            ),
+            spatialCompatibilityMode = extras.getBoolean(
+                AudioEffectProtocol.KeySpatialCompatibilityMode,
+            ),
+            spatialWidth = extras.getInt(
+                AudioEffectProtocol.KeySpatialWidth,
+                680,
             ),
             headTrackerAvailable = extras.getBoolean(
                 AudioEffectProtocol.KeyHeadTrackerAvailable,
