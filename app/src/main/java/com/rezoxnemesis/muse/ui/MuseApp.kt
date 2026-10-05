@@ -4,7 +4,10 @@ import android.content.Intent
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideOutHorizontally
@@ -278,7 +281,19 @@ fun MuseApp(
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        if (playback.currentMediaId != null) {
+                        AnimatedVisibility(
+                            visible = playback.currentMediaId != null,
+                            enter = fadeIn(animationSpec = tween(140)) +
+                                slideInVertically(
+                                    animationSpec = tween(180),
+                                    initialOffsetY = { it / 2 },
+                                ),
+                            exit = fadeOut(animationSpec = tween(100)) +
+                                slideOutVertically(
+                                    animationSpec = tween(135),
+                                    targetOffsetY = { it / 3 },
+                                ),
+                        ) {
                             MiniPlayer(
                                 state = playback,
                                 track = currentTrack,
@@ -311,13 +326,33 @@ fun MuseApp(
                         fromRoute in PrimaryRoutes && toRoute in PrimaryRoutes
 
                     if (primaryTabHop) {
-                        // Bottom-tab changes should feel immediate, not cinematic.
-                        fadeIn(animationSpec = tween(105))
+                        // Reference-style tab morph: tiny directional travel plus
+                        // a fast fade, without the heavy full-screen spring stack.
+                        fadeIn(animationSpec = tween(95)) +
+                            slideInHorizontally(
+                                animationSpec = tween(125),
+                                initialOffsetX = { width -> width / 34 },
+                            )
                     } else {
-                        fadeIn(animationSpec = tween(145)) +
+                        val nowPlaying = toRoute == "nowPlaying"
+                        fadeIn(
+                            animationSpec = tween(
+                                durationMillis = if (nowPlaying) 180 else 135,
+                            ),
+                        ) +
+                            scaleIn(
+                                animationSpec = tween(
+                                    durationMillis = if (nowPlaying) 205 else 160,
+                                ),
+                                initialScale = if (nowPlaying) 0.945f else 0.982f,
+                            ) +
                             slideInVertically(
-                                animationSpec = tween(175),
-                                initialOffsetY = { height -> height / 22 },
+                                animationSpec = tween(
+                                    durationMillis = if (nowPlaying) 205 else 165,
+                                ),
+                                initialOffsetY = { height ->
+                                    if (nowPlaying) height / 9 else height / 24
+                                },
                             )
                     }
                 },
@@ -6601,9 +6636,28 @@ private fun MusePillTab(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.035f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.82f,
+            stiffness = 560f,
+        ),
+        label = "MusePillScale",
+    )
+    val color by animateColorAsState(
+        targetValue = if (selected) MuseGreen else Color.White,
+        animationSpec = tween(145),
+        label = "MusePillColor",
+    )
+
     MuseGlassAction(
         onClick = onClick,
-        modifier = modifier.height(46.dp),
+        modifier = modifier
+            .height(46.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
         variant = if (selected) {
             MuseGlassVariant.Selected
         } else {
@@ -6617,7 +6671,7 @@ private fun MusePillTab(
         ) {
             Text(
                 label,
-                color = if (selected) MuseGreen else Color.White,
+                color = color,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 style = MaterialTheme.typography.labelLarge,
             )
