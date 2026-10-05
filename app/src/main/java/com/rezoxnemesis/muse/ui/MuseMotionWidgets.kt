@@ -12,9 +12,12 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -329,5 +332,124 @@ internal fun MuseMotionToggle(
                     shape = CircleShape,
                 ),
         )
+    }
+}
+
+
+@Composable
+internal fun MuseSlidingTabRow(
+    labels: List<String>,
+    selectedIndex: Int,
+    modifier: Modifier = Modifier,
+    icons: List<ImageVector?> = emptyList(),
+    onSelected: (Int) -> Unit,
+) {
+    if (labels.isEmpty()) return
+    val safeIndex = selectedIndex.coerceIn(labels.indices)
+
+    MuseGlassSurface(
+        modifier = modifier,
+        variant = MuseGlassVariant.Strong,
+        cornerRadius = 24.dp,
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(3.dp),
+        ) {
+            val itemWidth = maxWidth / labels.size
+            val indicatorOffset by animateDpAsState(
+                targetValue = itemWidth * safeIndex,
+                animationSpec = spring(
+                    dampingRatio = 0.74f,
+                    stiffness = 560f,
+                ),
+                label = "MuseSegmentIndicator",
+            )
+
+            Box(
+                modifier = Modifier
+                    .offset(x = indicatorOffset)
+                    .width(itemWidth)
+                    .fillMaxHeight()
+                    .padding(horizontal = 2.dp)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                MuseGlow.copy(alpha = 0.12f),
+                                MuseGreen.copy(alpha = 0.29f),
+                                Color(0xFFB6FF7C).copy(alpha = 0.10f),
+                            )
+                        ),
+                        shape = RoundedCornerShape(21.dp),
+                    )
+                    .border(
+                        0.9.dp,
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.14f),
+                                MuseGreen.copy(alpha = 0.72f),
+                                Color.White.copy(alpha = 0.08f),
+                            )
+                        ),
+                        shape = RoundedCornerShape(21.dp),
+                    ),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                labels.forEachIndexed { index, label ->
+                    val selected = index == safeIndex
+                    val color by animateColorAsState(
+                        targetValue = if (selected) MuseGreen else Color.White.copy(alpha = 0.82f),
+                        animationSpec = tween(135),
+                        label = "MuseSegmentText",
+                    )
+                    val lift by animateDpAsState(
+                        targetValue = if (selected) (-1).dp else 0.dp,
+                        animationSpec = spring(
+                            dampingRatio = 0.80f,
+                            stiffness = 620f,
+                        ),
+                        label = "MuseSegmentLift",
+                    )
+                    val interaction = remember { MutableInteractionSource() }
+
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .offset(y = lift)
+                            .clickable(
+                                interactionSource = interaction,
+                                indication = null,
+                                onClick = { onSelected(index) },
+                            ),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        icons.getOrNull(index)?.let { icon ->
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = color,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                        }
+                        Text(
+                            text = label,
+                            color = color,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
