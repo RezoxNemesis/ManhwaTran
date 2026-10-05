@@ -54,10 +54,26 @@ import com.rezoxnemesis.muse.ui.theme.MuseGlow
 import com.rezoxnemesis.muse.ui.theme.MuseGlowSoft
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
 
-internal enum class MuseVisualIntensity {
-    Calm,
-    Balanced,
-    Vivid,
+internal enum class MuseVisualIntensity(
+    val storedValue: String,
+    val label: String,
+) {
+    Calm("calm", "Calm"),
+    Balanced("balanced", "Balanced"),
+    Vivid("vivid", "Vivid");
+
+    fun next(): MuseVisualIntensity =
+        when (this) {
+            Calm -> Balanced
+            Balanced -> Vivid
+            Vivid -> Calm
+        }
+
+    companion object {
+        fun fromStored(value: String?): MuseVisualIntensity =
+            entries.firstOrNull { it.storedValue == value }
+                ?: Balanced
+    }
 }
 
 internal enum class MuseGlassVariant {
