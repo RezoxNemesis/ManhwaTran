@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import com.rezoxnemesis.muse.ui.MuseBrandMark
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
 import com.rezoxnemesis.muse.ui.theme.MuseTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private var requestedRoute by mutableStateOf<String?>(null)
@@ -126,6 +128,17 @@ private fun PermissionAwareMuse(
     onRouteHandled: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    var showLaunchSurface by rememberSaveable { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        delay(1_100L)
+        showLaunchSurface = false
+    }
+
+    if (showLaunchSurface) {
+        MuseLaunchScreen()
+        return
+    }
     val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_AUDIO
     } else {
@@ -190,6 +203,81 @@ private fun PermissionAwareMuse(
                 continueWithoutLibraryAccess = true
             },
         )
+    }
+}
+
+@Composable
+private fun MuseLaunchScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("MuseRoot"),
+    ) {
+        MuseNativeBotanicalBackdrop(
+            route = "splash",
+            active = true,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            MuseBrandMark(
+                modifier = Modifier.size(220.dp),
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = "Muse",
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "FEEL THE MUSIC",
+                color = MuseGreen,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 44.dp, vertical = 34.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.16f),
+                        RoundedCornerShape(999.dp),
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.72f)
+                        .height(5.dp)
+                        .background(
+                            MuseGreen,
+                            RoundedCornerShape(999.dp),
+                        ),
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "Loading your music library…",
+                color = Color.White.copy(alpha = 0.86f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 
