@@ -95,6 +95,15 @@ sleep 0.6
 adb shell input tap 930 470
 sleep 0.8
 
+# Move to Equalizer and exercise the direct-touch curve. These swipes must
+# visibly track the finger without waiting for service round-trips.
+adb shell input tap 750 2090
+sleep 1
+adb shell input swipe 245 760 245 1120 900
+sleep 0.5
+adb shell input swipe 245 980 835 650 1400
+sleep 0.8
+
 wait "$record_pid" || true
 adb pull /sdcard/muse-motion-demo.mp4 ui-captures/muse-motion-demo.mp4
 test -s ui-captures/muse-motion-demo.mp4
