@@ -80,7 +80,10 @@ class MainActivity : ComponentActivity() {
                 PermissionAwareMuse(
                     viewModel = museViewModel,
                     requestedRoute = requestedRoute,
-                    onRouteHandled = { requestedRoute = null },
+                    onRouteHandled = {
+                        requestedRoute = null
+                        intent.removeExtra(ExtraOpenRoute)
+                    },
                 )
             }
         }
