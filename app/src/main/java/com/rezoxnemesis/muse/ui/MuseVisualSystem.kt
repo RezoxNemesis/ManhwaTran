@@ -604,10 +604,7 @@ internal fun MuseGlassAction(
     val activePress = pressed && enabled
     val scale by animateFloatAsState(
         targetValue = if (activePress) 0.965f else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.78f,
-            stiffness = Spring.StiffnessMediumHigh,
-        ),
+        animationSpec = tween(durationMillis = 85),
         label = "MuseGlassPressScale",
     )
 
