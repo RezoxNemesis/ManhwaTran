@@ -44,7 +44,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.rezoxnemesis.muse.ui.MuseApp
+import com.rezoxnemesis.muse.ui.MuseExactVisualApp
 import com.rezoxnemesis.muse.ui.MuseBrandMark
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
@@ -161,7 +161,7 @@ private fun PermissionAwareMuse(
     }
 
     if (granted || continueWithoutLibraryAccess) {
-        MuseApp(
+        MuseExactVisualApp(
             viewModel = viewModel,
             requestedRoute = requestedRoute,
             onRouteHandled = onRouteHandled,
