@@ -6,8 +6,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideOutHorizontally
@@ -26,6 +28,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -326,12 +330,33 @@ fun MuseApp(
                         fromRoute in PrimaryRoutes && toRoute in PrimaryRoutes
 
                     if (primaryTabHop) {
-                        // Reference-style tab morph: tiny directional travel plus
-                        // a fast fade, without the heavy full-screen spring stack.
-                        fadeIn(animationSpec = tween(95)) +
+                        val fromIndex = PrimaryDestinations
+                            .indexOfFirst { it.route == fromRoute }
+                        val toIndex = PrimaryDestinations
+                            .indexOfFirst { it.route == toRoute }
+                        val direction = if (toIndex >= fromIndex) 1 else -1
+
+                        fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 135,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        ) +
                             slideInHorizontally(
-                                animationSpec = tween(125),
-                                initialOffsetX = { width -> width / 34 },
+                                animationSpec = tween(
+                                    durationMillis = 180,
+                                    easing = FastOutSlowInEasing,
+                                ),
+                                initialOffsetX = { width ->
+                                    direction * (width / 7)
+                                },
+                            ) +
+                            scaleIn(
+                                animationSpec = tween(
+                                    durationMillis = 165,
+                                    easing = FastOutSlowInEasing,
+                                ),
+                                initialScale = 0.985f,
                             )
                     } else {
                         val nowPlaying = toRoute == "nowPlaying"
@@ -362,11 +387,36 @@ fun MuseApp(
                     val primaryTabHop =
                         fromRoute in PrimaryRoutes && toRoute in PrimaryRoutes
 
-                    fadeOut(
-                        animationSpec = tween(
-                            durationMillis = if (primaryTabHop) 70 else 105,
-                        ),
-                    )
+                    if (primaryTabHop) {
+                        val fromIndex = PrimaryDestinations
+                            .indexOfFirst { it.route == fromRoute }
+                        val toIndex = PrimaryDestinations
+                            .indexOfFirst { it.route == toRoute }
+                        val direction = if (toIndex >= fromIndex) -1 else 1
+
+                        fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 105,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        ) +
+                            slideOutHorizontally(
+                                animationSpec = tween(
+                                    durationMillis = 155,
+                                    easing = FastOutSlowInEasing,
+                                ),
+                                targetOffsetX = { width ->
+                                    direction * (width / 10)
+                                },
+                            )
+                    } else {
+                        fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 105,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                    }
                 },
                 popEnterTransition = {
                     fadeIn(animationSpec = tween(135)) +
@@ -463,6 +513,10 @@ private fun MuseBottomNavigation(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
 ) {
+    val selectedIndex = PrimaryDestinations
+        .indexOfFirst { it.route == currentRoute }
+        .coerceAtLeast(0)
+
     MuseGlassSurface(
         modifier = Modifier
             .fillMaxWidth()
@@ -470,20 +524,66 @@ private fun MuseBottomNavigation(
         variant = MuseGlassVariant.Strong,
         cornerRadius = 30.dp,
     ) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(horizontal = 5.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            PrimaryDestinations.forEach { destination ->
-                MuseMotionNavItem(
-                    label = destination.label,
-                    icon = destination.icon,
-                    selected = currentRoute == destination.route,
-                    onClick = { onNavigate(destination.route) },
-                )
+            val itemWidth = maxWidth / PrimaryDestinations.size
+            val targetOffset = itemWidth * selectedIndex
+            val indicatorOffset by animateDpAsState(
+                targetValue = targetOffset,
+                animationSpec = spring(
+                    dampingRatio = 0.78f,
+                    stiffness = 520f,
+                ),
+                label = "MuseNavIndicatorOffset",
+            )
+
+            // One physical glass capsule glides between destinations. This is
+            // intentionally obvious, matching the supplied morphing-tab videos.
+            Box(
+                modifier = Modifier
+                    .offset(x = indicatorOffset + itemWidth * 0.06f)
+                    .width(itemWidth * 0.88f)
+                    .height(52.dp)
+                    .align(Alignment.CenterStart)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                MuseGreen.copy(alpha = 0.13f),
+                                MuseGreen.copy(alpha = 0.31f),
+                                Color(0xFFB8FF7A).copy(alpha = 0.10f),
+                            )
+                        ),
+                        shape = RoundedCornerShape(26.dp),
+                    )
+                    .border(
+                        width = 0.8.dp,
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.14f),
+                                MuseGreen.copy(alpha = 0.58f),
+                                Color.White.copy(alpha = 0.08f),
+                            )
+                        ),
+                        shape = RoundedCornerShape(26.dp),
+                    ),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PrimaryDestinations.forEach { destination ->
+                    MuseMotionNavItem(
+                        label = destination.label,
+                        icon = destination.icon,
+                        selected = currentRoute == destination.route,
+                        onClick = { onNavigate(destination.route) },
+                    )
+                }
             }
         }
     }
