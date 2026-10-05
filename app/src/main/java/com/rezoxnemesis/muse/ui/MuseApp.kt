@@ -6277,6 +6277,7 @@ private fun MuseEqualizerRack(
     val safeRange = (maxMb - minMb).coerceAtLeast(1)
     var curveEntered by remember { mutableStateOf(false) }
     var activeBand by remember { mutableStateOf<Int?>(null) }
+    var activeTouch by remember { mutableStateOf<Offset?>(null) }
     var displayLevels by remember(frequencies) {
         mutableStateOf(levelsMb)
     }
@@ -6362,59 +6363,112 @@ private fun MuseEqualizerRack(
                             }
 
                             var lastDispatchAt = 0L
-                            var lastIndex = 0
-                            var lastLevel = 0
+                            var lastChangedBands = emptyList<Pair<Int, Int>>()
 
                             fun updateFromTouch(
                                 position: Offset,
                                 forceDispatch: Boolean,
                             ) {
-                                val index = if (frequencies.size <= 1) {
-                                    0
+                                val clampedX = position.x.coerceIn(left, right)
+                                val clampedY = position.y.coerceIn(
+                                    graphTop,
+                                    graphBottom,
+                                )
+                                activeTouch = Offset(clampedX, clampedY)
+
+                                val bandPosition = if (frequencies.size <= 1) {
+                                    0f
                                 } else {
-                                    kotlin.math.round(
-                                        (
-                                            (position.x - left) / xStep
+                                    (
+                                        (clampedX - left) / span *
+                                            (frequencies.size - 1)
                                         ).coerceIn(
                                             0f,
                                             (frequencies.size - 1).toFloat(),
                                         )
-                                    ).toInt()
                                 }
 
                                 val normalized = (
-                                    (graphBottom - position.y) /
+                                    (graphBottom - clampedY) /
                                         (graphBottom - graphTop)
                                 ).coerceIn(0f, 1f)
-
-                                val rawLevel = minMb +
-                                    normalized * safeRange
-                                val level = rawLevel
+                                val targetLevel = (
+                                    minMb + normalized * safeRange
+                                    )
                                     .roundToLong()
                                     .toInt()
                                     .coerceIn(minMb, maxMb)
 
-                                activeBand = index
-                                lastIndex = index
-                                lastLevel = level
+                                val nearest = kotlin.math.round(
+                                    bandPosition,
+                                ).toInt().coerceIn(frequencies.indices)
+                                activeBand = nearest
 
                                 if (displayLevels.size == frequencies.size) {
-                                    val updated = displayLevels
-                                        .toMutableList()
-                                        .apply {
-                                            this[index] = level
-                                        }
+                                    val updated = displayLevels.toMutableList()
+                                    val low = kotlin.math.floor(
+                                        bandPosition,
+                                    ).toInt().coerceIn(frequencies.indices)
+                                    val high = kotlin.math.ceil(
+                                        bandPosition,
+                                    ).toInt().coerceIn(frequencies.indices)
+                                    val fraction = bandPosition - low
+
+                                    val changed = linkedMapOf<Int, Int>()
+                                    if (low == high) {
+                                        updated[low] = targetLevel
+                                        changed[low] = targetLevel
+                                    } else {
+                                        val lowWeight = kotlin.math.cos(
+                                            fraction * Math.PI.toFloat() / 2f,
+                                        ).coerceIn(0f, 1f)
+                                        val highWeight = kotlin.math.sin(
+                                            fraction * Math.PI.toFloat() / 2f,
+                                        ).coerceIn(0f, 1f)
+
+                                        val lowValue = (
+                                            updated[low] +
+                                                (targetLevel - updated[low]) *
+                                                lowWeight
+                                            )
+                                            .roundToLong()
+                                            .toInt()
+                                            .coerceIn(minMb, maxMb)
+                                        val highValue = (
+                                            updated[high] +
+                                                (targetLevel - updated[high]) *
+                                                highWeight
+                                            )
+                                            .roundToLong()
+                                            .toInt()
+                                            .coerceIn(minMb, maxMb)
+
+                                        updated[low] = lowValue
+                                        updated[high] = highValue
+                                        changed[low] = lowValue
+                                        changed[high] = highValue
+                                    }
+
                                     displayLevels = updated
+                                    lastChangedBands = changed.entries.map {
+                                        it.key to it.value
+                                    }
                                 }
 
+                                // UI updates on every pointer event. Service/DSP
+                                // writes are intentionally coalesced to ~30 Hz so
+                                // command traffic cannot make the finger tracking
+                                // feel sticky or rigid.
                                 val now =
                                     android.os.SystemClock.uptimeMillis()
                                 if (
                                     forceDispatch ||
-                                    now - lastDispatchAt >= 14L
+                                    now - lastDispatchAt >= 32L
                                 ) {
                                     lastDispatchAt = now
-                                    onBandChange(index, level)
+                                    lastChangedBands.forEach { (index, level) ->
+                                        onBandChange(index, level)
+                                    }
                                 }
                             }
 
@@ -6433,11 +6487,11 @@ private fun MuseEqualizerRack(
                                     ?: break
 
                                 if (!change.pressed) {
-                                    onBandChange(
-                                        lastIndex,
-                                        lastLevel,
-                                    )
+                                    lastChangedBands.forEach { (index, level) ->
+                                        onBandChange(index, level)
+                                    }
                                     activeBand = null
+                                    activeTouch = null
                                     break
                                 }
 
@@ -6574,6 +6628,27 @@ private fun MuseEqualizerRack(
                             radius = (
                                 if (selected) 5.dp else 4.dp
                             ).toPx(),
+                        )
+                    }
+
+                    activeTouch?.let { touch ->
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.36f),
+                                    MuseGlow.copy(alpha = 0.24f),
+                                    Color.Transparent,
+                                ),
+                                center = touch,
+                                radius = 24.dp.toPx(),
+                            ),
+                            center = touch,
+                            radius = 24.dp.toPx(),
+                        )
+                        drawCircle(
+                            color = Color(0xFFE9FFD6),
+                            center = touch,
+                            radius = 4.5.dp.toPx(),
                         )
                     }
                 }
