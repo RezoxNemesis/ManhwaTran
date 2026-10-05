@@ -51,22 +51,23 @@ internal enum class MuseVisualIntensity(
 
 internal enum class MuseReferenceScreen(
     val atlasIndex: Int,
+    val assetName: String,
 ) {
-    Splash(0),
-    Home(1),
-    NowPlaying(2),
-    Lyrics(3),
-    Queue(4),
-    Explore(5),
-    Library(6),
-    Playlists(7),
-    Equalizer(8),
-    Settings(9),
-    Artist(10),
-    Album(11),
-    Downloads(12),
-    SleepTimer(13),
-    MoreOptions(14);
+    Splash(0, "splash"),
+    Home(1, "home"),
+    NowPlaying(2, "now_playing"),
+    Lyrics(3, "lyrics"),
+    Queue(4, "queue"),
+    Explore(5, "explore"),
+    Library(6, "library"),
+    Playlists(7, "playlists"),
+    Equalizer(8, "equalizer"),
+    Settings(9, "settings"),
+    Artist(10, "artist"),
+    Album(11, "album"),
+    Downloads(12, "downloads"),
+    SleepTimer(13, "sleep_timer"),
+    MoreOptions(14, "more_options");
 
     companion object {
         fun fromRoute(route: String?): MuseReferenceScreen =
@@ -217,8 +218,11 @@ internal fun MuseExactReferenceSurface(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = 1.045f
-                        scaleY = 1.045f
+                        // Materialized per-screen assets are already normalized
+                        // to the exact Muse viewport. Keeping 1:1 geometry also
+                        // keeps transparent interaction hotspots aligned.
+                        scaleX = 1f
+                        scaleY = 1f
                     },
             )
         }
@@ -255,6 +259,11 @@ private object MuseReferenceBackdropLoader {
         screen: MuseReferenceScreen,
     ): Bitmap? {
         bitmapCache.get(screen.name)?.let { return it }
+
+        loadDirectAsset(context, screen)?.let { direct ->
+            bitmapCache.put(screen.name, direct)
+            return direct
+        }
 
         val atlas = compressedAtlas ?: decodeAtlas(context)?.also {
             compressedAtlas = it
@@ -295,6 +304,38 @@ private object MuseReferenceBackdropLoader {
 
         bitmapCache.put(screen.name, bitmap)
         return bitmap
+    }
+
+    private fun loadDirectAsset(
+        context: android.content.Context,
+        screen: MuseReferenceScreen,
+    ): Bitmap? {
+        val candidates = listOf(
+            "clean_${screen.assetName}.webp",
+            "screen_${screen.assetName}.png",
+        )
+
+        for (fileName in candidates) {
+            val decoded = runCatching {
+                context.assets
+                    .open("$AssetDirectory/$fileName")
+                    .use { stream ->
+                        BitmapFactory.decodeStream(
+                            stream,
+                            null,
+                            BitmapFactory.Options().apply {
+                                inPreferredConfig = Bitmap.Config.ARGB_8888
+                            },
+                        )
+                    }
+            }.getOrNull()
+
+            if (decoded != null) {
+                return decoded
+            }
+        }
+
+        return null
     }
 
     private fun decodeAtlas(
