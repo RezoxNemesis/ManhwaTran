@@ -99,42 +99,52 @@ class AudioEffectEngine(
         }
 
         if (args.containsKey(AudioEffectProtocol.KeyBassEnabled)) {
+            val enabled = args.getBoolean(AudioEffectProtocol.KeyBassEnabled)
             preferences.edit().putBoolean(
                 KeyBassEnabledPref,
-                args.getBoolean(AudioEffectProtocol.KeyBassEnabled),
+                enabled,
             ).apply()
+            softwareProcessor.setBassEnabled(enabled)
         }
         if (args.containsKey(AudioEffectProtocol.KeyBassStrength)) {
             val value = args.getInt(AudioEffectProtocol.KeyBassStrength)
                 .coerceIn(0, MaxBassStrength)
             preferences.edit().putInt(KeyBassStrengthPref, value).apply()
-            runCatching { bassBoost?.setStrength(value.toShort()) }
+            softwareProcessor.setBassStrength(value)
         }
 
         if (args.containsKey(AudioEffectProtocol.KeyVirtualizerEnabled)) {
+            val enabled = args.getBoolean(
+                AudioEffectProtocol.KeyVirtualizerEnabled,
+            )
             preferences.edit().putBoolean(
                 KeyVirtualizerEnabledPref,
-                args.getBoolean(AudioEffectProtocol.KeyVirtualizerEnabled),
+                enabled,
             ).apply()
+            softwareProcessor.setVirtualizerEnabled(enabled)
         }
         if (args.containsKey(AudioEffectProtocol.KeyVirtualizerStrength)) {
             val value = args.getInt(AudioEffectProtocol.KeyVirtualizerStrength)
                 .coerceIn(0, 1000)
             preferences.edit().putInt(KeyVirtualizerStrengthPref, value).apply()
-            runCatching { virtualizer?.setStrength(value.toShort()) }
+            softwareProcessor.setVirtualizerStrength(value)
         }
 
         if (args.containsKey(AudioEffectProtocol.KeyLoudnessEnabled)) {
+            val enabled = args.getBoolean(
+                AudioEffectProtocol.KeyLoudnessEnabled,
+            )
             preferences.edit().putBoolean(
                 KeyLoudnessEnabledPref,
-                args.getBoolean(AudioEffectProtocol.KeyLoudnessEnabled),
+                enabled,
             ).apply()
+            softwareProcessor.setLoudnessEnabled(enabled)
         }
         if (args.containsKey(AudioEffectProtocol.KeyLoudnessGainMb)) {
             val value = args.getInt(AudioEffectProtocol.KeyLoudnessGainMb)
                 .coerceIn(0, MaxLoudnessGainMb)
             preferences.edit().putInt(KeyLoudnessGainPref, value).apply()
-            runCatching { loudnessEnhancer?.setTargetGain(value) }
+            softwareProcessor.setLoudnessGainMb(value)
         }
 
         if (args.containsKey(AudioEffectProtocol.KeySpatialEnabled)) {
@@ -184,7 +194,7 @@ class AudioEffectEngine(
                 arrayListOf("Flat", "Warm", "Vocal", "Air", "Deep"),
             )
 
-            putBoolean(AudioEffectProtocol.KeyBassAvailable, bassBoost != null)
+            putBoolean(AudioEffectProtocol.KeyBassAvailable, true)
             putBoolean(
                 AudioEffectProtocol.KeyBassEnabled,
                 preferences.getBoolean(KeyBassEnabledPref, false),
@@ -196,7 +206,7 @@ class AudioEffectEngine(
 
             putBoolean(
                 AudioEffectProtocol.KeyVirtualizerAvailable,
-                virtualizer != null,
+                true,
             )
             putBoolean(
                 AudioEffectProtocol.KeyVirtualizerEnabled,
@@ -212,7 +222,7 @@ class AudioEffectEngine(
 
             putBoolean(
                 AudioEffectProtocol.KeyLoudnessAvailable,
-                loudnessEnhancer != null,
+                true,
             )
             putBoolean(
                 AudioEffectProtocol.KeyLoudnessEnabled,
@@ -266,20 +276,35 @@ class AudioEffectEngine(
         softwareProcessor.setSpatialEnabled(spatialEnabled)
         softwareProcessor.setSpatialWidth(spatialWidth)
 
+        val bassEnabled = preferences.getBoolean(
+            KeyBassEnabledPref,
+            false,
+        )
         val bassStrength = preferences
             .getInt(KeyBassStrengthPref, DefaultBassStrength)
             .coerceIn(0, MaxBassStrength)
-        runCatching { bassBoost?.setStrength(bassStrength.toShort()) }
+        softwareProcessor.setBassEnabled(bassEnabled)
+        softwareProcessor.setBassStrength(bassStrength)
 
+        val virtualizerEnabled = preferences.getBoolean(
+            KeyVirtualizerEnabledPref,
+            false,
+        )
         val virtualizerStrength = preferences
             .getInt(KeyVirtualizerStrengthPref, DefaultVirtualizerStrength)
             .coerceIn(0, 1000)
-        runCatching { virtualizer?.setStrength(virtualizerStrength.toShort()) }
+        softwareProcessor.setVirtualizerEnabled(virtualizerEnabled)
+        softwareProcessor.setVirtualizerStrength(virtualizerStrength)
 
+        val loudnessEnabled = preferences.getBoolean(
+            KeyLoudnessEnabledPref,
+            false,
+        )
         val loudnessGain = preferences
             .getInt(KeyLoudnessGainPref, DefaultLoudnessGainMb)
             .coerceIn(0, MaxLoudnessGainMb)
-        runCatching { loudnessEnhancer?.setTargetGain(loudnessGain) }
+        softwareProcessor.setLoudnessEnabled(loudnessEnabled)
+        softwareProcessor.setLoudnessGainMb(loudnessGain)
     }
 
     private fun setEqualizerBand(
@@ -339,18 +364,25 @@ class AudioEffectEngine(
             enabled = masterEnabled,
             isBypassed = bypass,
         )
-        runCatching {
-            bassBoost?.enabled = processingEnabled &&
-                preferences.getBoolean(KeyBassEnabledPref, false)
-        }
-        runCatching {
-            virtualizer?.enabled = processingEnabled &&
-                preferences.getBoolean(KeyVirtualizerEnabledPref, false)
-        }
-        runCatching {
-            loudnessEnhancer?.enabled = processingEnabled &&
-                preferences.getBoolean(KeyLoudnessEnabledPref, false)
-        }
+        softwareProcessor.setBassEnabled(
+            processingEnabled &&
+                preferences.getBoolean(KeyBassEnabledPref, false),
+        )
+        softwareProcessor.setVirtualizerEnabled(
+            processingEnabled &&
+                preferences.getBoolean(KeyVirtualizerEnabledPref, false),
+        )
+        softwareProcessor.setLoudnessEnabled(
+            processingEnabled &&
+                preferences.getBoolean(KeyLoudnessEnabledPref, false),
+        )
+
+        // Keep vendor AudioFX instances disabled. Muse uses one consistent PCM
+        // DSP path so OEM availability cannot grey-out controls or double-apply
+        // gain/effects on some phones.
+        runCatching { bassBoost?.enabled = false }
+        runCatching { virtualizer?.enabled = false }
+        runCatching { loudnessEnhancer?.enabled = false }
     }
 
     private fun spatialCapability(): SpatialCapability {
