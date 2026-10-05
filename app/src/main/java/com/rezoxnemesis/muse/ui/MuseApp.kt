@@ -429,33 +429,25 @@ private fun MuseBottomNavigation(
     onNavigate: (String) -> Unit,
 ) {
     MuseGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         variant = MuseGlassVariant.Strong,
-        cornerRadius = 28.dp,
+        cornerRadius = 30.dp,
     ) {
-        NavigationBar(
-            containerColor = Color.Transparent,
-            contentColor = Color.White,
-            modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 5.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             PrimaryDestinations.forEach { destination ->
-                NavigationBarItem(
+                MuseMotionNavItem(
+                    label = destination.label,
+                    icon = destination.icon,
                     selected = currentRoute == destination.route,
                     onClick = { onNavigate(destination.route) },
-                    icon = {
-                        Icon(
-                            imageVector = destination.icon,
-                            contentDescription = destination.label,
-                        )
-                    },
-                    label = { Text(destination.label) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MuseGreen,
-                        selectedTextColor = MuseGreen,
-                        indicatorColor = Color(0x3D62FF6B),
-                        unselectedIconColor = MuseMuted,
-                        unselectedTextColor = MuseMuted,
-                    ),
                 )
             }
         }
@@ -6441,43 +6433,79 @@ private fun MiniPlayer(
         onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 5.dp),
         variant = MuseGlassVariant.Elevated,
-        cornerRadius = 22.dp,
+        cornerRadius = 24.dp,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            TrackArtwork(
-                track = track,
-                modifier = Modifier.size(48.dp),
-                contentDescription = null,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 11.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TrackArtwork(
+                    track = track,
+                    modifier = Modifier.size(50.dp),
+                    contentDescription = null,
+                )
+                Spacer(Modifier.size(11.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        state.title.ifBlank { "Muse" },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        state.artist,
+                        color = MuseMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                MusePlayingPulse(
+                    playing = state.isPlaying,
+                    modifier = Modifier
+                        .size(width = 28.dp, height = 30.dp)
+                        .padding(horizontal = 2.dp),
+                )
+
+                IconButton(onClick = onPlayPause) {
+                    MuseGlassSurface(
+                        modifier = Modifier.size(38.dp),
+                        variant = if (state.isPlaying) {
+                            MuseGlassVariant.Selected
+                        } else {
+                            MuseGlassVariant.Standard
+                        },
+                        cornerRadius = 19.dp,
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = if (state.isPlaying) "Pause" else "Play",
+                                tint = MuseGreen,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            MuseMiniProgress(
+                positionMs = state.positionMs,
+                durationMs = state.durationMs,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
             )
-            Spacer(Modifier.size(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    state.title.ifBlank { "Muse" },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    state.artist,
-                    color = MuseMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = onPlayPause) {
-                Icon(
-                    if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    tint = MuseGreen,
-                )
-            }
         }
     }
 }
