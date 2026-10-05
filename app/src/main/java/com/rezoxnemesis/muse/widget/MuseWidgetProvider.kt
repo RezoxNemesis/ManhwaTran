@@ -110,3 +110,5 @@ open class MuseWidgetProvider : AppWidgetProvider() {
 class MuseCompactWidgetProvider : MuseWidgetProvider()
 
 class MuseLargeWidgetProvider : MuseWidgetProvider()
+
+class MuseActionsWidgetProvider : MuseWidgetProvider()
