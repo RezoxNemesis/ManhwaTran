@@ -1,6 +1,7 @@
 Muse preview release trigger
 
-Purpose: publish the current exact-visual Muse build after the legacy UI shell was removed.
-Source head before trigger: eb44e499ab4fd11395a1397072a9f6be04964f1b
-Visual mode: approved botanical/glass reference surface only, with transparent functional hotspots over real app actions.
-CI status before trigger: green.
+Purpose: publish the latest Muse native motion build with the verified Now Playing back-to-Home fix and elastic bottom-tab glass capsule.
+Source head before trigger: a0d9fd707e5a58f06fad136ae58132b8d36c56f9
+Visual mode: native coded emerald botanical/glass UI.
+Motion updates: direct-touch equalizer, elastic bottom navigation capsule, sliding segmented tabs, animated widgets and playback surfaces.
+Runtime verification before trigger: green.
