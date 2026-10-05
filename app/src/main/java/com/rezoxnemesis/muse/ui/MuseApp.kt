@@ -6571,7 +6571,7 @@ private fun MuseEqualizerRack(
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.36f),
-                                    MuseGlow.copy(alpha = 0.24f),
+                                    MuseGreen.copy(alpha = 0.24f),
                                     Color.Transparent,
                                 ),
                                 center = touch,
