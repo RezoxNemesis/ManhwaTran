@@ -52,8 +52,8 @@ capture_route() {
   fi
 
   # Do not accept a splash screen as proof that a requested route rendered.
-  adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null
-  adb pull /sdcard/muse-window.xml /tmp/muse-window.xml >/dev/null
+  # UiAutomator can briefly return a null/stale root on the headless emulator,
+  # so retry the semantic check instead of failing on a single flaky dump.
   case "$route" in
     home) expected="Home" ;;
     explore) expected="Explore" ;;
@@ -63,10 +63,25 @@ capture_route() {
     sleep) expected="Sleep Timer" ;;
     *) expected="" ;;
   esac
-  if [[ -n "$expected" ]] && ! grep -Fq "$expected" /tmp/muse-window.xml; then
-    echo "Requested route '$route' did not reach expected UI '$expected'" >&2
-    cat /tmp/muse-window.xml >&2 || true
-    exit 1
+
+  if [[ -n "$expected" ]]; then
+    matched=0
+    for attempt in 1 2 3 4 5; do
+      rm -f /tmp/muse-window.xml
+      adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+      adb pull /sdcard/muse-window.xml /tmp/muse-window.xml >/dev/null 2>&1 || true
+      if [[ -s /tmp/muse-window.xml ]] && grep -Fq "$expected" /tmp/muse-window.xml; then
+        matched=1
+        break
+      fi
+      sleep 2
+    done
+
+    if [[ "$matched" -ne 1 ]]; then
+      echo "Requested route '$route' did not reach expected UI '$expected' after retries" >&2
+      cat /tmp/muse-window.xml >&2 || true
+      exit 1
+    fi
   fi
 
   adb exec-out screencap -p > "ui-captures/$output"
