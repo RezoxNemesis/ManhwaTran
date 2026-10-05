@@ -152,6 +152,22 @@ adb exec-out screencap -p > ui-captures/muse-library-playing-runtime.png
 test -s ui-captures/muse-library-playing-runtime.png
 
 capture_route equalizer muse-equalizer-runtime.png
+
+# The Equalizer must remain present even on the CI emulator where the OEM
+# Equalizer/Spatializer stack is absent. Muse's software DSP is the fallback.
+adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+adb pull /sdcard/muse-window.xml /tmp/muse-equalizer.xml >/dev/null 2>&1 || true
+if ! grep -Fq "Muse Spatial 3D" /tmp/muse-equalizer.xml; then
+  echo "Muse Spatial 3D compatibility control is missing" >&2
+  cat /tmp/muse-equalizer.xml >&2 || true
+  exit 1
+fi
+if grep -Fq "Equalizer unavailable" /tmp/muse-equalizer.xml; then
+  echo "Software Equalizer fallback was not exposed" >&2
+  cat /tmp/muse-equalizer.xml >&2 || true
+  exit 1
+fi
+
 capture_route settings muse-settings-runtime.png
 capture_route sleep muse-sleep-runtime.png
 capture_route settings muse-settings-font130-runtime.png 1.3
