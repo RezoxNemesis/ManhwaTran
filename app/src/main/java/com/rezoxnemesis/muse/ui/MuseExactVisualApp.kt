@@ -55,11 +55,19 @@ fun MuseExactVisualApp(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    var showSplash by rememberSaveable { mutableStateOf(true) }
+    // The Android 12+ system splash already covers process startup. Keep the
+    // branded Muse artwork only for a short cold-launch handoff, and skip it
+    // entirely for direct/deep-route launches used by widgets, notifications
+    // and runtime verification.
+    var showSplash by rememberSaveable {
+        mutableStateOf(requestedRoute == null)
+    }
 
-    LaunchedEffect(Unit) {
-        delay(900)
-        showSplash = false
+    LaunchedEffect(showSplash) {
+        if (showSplash) {
+            delay(550)
+            showSplash = false
+        }
     }
 
     LaunchedEffect(requestedRoute) {
