@@ -246,22 +246,14 @@ class MusePlaybackService : MediaSessionService() {
             override fun buildAudioSink(
                 context: android.content.Context,
                 enableFloatOutput: Boolean,
-                enableAudioTrackPlaybackParams: Boolean,
-                enableOffload: Boolean,
+                enableAudioOutputPlaybackParameters: Boolean,
             ): AudioSink {
                 return DefaultAudioSink.Builder(context)
                     // Muse DSP intentionally operates on PCM16. Keeping float
                     // output disabled guarantees a stable processor input format.
                     .setEnableFloatOutput(false)
-                    .setEnableAudioTrackPlaybackParams(
-                        enableAudioTrackPlaybackParams,
-                    )
-                    .setOffloadMode(
-                        if (enableOffload) {
-                            DefaultAudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED
-                        } else {
-                            DefaultAudioSink.OFFLOAD_MODE_DISABLED
-                        }
+                    .setEnableAudioOutputPlaybackParameters(
+                        enableAudioOutputPlaybackParameters,
                     )
                     .setAudioProcessors(
                         arrayOf(softwareAudioProcessor),
