@@ -95,7 +95,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: muse-runtime-ui-reference-screens
-          path: ui-captures/*.png
+          path: |
+            ui-captures/*.png
+            ui-captures/muse-motion-demo.mp4
           if-no-files-found: error
           retention-days: 7
 
