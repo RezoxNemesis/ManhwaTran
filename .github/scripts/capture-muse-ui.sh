@@ -96,6 +96,23 @@ capture_route settings muse-settings-runtime.png
 capture_route sleep muse-sleep-runtime.png
 capture_route settings muse-settings-font130-runtime.png 1.3
 
+# Regression: Now Playing must never strand the user on a decorative/blank
+# surface. Android Back must return to the Home route even when Now Playing was
+# opened directly.
+adb shell settings put system font_scale 1.0
+adb shell am force-stop com.rezoxnemesis.muse
+adb shell am start -W   -n com.rezoxnemesis.muse/.MainActivity   --es com.rezoxnemesis.muse.extra.OPEN_ROUTE nowPlaying
+sleep 4
+adb shell input keyevent KEYCODE_BACK
+sleep 2
+adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+adb pull /sdcard/muse-window.xml /tmp/muse-back-window.xml >/dev/null 2>&1 || true
+if ! grep -Fq "Home" /tmp/muse-back-window.xml; then
+  echo "Now Playing Back did not return to Home" >&2
+  cat /tmp/muse-back-window.xml >&2 || true
+  exit 1
+fi
+
 # Record a real interaction pass so the moving tab capsule, directional page
 # transitions and widget motion are verified on an Android runtime, not only
 # inferred from static screenshots.
