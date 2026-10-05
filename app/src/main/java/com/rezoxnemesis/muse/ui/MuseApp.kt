@@ -1014,27 +1014,15 @@ private fun ExploreScreen(
         }
 
         item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(ExploreCategory.entries) { category ->
-                    MusePillTab(
-                        label = category.label,
-                        selected = selectedCategory == category,
-                        modifier = Modifier.width(
-                            when (category) {
-                                ExploreCategory.Playlists -> 104.dp
-                                ExploreCategory.Artists -> 88.dp
-                                else -> 82.dp
-                            }
-                        ),
-                        onClick = {
-                            selectedCategory = category
-                            selectedMood = null
-                        },
-                    )
-                }
-            }
+            MuseSlidingTabRow(
+                labels = ExploreCategory.entries.map { it.label },
+                selectedIndex = ExploreCategory.entries.indexOf(selectedCategory),
+                modifier = Modifier.fillMaxWidth(),
+                onSelected = { index ->
+                    selectedCategory = ExploreCategory.entries[index]
+                    selectedMood = null
+                },
+            )
         }
 
         when {
