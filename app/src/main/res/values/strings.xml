@@ -8,4 +8,6 @@
     <string name="widget_play_pause">Play or pause</string>
     <string name="widget_next">Next track</string>
     <string name="widget_description">Muse playback controls</string>
+    <string name="widget_compact_description">Muse compact playback control</string>
+    <string name="widget_large_description">Muse expanded now-playing controls</string>
 </resources>
