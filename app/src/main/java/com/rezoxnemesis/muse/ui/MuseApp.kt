@@ -517,9 +517,14 @@ private fun MuseBottomNavigation(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
 ) {
-    val selectedIndex = PrimaryDestinations
+    val routeIndex = PrimaryDestinations
         .indexOfFirst { it.route == currentRoute }
         .coerceAtLeast(0)
+    var visualIndex by remember { mutableStateOf(routeIndex) }
+
+    LaunchedEffect(routeIndex) {
+        visualIndex = routeIndex
+    }
 
     MuseGlassSurface(
         modifier = Modifier
@@ -535,7 +540,7 @@ private fun MuseBottomNavigation(
                 .padding(horizontal = 5.dp, vertical = 5.dp),
         ) {
             val itemWidth = maxWidth / PrimaryDestinations.size
-            val targetOffset = itemWidth * selectedIndex
+            val targetOffset = itemWidth * visualIndex
             val indicatorOffset by animateDpAsState(
                 targetValue = targetOffset,
                 animationSpec = tween(
@@ -580,12 +585,15 @@ private fun MuseBottomNavigation(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PrimaryDestinations.forEach { destination ->
+                PrimaryDestinations.forEachIndexed { index, destination ->
                     MuseMotionNavItem(
                         label = destination.label,
                         icon = destination.icon,
-                        selected = currentRoute == destination.route,
-                        onClick = { onNavigate(destination.route) },
+                        selected = visualIndex == index,
+                        onClick = {
+                            visualIndex = index
+                            onNavigate(destination.route)
+                        },
                     )
                 }
             }
