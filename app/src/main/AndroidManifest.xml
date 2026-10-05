@@ -39,6 +39,30 @@
                 android:resource="@xml/muse_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.MuseCompactWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/muse_widget_compact_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.MuseLargeWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/muse_widget_large_info" />
+        </receiver>
+
         <service
             android:name=".playback.MusePlaybackService"
             android:exported="true"
