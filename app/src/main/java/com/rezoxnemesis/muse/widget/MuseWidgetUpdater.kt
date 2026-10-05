@@ -16,20 +16,71 @@ object MuseWidgetUpdater {
         player: Player? = null,
     ) {
         val manager = AppWidgetManager.getInstance(context)
+
+        updateProvider(
+            context = context,
+            manager = manager,
+            providerClass = MuseWidgetProvider::class.java,
+            views = buildStandardViews(context, player),
+        )
+        updateProvider(
+            context = context,
+            manager = manager,
+            providerClass = MuseCompactWidgetProvider::class.java,
+            views = buildCompactViews(context, player),
+        )
+        updateProvider(
+            context = context,
+            manager = manager,
+            providerClass = MuseLargeWidgetProvider::class.java,
+            views = buildLargeViews(context, player),
+        )
+    }
+
+    fun buildViews(
+        context: Context,
+        player: Player?,
+    ): RemoteViews = buildStandardViews(context, player)
+
+    private fun updateProvider(
+        context: Context,
+        manager: AppWidgetManager,
+        providerClass: Class<*>,
+        views: RemoteViews,
+    ) {
         val component = ComponentName(
             context,
-            MuseWidgetProvider::class.java,
+            providerClass,
         )
         val ids = manager.getAppWidgetIds(component)
-        if (ids.isEmpty()) return
-
-        val views = buildViews(context, player)
         ids.forEach { id ->
             manager.updateAppWidget(id, views)
         }
     }
 
-    fun buildViews(
+    private fun titleFor(
+        context: Context,
+        player: Player?,
+    ): String =
+        player
+            ?.mediaMetadata
+            ?.title
+            ?.toString()
+            ?.takeIf { it.isNotBlank() }
+            ?: context.getString(R.string.app_name)
+
+    private fun artistFor(
+        context: Context,
+        player: Player?,
+    ): String =
+        player
+            ?.mediaMetadata
+            ?.artist
+            ?.toString()
+            ?.takeIf { it.isNotBlank() }
+            ?: context.getString(R.string.widget_idle)
+
+    private fun buildStandardViews(
         context: Context,
         player: Player?,
     ): RemoteViews {
@@ -37,23 +88,116 @@ object MuseWidgetUpdater {
             context.packageName,
             R.layout.muse_widget,
         )
+        bindCommonPlayback(
+            context = context,
+            views = views,
+            player = player,
+        )
+        return views
+    }
 
-        val title = player
-            ?.mediaMetadata
-            ?.title
-            ?.toString()
-            ?.takeIf { it.isNotBlank() }
-            ?: context.getString(R.string.app_name)
+    private fun buildCompactViews(
+        context: Context,
+        player: Player?,
+    ): RemoteViews {
+        val views = RemoteViews(
+            context.packageName,
+            R.layout.muse_widget_compact,
+        )
 
-        val artist = player
-            ?.mediaMetadata
-            ?.artist
-            ?.toString()
-            ?.takeIf { it.isNotBlank() }
-            ?: context.getString(R.string.widget_idle)
+        views.setTextViewText(
+            R.id.widget_title,
+            titleFor(context, player),
+        )
+        views.setTextViewText(
+            R.id.widget_artist,
+            artistFor(context, player),
+        )
+        views.setImageViewResource(
+            R.id.widget_play_pause,
+            if (player?.isPlaying == true) {
+                android.R.drawable.ic_media_pause
+            } else {
+                android.R.drawable.ic_media_play
+            },
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_root,
+            activityPendingIntent(context),
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_play_pause,
+            controlPendingIntent(
+                context,
+                MuseWidgetProvider.ActionToggle,
+                22,
+            ),
+        )
+        return views
+    }
 
-        views.setTextViewText(R.id.widget_title, title)
-        views.setTextViewText(R.id.widget_artist, artist)
+    private fun buildLargeViews(
+        context: Context,
+        player: Player?,
+    ): RemoteViews {
+        val views = RemoteViews(
+            context.packageName,
+            R.layout.muse_widget_large,
+        )
+        bindCommonPlayback(
+            context = context,
+            views = views,
+            player = player,
+        )
+
+        val duration = player
+            ?.duration
+            ?.takeIf { it > 0L }
+            ?: 0L
+        val position = player
+            ?.currentPosition
+            ?.coerceAtLeast(0L)
+            ?: 0L
+
+        val max = if (duration > Int.MAX_VALUE) {
+            Int.MAX_VALUE
+        } else {
+            duration.toInt().coerceAtLeast(1)
+        }
+        val progress = if (duration > 0L) {
+            (
+                position.toDouble() /
+                    duration.toDouble() *
+                    max.toDouble()
+                )
+                .toInt()
+                .coerceIn(0, max)
+        } else {
+            0
+        }
+
+        views.setProgressBar(
+            R.id.widget_progress,
+            max,
+            progress,
+            duration <= 0L,
+        )
+        return views
+    }
+
+    private fun bindCommonPlayback(
+        context: Context,
+        views: RemoteViews,
+        player: Player?,
+    ) {
+        views.setTextViewText(
+            R.id.widget_title,
+            titleFor(context, player),
+        )
+        views.setTextViewText(
+            R.id.widget_artist,
+            artistFor(context, player),
+        )
         views.setImageViewResource(
             R.id.widget_play_pause,
             if (player?.isPlaying == true) {
@@ -91,8 +235,6 @@ object MuseWidgetUpdater {
                 13,
             ),
         )
-
-        return views
     }
 
     private fun activityPendingIntent(
@@ -104,7 +246,10 @@ object MuseWidgetUpdater {
         ).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(MainActivity.ExtraOpenRoute, "nowPlaying")
+            putExtra(
+                MainActivity.ExtraOpenRoute,
+                "nowPlaying",
+            )
         }
         return PendingIntent.getActivity(
             context,
