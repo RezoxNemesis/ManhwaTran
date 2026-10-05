@@ -1,7 +1,10 @@
 Muse preview release trigger
 
-Purpose: publish the latest Muse native motion build with the verified Now Playing back-to-Home fix and elastic bottom-tab glass capsule.
-Source head before trigger: a0d9fd707e5a58f06fad136ae58132b8d36c56f9
-Visual mode: native coded emerald botanical/glass UI.
-Motion updates: direct-touch equalizer, elastic bottom navigation capsule, sliding segmented tabs, animated widgets and playback surfaces.
-Runtime verification before trigger: green.
+Purpose: publish Muse Motion & Botanical Preview 4 from the latest verified native UI state.
+Source head before trigger: 741ecedc8e35f2482980097bc11b74e41cb48b6b
+Included fixes:
+- Now Playing back reliably returns to the existing Home destination.
+- External/deep-link route intents are consumed after handling so stale Now Playing cannot resurrect on relaunch.
+- Bottom navigation uses a stronger worm-style glass capsule that stretches toward the target tab and contracts into place.
+- Direct-touch equalizer, smoother sliding tabs, deeper glass, botanical rendering and expanded widget set remain included.
+Verification before release trigger: Android CI green; Runtime UI Capture green.
