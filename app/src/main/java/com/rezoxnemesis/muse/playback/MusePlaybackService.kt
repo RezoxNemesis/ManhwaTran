@@ -252,7 +252,7 @@ class MusePlaybackService : MediaSessionService() {
                     // Muse DSP intentionally operates on PCM16. Keeping float
                     // output disabled guarantees a stable processor input format.
                     .setEnableFloatOutput(false)
-                    .setEnableAudioOutputPlaybackParameters(
+                    .setEnableAudioTrackPlaybackParams(
                         enableAudioOutputPlaybackParameters,
                     )
                     .setAudioProcessors(
