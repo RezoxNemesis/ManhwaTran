@@ -1,6 +1,6 @@
 Muse preview release trigger
 
-Purpose: build the exact-PNG Muse visual baseline.
-The APK loader now expects the 15 approved 941x1672 PNG files directly under assets/muse_reference.
-Loader commit: a717f98da05c0a54f5b715b38ab062576775a02c
-Mapping test commit: d5e9b49614f56e7775183ad8ec6eb9c06d0ed8b2
+Purpose: publish the current exact-visual Muse build after the legacy UI shell was removed.
+Source head before trigger: eb44e499ab4fd11395a1397072a9f6be04964f1b
+Visual mode: approved botanical/glass reference surface only, with transparent functional hotspots over real app actions.
+CI status before trigger: green.
