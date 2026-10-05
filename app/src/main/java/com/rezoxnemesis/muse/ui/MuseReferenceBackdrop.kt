@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
@@ -167,6 +168,59 @@ internal fun MuseReferenceBackdrop(
                         ),
                 )
             }
+        }
+    }
+}
+
+
+/**
+ * Full-fidelity reference surface used by the replacement UI.
+ *
+ * Unlike [MuseReferenceBackdrop], this deliberately applies no centre veil,
+ * no synthetic leaves and no legacy Compose decoration. A slight overscan
+ * trims screenshot/device-edge residue so the botanical artwork reaches the
+ * Android viewport edge-to-edge.
+ */
+@Composable
+internal fun MuseExactReferenceSurface(
+    screen: MuseReferenceScreen,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val bitmap by produceState<Bitmap?>(
+        initialValue = MuseReferenceBackdropLoader.peek(screen),
+        key1 = screen,
+    ) {
+        if (value == null) {
+            value = withContext(Dispatchers.IO) {
+                MuseReferenceBackdropLoader.load(
+                    context = context.applicationContext,
+                    screen = screen,
+                )
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MuseBackground),
+    ) {
+        val activeBitmap = bitmap
+        if (activeBitmap == null) {
+            MuseAtmosphere()
+        } else {
+            Image(
+                bitmap = activeBitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.045f
+                        scaleY = 1.045f
+                    },
+            )
         }
     }
 }
