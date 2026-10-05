@@ -1,0 +1,13 @@
+Muse repaired high-fidelity reference atlas
+format=WebP quality 88
+atlas_dimensions=4705x5016
+cell_dimensions=941x1672
+grid=5x3
+screens=15
+byte_size=2591074
+base64_chars=3454768
+base64_chunks=18
+sha256=a1743210b181f2677f068cae74ae83ca2cb3cfb37197d5ae33b6885f6e8c433a
+normalized_chrome=48px source top and bottom chrome removed before resizing
+clean_overrides=Splash,Equalizer,Artist,Album,Downloads,SleepTimer,MoreOptions
+order=Splash,Home,NowPlaying,Lyrics,Queue,Explore,Library,Playlists,Equalizer,Settings,Artist,Album,Downloads,SleepTimer,MoreOptions
