@@ -42,5 +42,7 @@ object AudioEffectProtocol {
     const val KeySpatialSupported = "spatial_supported"
     const val KeySpatialAvailable = "spatial_available"
     const val KeySpatialEnabled = "spatial_enabled"
+    const val KeySpatialCompatibilityMode = "spatial_compatibility_mode"
+    const val KeySpatialWidth = "spatial_width"
     const val KeyHeadTrackerAvailable = "head_tracker_available"
 }
