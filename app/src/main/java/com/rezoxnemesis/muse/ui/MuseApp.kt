@@ -4749,7 +4749,7 @@ private fun SettingsScreen(
                     SettingsPanelItem(
                         icon = Icons.Rounded.Equalizer,
                         title = "Audio Enhancement",
-                        subtitle = "Real EQ, bass, virtualizer and loudness when supported",
+                        subtitle = "Muse DSP • EQ, bass, virtualizer, loudness & Spatial 3D",
                         onClick = { navController.navigate("equalizer") },
                     )
                     SettingsPanelDivider()
@@ -6035,6 +6035,53 @@ private fun EqualizerScreen(
         }
 
         item {
+            SectionTitle(
+                title = "Enhancement Strength",
+                trailing = "Muse DSP",
+            )
+        }
+
+        item {
+            AudioEffectControl(
+                title = "Bass Boost",
+                subtitle = "Low-end lift with a conservative software shelf",
+                checked = effects.bassEnabled,
+                onCheckedChange = viewModel.playback::setBassEnabled,
+                value = effects.bassStrength,
+                valueRange = 0..700,
+                onValueChange = viewModel.playback::setBassStrength,
+                controlsEnabled = controlsEnabled,
+            )
+        }
+
+        item {
+            AudioEffectControl(
+                title = "Virtualizer",
+                subtitle = "Stereo width without requiring OEM AudioFX",
+                checked = effects.virtualizerEnabled,
+                onCheckedChange = viewModel.playback::setVirtualizerEnabled,
+                value = effects.virtualizerStrength,
+                valueRange = 0..1000,
+                onValueChange = viewModel.playback::setVirtualizerStrength,
+                controlsEnabled = controlsEnabled,
+            )
+        }
+
+        item {
+            AudioEffectControl(
+                title = "Loudness",
+                subtitle = "Up to +6 dB with Muse output protection",
+                checked = effects.loudnessEnabled,
+                onCheckedChange = viewModel.playback::setLoudnessEnabled,
+                value = effects.loudnessGainMb,
+                valueRange = 0..600,
+                onValueChange = viewModel.playback::setLoudnessGainMb,
+                controlsEnabled = controlsEnabled,
+                valueLabel = { value -> "+" + (value / 100f) + " dB" },
+            )
+        }
+
+        item {
             MuseGlassSurface(
                 modifier = Modifier.fillMaxWidth(),
                 variant = MuseGlassVariant.Strong,
@@ -6054,14 +6101,6 @@ private fun EqualizerScreen(
                                 viewModel.playback.setAudioBypass(false)
                             }
                         },
-                    )
-                    HorizontalDivider(color = MuseBorder.copy(alpha = 0.35f))
-                    ReferenceToggleRow(
-                        title = "Loudness Enhancer",
-                        subtitle = "Capped at +6 dB",
-                        checked = effects.loudnessEnabled,
-                        enabled = effects.loudnessAvailable && controlsEnabled,
-                        onCheckedChange = viewModel.playback::setLoudnessEnabled,
                     )
                     HorizontalDivider(color = MuseBorder.copy(alpha = 0.35f))
                     ReferenceToggleRow(
