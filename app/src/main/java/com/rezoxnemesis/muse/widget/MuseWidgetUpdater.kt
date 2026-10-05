@@ -35,6 +35,12 @@ object MuseWidgetUpdater {
             providerClass = MuseLargeWidgetProvider::class.java,
             views = buildLargeViews(context, player),
         )
+        updateProvider(
+            context = context,
+            manager = manager,
+            providerClass = MuseActionsWidgetProvider::class.java,
+            views = buildActionsViews(context),
+        )
     }
 
     fun buildViews(
@@ -185,6 +191,36 @@ object MuseWidgetUpdater {
         return views
     }
 
+    private fun buildActionsViews(
+        context: Context,
+    ): RemoteViews {
+        val views = RemoteViews(
+            context.packageName,
+            R.layout.muse_widget_actions,
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_root,
+            routePendingIntent(context, "home", 30),
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_action_library,
+            routePendingIntent(context, "library", 31),
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_action_downloads,
+            routePendingIntent(context, "downloads", 32),
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_action_equalizer,
+            routePendingIntent(context, "equalizer", 33),
+        )
+        views.setOnClickPendingIntent(
+            R.id.widget_action_sleep,
+            routePendingIntent(context, "sleep", 34),
+        )
+        return views
+    }
+
     private fun bindCommonPlayback(
         context: Context,
         views: RemoteViews,
@@ -239,6 +275,17 @@ object MuseWidgetUpdater {
 
     private fun activityPendingIntent(
         context: Context,
+    ): PendingIntent =
+        routePendingIntent(
+            context = context,
+            route = "nowPlaying",
+            requestCode = 10,
+        )
+
+    private fun routePendingIntent(
+        context: Context,
+        route: String,
+        requestCode: Int,
     ): PendingIntent {
         val intent = Intent(
             context,
@@ -248,12 +295,12 @@ object MuseWidgetUpdater {
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(
                 MainActivity.ExtraOpenRoute,
-                "nowPlaying",
+                route,
             )
         }
         return PendingIntent.getActivity(
             context,
-            10,
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or
                 PendingIntent.FLAG_IMMUTABLE,
