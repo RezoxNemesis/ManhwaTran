@@ -214,6 +214,8 @@ private val PrimaryDestinations = listOf(
     PrimaryDestination("tools", "Muse Lab", Icons.Rounded.Tune),
 )
 
+private val PrimaryRoutes = PrimaryDestinations.mapTo(mutableSetOf()) { it.route }
+
 @Composable
 fun MuseApp(
     viewModel: MuseViewModel,
@@ -242,7 +244,7 @@ fun MuseApp(
             )
         )
     }
-    val showPrimaryNav = currentRoute in PrimaryDestinations.map { it.route }
+    val showPrimaryNav = currentRoute in PrimaryRoutes
 
     LaunchedEffect(requestedRoute) {
         val route = requestedRoute ?: return@LaunchedEffect
@@ -303,88 +305,46 @@ fun MuseApp(
                 startDestination = "home",
                 modifier = Modifier.padding(padding),
                 enterTransition = {
-                    val targetRoute = targetState.destination.route
-                    val cinematicRoute = targetRoute in setOf(
-                        "nowPlaying",
-                        "lyrics",
-                        "queue",
-                        "artist",
-                        "album",
-                        "downloads",
-                        "sleep",
-                        "settings",
-                        "more",
-                    )
-                    if (cinematicRoute) {
-                        fadeIn(animationSpec = tween(210)) +
-                            scaleIn(
-                                animationSpec = spring(
-                                    dampingRatio = 0.80f,
-                                    stiffness = Spring.StiffnessMediumLow,
-                                ),
-                                initialScale = 0.955f,
-                            ) +
-                            slideInVertically(
-                                animationSpec = spring(
-                                    dampingRatio = 0.82f,
-                                    stiffness = Spring.StiffnessMediumLow,
-                                ),
-                                initialOffsetY = { height -> height / 8 },
-                            )
+                    val fromRoute = initialState.destination.route
+                    val toRoute = targetState.destination.route
+                    val primaryTabHop =
+                        fromRoute in PrimaryRoutes && toRoute in PrimaryRoutes
+
+                    if (primaryTabHop) {
+                        // Bottom-tab changes should feel immediate, not cinematic.
+                        fadeIn(animationSpec = tween(105))
                     } else {
-                        fadeIn(animationSpec = tween(180)) +
-                            scaleIn(
-                                animationSpec = spring(
-                                    dampingRatio = 0.84f,
-                                    stiffness = Spring.StiffnessMedium,
-                                ),
-                                initialScale = 0.975f,
-                            ) +
-                            slideInHorizontally(
-                                animationSpec = spring(
-                                    dampingRatio = 0.84f,
-                                    stiffness = Spring.StiffnessMedium,
-                                ),
-                                initialOffsetX = { width -> width / 18 },
+                        fadeIn(animationSpec = tween(145)) +
+                            slideInVertically(
+                                animationSpec = tween(175),
+                                initialOffsetY = { height -> height / 22 },
                             )
                     }
                 },
                 exitTransition = {
-                    fadeOut(animationSpec = tween(145)) +
-                        scaleOut(
-                            animationSpec = tween(175),
-                            targetScale = 0.985f,
-                        )
+                    val fromRoute = initialState.destination.route
+                    val toRoute = targetState.destination.route
+                    val primaryTabHop =
+                        fromRoute in PrimaryRoutes && toRoute in PrimaryRoutes
+
+                    fadeOut(
+                        animationSpec = tween(
+                            durationMillis = if (primaryTabHop) 70 else 105,
+                        ),
+                    )
                 },
                 popEnterTransition = {
-                    fadeIn(animationSpec = tween(190)) +
-                        scaleIn(
-                            animationSpec = spring(
-                                dampingRatio = 0.84f,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                            initialScale = 0.98f,
-                        ) +
+                    fadeIn(animationSpec = tween(135)) +
                         slideInVertically(
-                            animationSpec = spring(
-                                dampingRatio = 0.86f,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                            initialOffsetY = { height -> -height / 22 },
+                            animationSpec = tween(165),
+                            initialOffsetY = { height -> -height / 28 },
                         )
                 },
                 popExitTransition = {
-                    fadeOut(animationSpec = tween(145)) +
-                        scaleOut(
-                            animationSpec = tween(175),
-                            targetScale = 0.97f,
-                        ) +
+                    fadeOut(animationSpec = tween(100)) +
                         slideOutVertically(
-                            animationSpec = spring(
-                                dampingRatio = 0.88f,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                            targetOffsetY = { height -> height / 12 },
+                            animationSpec = tween(145),
+                            targetOffsetY = { height -> height / 24 },
                         )
                 },
             ) {
