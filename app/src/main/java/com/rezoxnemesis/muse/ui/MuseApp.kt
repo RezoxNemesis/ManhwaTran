@@ -1466,19 +1466,14 @@ private fun LibraryScreen(
             }
         }
         item {
-            Row(
+            MuseSlidingTabRow(
+                labels = LibraryTab.entries.map { it.name },
+                selectedIndex = LibraryTab.entries.indexOf(selectedTab),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                LibraryTab.entries.forEach { tab ->
-                    MusePillTab(
-                        label = tab.name,
-                        selected = selectedTab == tab,
-                        modifier = Modifier.weight(1f),
-                        onClick = { selectedTab = tab },
-                    )
-                }
-            }
+                onSelected = { index ->
+                    selectedTab = LibraryTab.entries[index]
+                },
+            )
         }
 
         if (selectedTab == LibraryTab.Songs && query.isBlank()) {
@@ -2940,19 +2935,14 @@ private fun PlaylistsScreen(
         }
 
         item {
-            Row(
+            MuseSlidingTabRow(
+                labels = PlaylistTab.entries.map { it.name },
+                selectedIndex = PlaylistTab.entries.indexOf(selectedTab),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                PlaylistTab.entries.forEach { tab ->
-                    MusePillTab(
-                        label = tab.name,
-                        selected = selectedTab == tab,
-                        modifier = Modifier.weight(1f),
-                        onClick = { selectedTab = tab },
-                    )
-                }
-            }
+                onSelected = { index ->
+                    selectedTab = PlaylistTab.entries[index]
+                },
+            )
         }
 
         if (showCreate) {
@@ -3913,49 +3903,21 @@ private fun DownloadsScreen(
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                DownloadTab.entries.forEach { tab ->
-                    val icon = when (tab) {
+            MuseSlidingTabRow(
+                labels = DownloadTab.entries.map { it.name },
+                icons = DownloadTab.entries.map { tab ->
+                    when (tab) {
                         DownloadTab.Songs -> Icons.Rounded.MusicNote
                         DownloadTab.Albums -> Icons.Rounded.Album
                         DownloadTab.Playlists -> Icons.Rounded.PlaylistPlay
                     }
-                    MuseGlassAction(
-                        onClick = { selectedTab = tab },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp),
-                        variant = if (selectedTab == tab) {
-                            MuseGlassVariant.Selected
-                        } else {
-                            MuseGlassVariant.Standard
-                        },
-                        cornerRadius = 20.dp,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                icon,
-                                contentDescription = null,
-                                tint = if (selectedTab == tab) MuseGreen else MuseMuted,
-                            )
-                            Spacer(Modifier.size(5.dp))
-                            Text(
-                                tab.name,
-                                color = if (selectedTab == tab) MuseGreen else Color.White,
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                        }
-                    }
-                }
-            }
+                },
+                selectedIndex = DownloadTab.entries.indexOf(selectedTab),
+                modifier = Modifier.fillMaxWidth(),
+                onSelected = { index ->
+                    selectedTab = DownloadTab.entries[index]
+                },
+            )
         }
 
         if (state.error != null) {
