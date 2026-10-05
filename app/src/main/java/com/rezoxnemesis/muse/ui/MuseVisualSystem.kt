@@ -452,11 +452,11 @@ internal fun MuseGlassSurface(
         )
     }
     val elevation = when (variant) {
-        MuseGlassVariant.Standard -> 10.dp
-        MuseGlassVariant.Strong -> 14.dp
-        MuseGlassVariant.Elevated -> 18.dp
-        MuseGlassVariant.Selected -> 18.dp
-        MuseGlassVariant.Destructive -> 12.dp
+        MuseGlassVariant.Standard -> 12.dp
+        MuseGlassVariant.Strong -> 17.dp
+        MuseGlassVariant.Elevated -> 21.dp
+        MuseGlassVariant.Selected -> 22.dp
+        MuseGlassVariant.Destructive -> 14.dp
     }
 
     Box(
@@ -481,34 +481,104 @@ internal fun MuseGlassSurface(
                 ),
             )
             .drawBehind {
+                val radiusPx = cornerRadius.toPx()
+                val glassCorner = androidx.compose.ui.geometry.CornerRadius(
+                    x = radiusPx,
+                    y = radiusPx,
+                )
+
+                // Broad translucent sheen gives the surface depth without reducing
+                // text contrast.
                 drawRoundRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.14f),
-                            Color.White.copy(alpha = 0.025f),
-                            Color.Black.copy(alpha = 0.08f),
+                            Color.White.copy(alpha = 0.17f),
+                            Color.White.copy(alpha = 0.038f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.11f),
                         ),
-                        endY = size.height * 0.80f,
+                        endY = size.height,
                     ),
                     size = size,
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(
-                        x = cornerRadius.toPx(),
-                        y = cornerRadius.toPx(),
+                    cornerRadius = glassCorner,
+                )
+
+                // Directional reflection, similar to light catching curved glass.
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.115f),
+                            MuseGlow.copy(alpha = 0.040f),
+                            Color.Transparent,
+                        ),
+                        center = Offset(
+                            x = size.width * 0.18f,
+                            y = size.height * 0.02f,
+                        ),
+                        radius = size.maxDimension * 0.66f,
                     ),
+                    center = Offset(
+                        x = size.width * 0.18f,
+                        y = size.height * 0.02f,
+                    ),
+                    radius = size.maxDimension * 0.66f,
+                )
+
+                // Bright upper rim plus a darker lower internal rim create a
+                // thicker pane instead of a flat translucent card.
+                drawLine(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.38f),
+                            MuseGlow.copy(alpha = 0.26f),
+                            Color.Transparent,
+                        ),
+                    ),
+                    start = Offset(size.width * 0.07f, 1.15.dp.toPx()),
+                    end = Offset(size.width * 0.93f, 1.15.dp.toPx()),
+                    strokeWidth = 1.05.dp.toPx(),
+                    cap = StrokeCap.Round,
                 )
                 drawLine(
                     brush = Brush.horizontalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.White.copy(alpha = 0.28f),
-                            MuseGlow.copy(alpha = 0.22f),
+                            Color.Black.copy(alpha = 0.34f),
+                            Color(0xFF082515).copy(alpha = 0.30f),
                             Color.Transparent,
                         ),
                     ),
-                    start = Offset(size.width * 0.08f, 1.2.dp.toPx()),
-                    end = Offset(size.width * 0.92f, 1.2.dp.toPx()),
-                    strokeWidth = 0.85.dp.toPx(),
+                    start = Offset(size.width * 0.10f, size.height - 1.4.dp.toPx()),
+                    end = Offset(size.width * 0.90f, size.height - 1.4.dp.toPx()),
+                    strokeWidth = 1.0.dp.toPx(),
+                    cap = StrokeCap.Round,
                 )
+
+                val inset = 1.6.dp.toPx()
+                if (size.width > inset * 2f && size.height > inset * 2f) {
+                    drawRoundRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.10f),
+                                Color.Transparent,
+                                MuseGlow.copy(alpha = 0.08f),
+                            ),
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height),
+                        ),
+                        topLeft = Offset(inset, inset),
+                        size = Size(
+                            width = size.width - inset * 2f,
+                            height = size.height - inset * 2f,
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                            x = (radiusPx - inset).coerceAtLeast(0f),
+                            y = (radiusPx - inset).coerceAtLeast(0f),
+                        ),
+                        style = Stroke(width = 0.7.dp.toPx()),
+                    )
+                }
             }
             .border(
                 width = if (variant == MuseGlassVariant.Selected) 1.35.dp else 0.9.dp,
@@ -535,8 +605,8 @@ internal fun MuseGlassAction(
     val scale by animateFloatAsState(
         targetValue = if (activePress) 0.965f else 1f,
         animationSpec = spring(
-            dampingRatio = 0.58f,
-            stiffness = Spring.StiffnessMedium,
+            dampingRatio = 0.78f,
+            stiffness = Spring.StiffnessMediumHigh,
         ),
         label = "MuseGlassPressScale",
     )
