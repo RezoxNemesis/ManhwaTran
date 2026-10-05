@@ -91,6 +91,66 @@ capture_route() {
 capture_route home muse-home-runtime.png
 capture_route explore muse-explore-runtime.png
 capture_route library muse-library-runtime.png
+
+# Regression for the real-device bug reproduced in the user's video:
+# starting a track from Library must reveal the mini player without allowing the
+# bottom bar to measure to the full screen and push "Your Library" off-screen.
+adb shell settings put system font_scale 1.0
+adb shell am force-stop com.rezoxnemesis.muse
+adb shell am start -W \
+  -n com.rezoxnemesis.muse/.MainActivity \
+  --es com.rezoxnemesis.muse.extra.OPEN_ROUTE library
+sleep 6
+adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+adb pull /sdcard/muse-window.xml /tmp/muse-library-before-play.xml >/dev/null 2>&1 || true
+
+python3 - <<'PY'
+import re
+import xml.etree.ElementTree as ET
+path = "/tmp/muse-library-before-play.xml"
+root = ET.parse(path).getroot()
+target = None
+for node in root.iter("node"):
+    text = (node.attrib.get("text") or "") + " " + (node.attrib.get("content-desc") or "")
+    if "Muse_Runtime" in text or "Muse Runtime" in text:
+        target = node
+        break
+if target is None:
+    raise SystemExit("Runtime demo track not found in Library UI")
+m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", target.attrib.get("bounds",""))
+if not m:
+    raise SystemExit("Runtime demo track bounds unavailable")
+x1,y1,x2,y2 = map(int,m.groups())
+print(f"{(x1+x2)//2} {(y1+y2)//2}")
+PY
+read track_x track_y < <(python3 - <<'PY'
+import re
+import xml.etree.ElementTree as ET
+root = ET.parse("/tmp/muse-library-before-play.xml").getroot()
+for node in root.iter("node"):
+    text = (node.attrib.get("text") or "") + " " + (node.attrib.get("content-desc") or "")
+    if "Muse_Runtime" in text or "Muse Runtime" in text:
+        m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds",""))
+        if m:
+            x1,y1,x2,y2 = map(int,m.groups())
+            print((x1+x2)//2, (y1+y2)//2)
+            break
+else:
+    raise SystemExit(1)
+PY
+)
+adb shell input tap "$track_x" "$track_y"
+sleep 3
+adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+adb pull /sdcard/muse-window.xml /tmp/muse-library-after-play.xml >/dev/null 2>&1 || true
+if ! grep -Fq "Your Library" /tmp/muse-library-after-play.xml; then
+  echo "Starting playback expanded the mini player/bottom bar over the Library screen" >&2
+  cat /tmp/muse-library-after-play.xml >&2 || true
+  exit 1
+fi
+adb exec-out screencap -p > ui-captures/muse-library-playing-runtime.png
+test -s ui-captures/muse-library-playing-runtime.png
+
 capture_route equalizer muse-equalizer-runtime.png
 capture_route settings muse-settings-runtime.png
 capture_route sleep muse-sleep-runtime.png
