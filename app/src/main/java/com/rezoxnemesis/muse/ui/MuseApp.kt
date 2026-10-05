@@ -521,12 +521,18 @@ private fun NavHostController.popBackOrHome() {
 }
 
 private fun NavHostController.goHomeFromDetail() {
+    // Reveal the existing Home destination when it is already underneath the
+    // detail screen. This avoids the blank botanical frame seen on real devices.
+    if (popBackStack("home", inclusive = false)) {
+        return
+    }
+
     navigate("home") {
-        popUpTo("home") {
+        popUpTo(graph.startDestinationId) {
             inclusive = false
         }
         launchSingleTop = true
-        restoreState = true
+        restoreState = false
     }
 }
 
@@ -552,7 +558,7 @@ private fun MuseBottomNavigation(
             travel.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(
-                    durationMillis = 285,
+                    durationMillis = 320,
                     easing = FastOutSlowInEasing,
                 ),
             )
@@ -574,24 +580,63 @@ private fun MuseBottomNavigation(
         ) {
             val itemWidth = maxWidth / PrimaryDestinations.size
             val progress = travel.value.coerceIn(0f, 1f)
+            val eased = FastOutSlowInEasing.transform(progress)
             val from = travelFromIndex.toFloat()
             val to = visualIndex.toFloat()
-            val animatedIndex = from + (to - from) * progress
-            val distance = kotlin.math.abs(to - from).coerceAtLeast(1f)
+            val direction = kotlin.math.sign(to - from)
+            val baseWidth = itemWidth * 0.92f
 
-            // Stretch most strongly in the middle of the trip, then settle
-            // cleanly into a compact capsule under the selected destination.
+            val startCenter = itemWidth * (from + 0.5f)
+            val endCenter = itemWidth * (to + 0.5f)
+            val startLeft = startCenter - baseWidth / 2
+            val startRight = startCenter + baseWidth / 2
+            val endLeft = endCenter - baseWidth / 2
+            val endRight = endCenter + baseWidth / 2
+
+            fun mixDp(
+                a: androidx.compose.ui.unit.Dp,
+                b: androidx.compose.ui.unit.Dp,
+                t: Float,
+            ) = a + (b - a) * t.coerceIn(0f, 1f)
+
+            // True "worm" motion: the leading glass edge reaches the next icon
+            // first, the capsule visibly stretches across the gap, then the
+            // trailing edge catches up and the glass contracts into place.
+            val firstHalf = (eased * 2f).coerceIn(0f, 1f)
+            val secondHalf = ((eased - 0.5f) * 2f).coerceIn(0f, 1f)
+
+            val indicatorLeft: androidx.compose.ui.unit.Dp
+            val indicatorRight: androidx.compose.ui.unit.Dp
+            if (direction >= 0f) {
+                indicatorLeft = if (eased < 0.5f) {
+                    startLeft
+                } else {
+                    mixDp(startLeft, endLeft, secondHalf)
+                }
+                indicatorRight = if (eased < 0.5f) {
+                    mixDp(startRight, endRight, firstHalf)
+                } else {
+                    endRight
+                }
+            } else {
+                indicatorLeft = if (eased < 0.5f) {
+                    mixDp(startLeft, endLeft, firstHalf)
+                } else {
+                    endLeft
+                }
+                indicatorRight = if (eased < 0.5f) {
+                    startRight
+                } else {
+                    mixDp(startRight, endRight, secondHalf)
+                }
+            }
+
+            val indicatorWidth =
+                (indicatorRight - indicatorLeft).coerceAtLeast(baseWidth * 0.90f)
+            val indicatorOffset = indicatorLeft
             val stretchPhase = kotlin.math.sin(
                 Math.PI.toFloat() * progress
             ).coerceAtLeast(0f)
-            val stretchFactor =
-                0.93f + stretchPhase * (0.26f + 0.08f * distance.coerceAtMost(3f))
-            val indicatorWidth = itemWidth * stretchFactor
-            val center = itemWidth * (animatedIndex + 0.5f)
-            val directionalLead =
-                itemWidth * 0.055f * stretchPhase * kotlin.math.sign(to - from)
-            val indicatorOffset =
-                center - indicatorWidth / 2 + directionalLead
 
             Box(
                 modifier = Modifier
@@ -649,7 +694,7 @@ private fun MuseBottomNavigation(
                                 travel.animateTo(
                                     targetValue = 1f,
                                     animationSpec = tween(
-                                        durationMillis = 285,
+                                        durationMillis = 320,
                                         easing = FastOutSlowInEasing,
                                     ),
                                 )
