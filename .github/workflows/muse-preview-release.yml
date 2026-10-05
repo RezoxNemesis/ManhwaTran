@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/muse-foundation
+      - feature/muse-native-reference-ui
   workflow_dispatch:
 
 permissions:
