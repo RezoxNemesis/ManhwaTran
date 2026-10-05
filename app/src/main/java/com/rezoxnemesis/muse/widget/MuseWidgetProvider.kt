@@ -11,7 +11,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.rezoxnemesis.muse.playback.MusePlaybackService
 
-class MuseWidgetProvider : AppWidgetProvider() {
+open class MuseWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -105,3 +105,8 @@ class MuseWidgetProvider : AppWidgetProvider() {
             "com.rezoxnemesis.muse.widget.NEXT"
     }
 }
+
+
+class MuseCompactWidgetProvider : MuseWidgetProvider()
+
+class MuseLargeWidgetProvider : MuseWidgetProvider()
