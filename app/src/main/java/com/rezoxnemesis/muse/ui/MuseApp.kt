@@ -27,6 +27,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -6108,11 +6110,25 @@ private fun MuseEqualizerRack(
 ) {
     val safeRange = (maxMb - minMb).coerceAtLeast(1)
     var curveEntered by remember { mutableStateOf(false) }
+    var activeBand by remember { mutableStateOf<Int?>(null) }
+    var displayLevels by remember(frequencies) {
+        mutableStateOf(levelsMb)
+    }
+
     LaunchedEffect(frequencies) {
         if (frequencies.isNotEmpty()) {
             curveEntered = true
         }
     }
+    LaunchedEffect(levelsMb, activeBand) {
+        if (
+            activeBand == null &&
+            levelsMb.size == frequencies.size
+        ) {
+            displayLevels = levelsMb
+        }
+    }
+
     val curveReveal by animateFloatAsState(
         targetValue = if (curveEntered) 1f else 0f,
         animationSpec = tween(
@@ -6141,7 +6157,7 @@ private fun MuseEqualizerRack(
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    if (enabled) "ACTIVE" else "BYPASSED",
+                    if (enabled) "TOUCH + SLIDE" else "BYPASSED",
                     color = if (enabled) MuseGreen else MuseMuted,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
@@ -6152,7 +6168,121 @@ private fun MuseEqualizerRack(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp),
+                    .height(280.dp)
+                    .pointerInput(
+                        enabled,
+                        frequencies,
+                        minMb,
+                        maxMb,
+                    ) {
+                        if (!enabled || frequencies.isEmpty()) {
+                            return@pointerInput
+                        }
+
+                        awaitEachGesture {
+                            val down = awaitFirstDown(
+                                requireUnconsumed = false,
+                            )
+
+                            val graphTop = 14.dp.toPx()
+                            val graphBottom = size.height * 0.72f
+                            val left = 18.dp.toPx()
+                            val right = size.width - 18.dp.toPx()
+                            val span = (right - left).coerceAtLeast(1f)
+                            val xStep = if (frequencies.size <= 1) {
+                                span
+                            } else {
+                                span / (frequencies.size - 1)
+                            }
+
+                            var lastDispatchAt = 0L
+                            var lastIndex = 0
+                            var lastLevel = 0
+
+                            fun updateFromTouch(
+                                position: Offset,
+                                forceDispatch: Boolean,
+                            ) {
+                                val index = if (frequencies.size <= 1) {
+                                    0
+                                } else {
+                                    kotlin.math.round(
+                                        (
+                                            (position.x - left) / xStep
+                                        ).coerceIn(
+                                            0f,
+                                            (frequencies.size - 1).toFloat(),
+                                        )
+                                    ).toInt()
+                                }
+
+                                val normalized = (
+                                    (graphBottom - position.y) /
+                                        (graphBottom - graphTop)
+                                ).coerceIn(0f, 1f)
+
+                                val rawLevel = minMb +
+                                    normalized * safeRange
+                                val level = rawLevel
+                                    .roundToLong()
+                                    .toInt()
+                                    .coerceIn(minMb, maxMb)
+
+                                activeBand = index
+                                lastIndex = index
+                                lastLevel = level
+
+                                if (displayLevels.size == frequencies.size) {
+                                    val updated = displayLevels
+                                        .toMutableList()
+                                        .apply {
+                                            this[index] = level
+                                        }
+                                    displayLevels = updated
+                                }
+
+                                val now =
+                                    android.os.SystemClock.uptimeMillis()
+                                if (
+                                    forceDispatch ||
+                                    now - lastDispatchAt >= 14L
+                                ) {
+                                    lastDispatchAt = now
+                                    onBandChange(index, level)
+                                }
+                            }
+
+                            updateFromTouch(
+                                down.position,
+                                forceDispatch = true,
+                            )
+                            down.consume()
+
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes
+                                    .firstOrNull {
+                                        it.id == down.id
+                                    }
+                                    ?: break
+
+                                if (!change.pressed) {
+                                    onBandChange(
+                                        lastIndex,
+                                        lastLevel,
+                                    )
+                                    activeBand = null
+                                    break
+                                }
+
+                                updateFromTouch(
+                                    change.position,
+                                    forceDispatch = false,
+                                )
+                                change.consume()
+                            }
+                        }
+                    },
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     if (frequencies.isEmpty()) return@Canvas
@@ -6169,9 +6299,10 @@ private fun MuseEqualizerRack(
                     }
 
                     fun rawPoint(index: Int): Offset {
-                        val level = levelsMb.getOrNull(index) ?: 0
+                        val level = displayLevels.getOrNull(index) ?: 0
                         val normalized = (
-                            (level - minMb).toFloat() / safeRange.toFloat()
+                            (level - minMb).toFloat() /
+                                safeRange.toFloat()
                         ).coerceIn(0f, 1f)
                         return Offset(
                             x = if (frequencies.size <= 1) {
@@ -6180,21 +6311,26 @@ private fun MuseEqualizerRack(
                                 left + xStep * index
                             },
                             y = graphBottom -
-                                normalized * (graphBottom - graphTop),
+                                normalized *
+                                (graphBottom - graphTop),
                         )
                     }
 
                     val zeroNormalized = (
-                        (0 - minMb).toFloat() / safeRange.toFloat()
+                        (0 - minMb).toFloat() /
+                            safeRange.toFloat()
                     ).coerceIn(0f, 1f)
                     val zeroY = graphBottom -
-                        zeroNormalized * (graphBottom - graphTop)
+                        zeroNormalized *
+                        (graphBottom - graphTop)
 
                     fun point(index: Int): Offset {
                         val target = rawPoint(index)
                         return Offset(
                             x = target.x,
-                            y = zeroY + (target.y - zeroY) * curveReveal,
+                            y = zeroY +
+                                (target.y - zeroY) *
+                                curveReveal,
                         )
                     }
 
@@ -6226,82 +6362,90 @@ private fun MuseEqualizerRack(
                         val startPoint = point(index)
                         val endPoint = point(index + 1)
                         drawLine(
-                            color = MuseGreen.copy(alpha = 0.18f),
+                            color = MuseGreen.copy(alpha = 0.20f),
                             start = startPoint,
                             end = endPoint,
-                            strokeWidth = 8.dp.toPx(),
+                            strokeWidth = 9.dp.toPx(),
                         )
                         drawLine(
-                            color = MuseGreen,
+                            brush = Brush.linearGradient(
+                                listOf(
+                                    Color(0xFFCFFF9B),
+                                    MuseGreen,
+                                    Color(0xFF72F767),
+                                )
+                            ),
                             start = startPoint,
                             end = endPoint,
-                            strokeWidth = 2.5.dp.toPx(),
+                            strokeWidth = 2.7.dp.toPx(),
                         )
                     }
 
                     frequencies.indices.forEach { index ->
                         val p = point(index)
+                        val selected = activeBand == index
                         drawCircle(
-                            color = MuseGreen.copy(alpha = 0.16f),
+                            color = MuseGreen.copy(
+                                alpha = if (selected) 0.28f else 0.16f,
+                            ),
                             center = p,
-                            radius = 11.dp.toPx(),
+                            radius = (
+                                if (selected) 16.dp else 11.dp
+                            ).toPx(),
                         )
                         drawCircle(
-                            color = MuseGreen.copy(alpha = 0.42f),
+                            color = MuseGreen.copy(
+                                alpha = if (selected) 0.64f else 0.42f,
+                            ),
                             center = p,
-                            radius = 7.dp.toPx(),
+                            radius = (
+                                if (selected) 9.dp else 7.dp
+                            ).toPx(),
                         )
                         drawCircle(
                             color = Color(0xFFE4FFD9),
                             center = p,
-                            radius = 4.dp.toPx(),
+                            radius = (
+                                if (selected) 5.dp else 4.dp
+                            ).toPx(),
                         )
                     }
                 }
 
-                Row(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+                ) {
                     frequencies.forEachIndexed { index, frequency ->
-                        val level = levelsMb.getOrNull(index) ?: 0
+                        val level =
+                            displayLevels.getOrNull(index) ?: 0
                         Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment =
+                                Alignment.CenterHorizontally,
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Slider(
-                                    value = level.toFloat(),
-                                    onValueChange = { raw ->
-                                        onBandChange(
-                                            index,
-                                            raw.roundToLong().toInt(),
-                                        )
-                                    },
-                                    valueRange = minMb.toFloat()..maxMb.toFloat(),
-                                    enabled = enabled,
-                                    modifier = Modifier
-                                        .width(190.dp)
-                                        .graphicsLayer {
-                                            rotationZ = -90f
-                                            alpha = 0.015f
-                                        },
-                                )
-                            }
                             Text(
                                 formatMillibels(level),
-                                color = MuseGreen,
-                                style = MaterialTheme.typography.labelSmall,
+                                color = if (activeBand == index) {
+                                    Color(0xFFD7FF9B)
+                                } else {
+                                    MuseGreen
+                                },
+                                style =
+                                    MaterialTheme.typography.labelSmall,
+                                fontWeight = if (activeBand == index) {
+                                    FontWeight.Bold
+                                } else {
+                                    FontWeight.Medium
+                                },
                                 maxLines = 1,
                             )
                             Text(
                                 formatFrequency(frequency),
                                 color = MuseMuted,
-                                style = MaterialTheme.typography.labelSmall,
+                                style =
+                                    MaterialTheme.typography.labelSmall,
                                 maxLines = 1,
                             )
                         }
