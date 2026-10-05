@@ -5702,7 +5702,6 @@ private fun EqualizerScreen(
     viewModel: MuseViewModel,
     playback: PlaybackUiState,
 ) {
-    val context = LocalContext.current
     val effects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
     val soundProfiles by viewModel.soundProfiles.collectAsStateWithLifecycle()
     val selectedSoundProfileId by viewModel.selectedSoundProfileId.collectAsStateWithLifecycle()
@@ -5712,6 +5711,9 @@ private fun EqualizerScreen(
         viewModel.playback.refreshAudioEffects()
     }
 
+    val selectedProfile = soundProfiles.firstOrNull { it.id == selectedSoundProfileId }
+    val controlsEnabled = effects.connected && effects.sessionReady && effects.masterEnabled && !effects.bypass
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -5719,7 +5721,7 @@ private fun EqualizerScreen(
             end = 18.dp,
             bottom = 30.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             ScreenHeader(
@@ -5734,346 +5736,315 @@ private fun EqualizerScreen(
             )
         }
 
-        if (!effects.connected) {
-            item {
-                EmptyCard(
-                    title = "Connecting to Muse audio…",
-                    body = "Audio tools are provided by the playback session so they stay consistent in the background.",
-                )
-            }
-        } else if (!effects.sessionReady) {
-            item {
-                EmptyCard(
-                    title = "Start a track to activate audio tools",
-                    body = "Muse attaches effects only to the real playback audio session. No fake controls are enabled before a session exists.",
-                )
-            }
-        } else {
-            item {
-                GlassCard {
-                    Row(
+        item {
+            MuseGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                variant = MuseGlassVariant.Strong,
+                cornerRadius = 28.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedTextField(
+                        value = profileName,
+                        onValueChange = { profileName = it.take(32) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        label = { Text("Preset") },
+                        placeholder = {
+                            Text(selectedProfile?.name ?: "Custom")
+                        },
+                        shape = RoundedCornerShape(22.dp),
+                    )
+                    MuseGlassAction(
+                        onClick = {
+                            val name = profileName.trim().ifBlank {
+                                "Custom ${soundProfiles.size + 1}"
+                            }
+                            viewModel.saveCurrentSoundProfile(name)
+                            profileName = ""
+                        },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .width(92.dp)
+                            .height(58.dp),
+                        variant = MuseGlassVariant.Selected,
+                        cornerRadius = 22.dp,
+                        enabled = effects.sessionReady,
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Text(
-                                "A/B Tune",
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                if (effects.bypass) {
-                                    "Original signal is active"
-                                } else {
-                                    "Muse processing is active"
-                                },
-                                color = MuseMuted,
+                                "Save",
+                                color = MuseGreen,
+                                fontWeight = FontWeight.Bold,
                             )
                         }
-                        FilterChip(
-                            selected = effects.bypass,
-                            onClick = {
-                                viewModel.playback.setAudioBypass(!effects.bypass)
-                            },
-                            label = {
-                                Text(if (effects.bypass) "Original" else "Processed")
+                    }
+                }
+            }
+        }
+
+        if (!effects.connected || !effects.sessionReady) {
+            item {
+                EmptyCard(
+                    title = if (!effects.connected) {
+                        "Connecting to Muse audio…"
+                    } else {
+                        "Start a track to activate the equalizer"
+                    },
+                    body = "The controls stay tied to the real Android playback session. The design remains visible, but Muse never pretends an unavailable audio effect is active.",
+                )
+            }
+        }
+
+        if (effects.equalizerAvailable) {
+            item {
+                MuseGlassSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = MuseGlassVariant.Elevated,
+                    cornerRadius = 30.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(
+                            horizontal = 14.dp,
+                            vertical = 18.dp,
+                        ),
+                    ) {
+                        MuseEqualizerRack(
+                            frequencies = effects.bandCentersHz,
+                            levelsMb = effects.bandLevelsMb,
+                            minMb = effects.bandMinMb,
+                            maxMb = effects.bandMaxMb,
+                            enabled = controlsEnabled,
+                            onBandChange = { index, level ->
+                                viewModel.playback.setEqualizerBand(index, level)
                             },
                         )
                     }
                 }
             }
-
+        } else {
             item {
-                SectionTitle(
-                    title = "Sound Profiles",
-                    trailing = selectedSoundProfileId
-                        ?.let { selectedId ->
-                            soundProfiles
-                                .firstOrNull { it.id == selectedId }
-                                ?.name
-                                ?.let { "Active: $it" }
-                        }
-                        ?: if (soundProfiles.isEmpty()) {
-                            "Local"
-                        } else {
-                            "${soundProfiles.size} saved"
-                        },
+                EmptyCard(
+                    title = "Equalizer unavailable on this route",
+                    body = "Muse will enable the native EQ as soon as Android exposes one for the active playback session.",
                 )
             }
+        }
 
-            if (selectedSoundProfileId != null) {
-                item {
-                    GlassCard {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Smart Resume",
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    "The active sound profile will be restored when Muse gets a playback audio session.",
-                                    color = MuseMuted,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                            TextButton(
-                                onClick = viewModel::clearSelectedSoundProfile,
-                            ) {
-                                Text("Stop Auto-Restore")
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                OutlinedTextField(
-                    value = profileName,
-                    onValueChange = { profileName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Save current tuning") },
-                    placeholder = { Text("Profile name") },
-                    trailingIcon = {
-                        TextButton(
-                            enabled = profileName.isNotBlank() && effects.sessionReady,
-                            onClick = {
-                                viewModel.saveCurrentSoundProfile(profileName)
-                                profileName = ""
-                            },
-                        ) {
-                            Text("Save")
-                        }
-                    },
-                    shape = RoundedCornerShape(18.dp),
-                )
-            }
-
-            if (soundProfiles.isEmpty()) {
-                item {
-                    EmptyCard(
-                        title = "No sound profiles yet",
-                        body = "Tune the available effects and save the result here. Profiles stay local on this device.",
-                    )
-                }
-            } else {
-                items(soundProfiles, key = { it.id }) { profile ->
-                    GlassCard {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    profile.name,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    buildString {
-                                        append(profile.eqLevelsMb.size)
-                                        append(" EQ bands")
-                                        if (profile.bassEnabled) append(" • Bass")
-                                        if (profile.virtualizerEnabled) append(" • Virtualizer")
-                                        if (profile.loudnessEnabled) append(" • Loudness")
-                                    },
-                                    color = MuseMuted,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                            TextButton(
-                                enabled = effects.sessionReady,
-                                onClick = {
-                                    viewModel.applySoundProfile(profile)
-                                },
-                            ) {
-                                Text(
-                                    if (selectedSoundProfileId == profile.id) {
-                                        "Active"
-                                    } else {
-                                        "Apply"
-                                    }
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    viewModel.deleteSoundProfile(profile.id)
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Delete,
-                                    contentDescription = "Delete sound profile",
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (effects.equalizerAvailable) {
-                item {
-                    SectionTitle(
-                        title = "Equalizer",
-                        trailing = "${effects.bandCentersHz.size} bands",
-                    )
-                }
-
-                if (effects.presetNames.isNotEmpty()) {
-                    item {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            itemsIndexed(effects.presetNames) { index, name ->
-                                FilterChip(
-                                    selected = false,
-                                    onClick = {
-                                        viewModel.playback.useEqualizerPreset(index)
-                                    },
-                                    label = { Text(name) },
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    MuseEqualizerRack(
-                        frequencies = effects.bandCentersHz,
-                        levelsMb = effects.bandLevelsMb,
-                        minMb = effects.bandMinMb,
-                        maxMb = effects.bandMaxMb,
-                        enabled = effects.masterEnabled && !effects.bypass,
-                        onBandChange = { index, level ->
-                            viewModel.playback.setEqualizerBand(index, level)
-                        },
-                    )
-                }
-            } else {
-                item {
-                    EmptyCard(
-                        title = "Equalizer unavailable",
-                        body = "This device or current audio route did not expose an attachable Android Equalizer effect.",
-                    )
-                }
-            }
-
-            if (effects.bassAvailable) {
-                item {
-                    AudioEffectControl(
-                        title = "Bass Boost",
-                        subtitle = "Conservative low-frequency enhancement",
-                        checked = effects.bassEnabled,
-                        onCheckedChange = viewModel.playback::setBassEnabled,
-                        value = effects.bassStrength,
-                        valueRange = 0..700,
-                        onValueChange = viewModel.playback::setBassStrength,
-                        controlsEnabled = effects.masterEnabled && !effects.bypass,
-                    )
-                }
-            }
-
-            if (effects.virtualizerAvailable) {
-                item {
-                    AudioEffectControl(
-                        title = "Virtualizer",
-                        subtitle = "Device-supported spatial widening",
-                        checked = effects.virtualizerEnabled,
-                        onCheckedChange = viewModel.playback::setVirtualizerEnabled,
-                        value = effects.virtualizerStrength,
-                        valueRange = 0..1000,
-                        onValueChange = viewModel.playback::setVirtualizerStrength,
-                        controlsEnabled = effects.masterEnabled && !effects.bypass,
-                    )
-                }
-            }
-
-            if (effects.loudnessAvailable) {
-                item {
-                    AudioEffectControl(
-                        title = "Loudness Enhancer",
-                        subtitle = "Capped at +6 dB to reduce clipping risk",
-                        checked = effects.loudnessEnabled,
-                        onCheckedChange = viewModel.playback::setLoudnessEnabled,
-                        value = effects.loudnessGainMb,
-                        valueRange = 0..600,
-                        onValueChange = viewModel.playback::setLoudnessGainMb,
-                        controlsEnabled = effects.masterEnabled && !effects.bypass,
-                        valueLabel = { formatMillibels(it) },
-                    )
-                }
-            }
-
-            item {
-                GlassCard {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "3D / Spatial Audio",
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                when {
-                                    !effects.spatialSupported ->
-                                        "Not supported by this Android device"
-                                    effects.spatialEnabled &&
-                                        effects.spatialAvailable &&
-                                        effects.headTrackerAvailable ->
-                                        "System spatial audio active • head tracking available"
-                                    effects.spatialEnabled &&
-                                        effects.spatialAvailable ->
-                                        "System spatial audio active"
-                                    effects.spatialSupported &&
-                                        !effects.spatialAvailable ->
-                                        "Supported, but unavailable on the current audio route"
-                                    else ->
-                                        "Supported, but disabled in Android sound settings"
-                                },
-                                color = MuseMuted,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        if (effects.spatialSupported) {
-                            TextButton(
-                                onClick = {
-                                    val intent = Intent(
-                                        android.provider.Settings.ACTION_SOUND_SETTINGS
-                                    )
-                                    context.startActivity(intent)
-                                },
-                            ) {
-                                Text("Settings")
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (
-                !effects.equalizerAvailable &&
-                !effects.bassAvailable &&
-                !effects.virtualizerAvailable &&
-                !effects.loudnessAvailable
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item {
-                    EmptyCard(
-                        title = "No compatible audio effects",
-                        body = "Muse keeps playback untouched rather than pretending unsupported enhancement features are active.",
+                ReferenceEffectOrb(
+                    title = "Bass Boost",
+                    icon = Icons.Rounded.Equalizer,
+                    active = effects.bassEnabled,
+                    enabled = effects.bassAvailable && controlsEnabled,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        viewModel.playback.setBassEnabled(!effects.bassEnabled)
+                    },
+                )
+                ReferenceEffectOrb(
+                    title = "Virtualizer",
+                    icon = Icons.Rounded.Tune,
+                    active = effects.virtualizerEnabled,
+                    enabled = effects.virtualizerAvailable && controlsEnabled,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        viewModel.playback.setVirtualizerEnabled(!effects.virtualizerEnabled)
+                    },
+                )
+                ReferenceEffectOrb(
+                    title = "3D Audio",
+                    icon = Icons.Rounded.Explore,
+                    active = effects.spatialEnabled && effects.spatialAvailable,
+                    enabled = false,
+                    modifier = Modifier.weight(1f),
+                    onClick = {},
+                )
+            }
+        }
+
+        item {
+            MuseGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                variant = MuseGlassVariant.Strong,
+                cornerRadius = 26.dp,
+            ) {
+                Column {
+                    ReferenceToggleRow(
+                        title = "Audio Processing",
+                        subtitle = if (effects.bypass) "Original signal" else "Muse processing",
+                        checked = effects.masterEnabled && !effects.bypass,
+                        enabled = effects.connected,
+                        onCheckedChange = { checked ->
+                            if (!checked) {
+                                viewModel.playback.setAudioBypass(true)
+                            } else {
+                                viewModel.playback.setAudioEffectsEnabled(true)
+                                viewModel.playback.setAudioBypass(false)
+                            }
+                        },
+                    )
+                    HorizontalDivider(color = MuseBorder.copy(alpha = 0.35f))
+                    ReferenceToggleRow(
+                        title = "Loudness Enhancer",
+                        subtitle = "Capped at +6 dB",
+                        checked = effects.loudnessEnabled,
+                        enabled = effects.loudnessAvailable && controlsEnabled,
+                        onCheckedChange = viewModel.playback::setLoudnessEnabled,
+                    )
+                    HorizontalDivider(color = MuseBorder.copy(alpha = 0.35f))
+                    ReferenceToggleRow(
+                        title = "3D Audio",
+                        subtitle = when {
+                            !effects.spatialSupported -> "Not supported by this device"
+                            effects.spatialEnabled && effects.spatialAvailable -> "System spatial audio active"
+                            effects.spatialAvailable -> "Available through Android"
+                            else -> "Unavailable on the current route"
+                        },
+                        checked = effects.spatialEnabled && effects.spatialAvailable,
+                        enabled = false,
+                        onCheckedChange = {},
                     )
                 }
             }
         }
+
+        if (soundProfiles.isNotEmpty()) {
+            item {
+                SectionTitle(
+                    title = "Saved Presets",
+                    trailing = selectedProfile?.name ?: "${soundProfiles.size} saved",
+                )
+            }
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(soundProfiles, key = { it.id }) { profile ->
+                        MuseGlassAction(
+                            onClick = { viewModel.applySoundProfile(profile) },
+                            modifier = Modifier.height(46.dp),
+                            variant = if (selectedSoundProfileId == profile.id) {
+                                MuseGlassVariant.Selected
+                            } else {
+                                MuseGlassVariant.Standard
+                            },
+                            cornerRadius = 23.dp,
+                            enabled = effects.sessionReady,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    profile.name,
+                                    color = if (selectedSoundProfileId == profile.id) {
+                                        MuseGreen
+                                    } else {
+                                        Color.White
+                                    },
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReferenceEffectOrb(
+    title: String,
+    icon: ImageVector,
+    active: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        MuseGlassAction(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f),
+            variant = if (active) {
+                MuseGlassVariant.Selected
+            } else {
+                MuseGlassVariant.Elevated
+            },
+            cornerRadius = 999.dp,
+            enabled = enabled,
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = if (active) MuseGreen else Color.White,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            title,
+            color = if (active) MuseGreen else Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun ReferenceToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+            )
+            Text(
+                subtitle,
+                color = MuseMuted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+        )
     }
 }
 
