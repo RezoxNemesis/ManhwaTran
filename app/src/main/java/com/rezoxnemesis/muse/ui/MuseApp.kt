@@ -4139,6 +4139,16 @@ private fun SleepTimerScreen(
     }
 
     val presets = listOf(10, 30, 60, 90)
+    val timerSweep by animateFloatAsState(
+        targetValue = if (timer.active) 318f else {
+            190f + (selectedMinutes.coerceIn(1, 120) / 120f) * 145f
+        },
+        animationSpec = spring(
+            dampingRatio = 0.82f,
+            stiffness = 420f,
+        ),
+        label = "MuseSleepTimerSweep",
+    )
     val mainLabel = when (timer.mode) {
         SleepTimerProtocol.ModeAfterCurrent -> "After"
         SleepTimerProtocol.ModeEndOfQueue -> "Queue"
@@ -4196,7 +4206,7 @@ private fun SleepTimerScreen(
                         drawArc(
                             color = MuseGreen.copy(alpha = 0.28f),
                             startAngle = -90f,
-                            sweepAngle = if (timer.active) 318f else 260f,
+                            sweepAngle = timerSweep,
                             useCenter = false,
                             topLeft = Offset(inset, inset),
                             size = arcSize,
