@@ -99,6 +99,7 @@ class MusePlaybackController(
     private val controllerFuture = MediaController.Builder(appContext, token).buildAsync()
     private var controller: MediaController? = null
     private var tickerJob: Job? = null
+    private var audioEffectCommandSerial: Long = 0L
 
     private val _state = MutableStateFlow(PlaybackUiState())
     val state: StateFlow<PlaybackUiState> = _state.asStateFlow()
@@ -457,6 +458,23 @@ class MusePlaybackController(
         index: Int,
         levelMb: Int,
     ) {
+        val current = _audioEffects.value
+        if (index in current.bandLevelsMb.indices) {
+            val clamped = levelMb.coerceIn(
+                current.bandMinMb,
+                current.bandMaxMb,
+            )
+            val updated = current.bandLevelsMb.toMutableList().apply {
+                this[index] = clamped
+            }
+            // Update Compose immediately. The MediaSession command follows in the
+            // same call, so the graph tracks the finger rather than waiting for
+            // a round-trip through the playback service.
+            _audioEffects.value = current.copy(
+                bandLevelsMb = updated,
+            )
+        }
+
         sendAudioEffectUpdate(
             Bundle().apply {
                 putInt(AudioEffectProtocol.KeyEqBandIndex, index)
@@ -531,6 +549,7 @@ class MusePlaybackController(
 
     private fun sendAudioEffectUpdate(args: Bundle) {
         val mediaController = controller ?: return
+        val serial = ++audioEffectCommandSerial
         val future = mediaController.sendCustomCommand(
             AudioEffectProtocol.UpdateCommand,
             args,
@@ -538,7 +557,14 @@ class MusePlaybackController(
         future.addListener(
             {
                 runCatching { future.get() }
-                    .onSuccess(::applyAudioEffectResult)
+                    .onSuccess { result ->
+                        // Dragging the EQ can generate many commands in a few
+                        // hundred milliseconds. Only the newest completed
+                        // response may replace our optimistic UI state.
+                        if (serial == audioEffectCommandSerial) {
+                            applyAudioEffectResult(result)
+                        }
+                    }
             },
             mainExecutor,
         )
