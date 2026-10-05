@@ -1,11 +1,13 @@
 package com.rezoxnemesis.muse.ui
 
+import androidx.activity.compose.BackHandler
 import android.content.Intent
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -512,6 +514,18 @@ fun MuseApp(
     }
 }
 
+private fun NavHostController.popBackOrHome() {
+    if (!popBackStack()) {
+        navigate("home") {
+            popUpTo(graph.startDestinationId) {
+                inclusive = false
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+}
+
 @Composable
 private fun MuseBottomNavigation(
     currentRoute: String?,
@@ -520,10 +534,25 @@ private fun MuseBottomNavigation(
     val routeIndex = PrimaryDestinations
         .indexOfFirst { it.route == currentRoute }
         .coerceAtLeast(0)
+
     var visualIndex by remember { mutableStateOf(routeIndex) }
+    var travelFromIndex by remember { mutableStateOf(routeIndex) }
+    val travel = remember { Animatable(1f) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(routeIndex) {
-        visualIndex = routeIndex
+        if (routeIndex != visualIndex) {
+            travelFromIndex = visualIndex
+            visualIndex = routeIndex
+            travel.snapTo(0f)
+            travel.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 285,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
+        }
     }
 
     MuseGlassSurface(
@@ -540,41 +569,52 @@ private fun MuseBottomNavigation(
                 .padding(horizontal = 5.dp, vertical = 5.dp),
         ) {
             val itemWidth = maxWidth / PrimaryDestinations.size
-            val targetOffset = itemWidth * visualIndex
-            val indicatorOffset by animateDpAsState(
-                targetValue = targetOffset,
-                animationSpec = tween(
-                    durationMillis = 235,
-                    easing = FastOutSlowInEasing,
-                ),
-                label = "MuseNavIndicatorOffset",
-            )
+            val progress = travel.value.coerceIn(0f, 1f)
+            val from = travelFromIndex.toFloat()
+            val to = visualIndex.toFloat()
+            val animatedIndex = from + (to - from) * progress
+            val distance = kotlin.math.abs(to - from).coerceAtLeast(1f)
 
-            // One physical glass capsule glides between destinations. This is
-            // intentionally obvious, matching the supplied morphing-tab videos.
+            // Stretch most strongly in the middle of the trip, then settle
+            // cleanly into a compact capsule under the selected destination.
+            val stretchPhase = kotlin.math.sin(
+                Math.PI.toFloat() * progress
+            ).coerceAtLeast(0f)
+            val stretchFactor =
+                0.93f + stretchPhase * (0.26f + 0.08f * distance.coerceAtMost(3f))
+            val indicatorWidth = itemWidth * stretchFactor
+            val center = itemWidth * (animatedIndex + 0.5f)
+            val directionalLead =
+                itemWidth * 0.055f * stretchPhase * kotlin.math.sign(to - from)
+            val indicatorOffset =
+                center - indicatorWidth / 2 + directionalLead
+
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset + itemWidth * 0.035f)
-                    .width(itemWidth * 0.93f)
+                    .offset(x = indicatorOffset)
+                    .width(indicatorWidth)
                     .height(52.dp)
                     .align(Alignment.CenterStart)
+                    .graphicsLayer {
+                        scaleY = 1f + stretchPhase * 0.045f
+                    }
                     .background(
                         brush = Brush.horizontalGradient(
                             listOf(
                                 MuseGreen.copy(alpha = 0.13f),
-                                MuseGreen.copy(alpha = 0.31f),
-                                Color(0xFFB8FF7A).copy(alpha = 0.10f),
+                                MuseGreen.copy(alpha = 0.34f),
+                                Color(0xFFB8FF7A).copy(alpha = 0.11f),
                             )
                         ),
                         shape = RoundedCornerShape(26.dp),
                     )
                     .border(
-                        width = 0.8.dp,
+                        width = 0.85.dp,
                         brush = Brush.horizontalGradient(
                             listOf(
-                                Color.White.copy(alpha = 0.14f),
-                                MuseGreen.copy(alpha = 0.58f),
-                                Color.White.copy(alpha = 0.08f),
+                                Color.White.copy(alpha = 0.16f),
+                                MuseGreen.copy(alpha = 0.62f),
+                                Color.White.copy(alpha = 0.09f),
                             )
                         ),
                         shape = RoundedCornerShape(26.dp),
@@ -591,7 +631,28 @@ private fun MuseBottomNavigation(
                         icon = destination.icon,
                         selected = visualIndex == index,
                         onClick = {
+                            if (index == visualIndex) {
+                                onNavigate(destination.route)
+                                return@MuseMotionNavItem
+                            }
+
+                            travelFromIndex = visualIndex
                             visualIndex = index
+
+                            scope.launch {
+                                travel.stop()
+                                travel.snapTo(0f)
+                                travel.animateTo(
+                                    targetValue = 1f,
+                                    animationSpec = tween(
+                                        durationMillis = 285,
+                                        easing = FastOutSlowInEasing,
+                                    ),
+                                )
+                            }
+
+                            // Navigation begins at the same instant as the glass
+                            // reaction, so the capsule never feels late.
                             onNavigate(destination.route)
                         },
                     )
@@ -1757,6 +1818,10 @@ private fun NowPlayingScreen(
     val favourites by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val duration = playback.durationMs.coerceAtLeast(1L)
 
+    BackHandler {
+        navController.popBackOrHome()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1770,7 +1835,7 @@ private fun NowPlayingScreen(
     ) {
         ScreenHeader(
             title = "Now Playing",
-            onBack = { navController.popBackStack() },
+            onBack = { navController.popBackOrHome() },
             action = {
                 IconButton(onClick = { navController.navigate("more") }) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
