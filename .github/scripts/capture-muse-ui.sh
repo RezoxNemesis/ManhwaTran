@@ -51,5 +51,45 @@ capture_route settings muse-settings-runtime.png
 capture_route sleep muse-sleep-runtime.png
 capture_route settings muse-settings-font130-runtime.png 1.3
 
-file ui-captures/*.png
-sha256sum ui-captures/*.png
+# Record a real interaction pass so the moving tab capsule, directional page
+# transitions and widget motion are verified on an Android runtime, not only
+# inferred from static screenshots.
+adb shell settings put system font_scale 1.0
+adb shell am force-stop com.rezoxnemesis.muse
+adb shell am start -W   -n com.rezoxnemesis.muse/.MainActivity   --es com.rezoxnemesis.muse.extra.OPEN_ROUTE home
+sleep 2
+
+adb shell screenrecord --bit-rate 6000000 --time-limit 13 /sdcard/muse-motion-demo.mp4 &
+record_pid=$!
+sleep 1
+
+# Pixel 4 emulator bottom destinations: Home, Explore, Library, Equalizer, Muse Lab.
+adb shell input tap 320 2090
+sleep 1
+adb shell input tap 535 2090
+sleep 1
+adb shell input tap 750 2090
+sleep 1
+adb shell input tap 965 2090
+sleep 1
+adb shell input tap 320 2090
+sleep 1
+
+# Exercise the Explore segmented tabs so their shared moving capsule is captured.
+adb shell input tap 110 470
+sleep 0.6
+adb shell input tap 320 470
+sleep 0.6
+adb shell input tap 520 470
+sleep 0.6
+adb shell input tap 735 470
+sleep 0.6
+adb shell input tap 930 470
+sleep 0.8
+
+wait "$record_pid" || true
+adb pull /sdcard/muse-motion-demo.mp4 ui-captures/muse-motion-demo.mp4
+test -s ui-captures/muse-motion-demo.mp4
+
+file ui-captures/*.png ui-captures/muse-motion-demo.mp4
+sha256sum ui-captures/*.png ui-captures/muse-motion-demo.mp4
