@@ -1,6 +1,8 @@
 package com.rezoxnemesis.muse
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -63,6 +65,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        ensureMuseNotificationChannel()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
@@ -98,6 +101,21 @@ class MainActivity : ComponentActivity() {
     private fun Intent.safeMuseRoute(): String? =
         getStringExtra(ExtraOpenRoute)
             ?.takeIf { it in AllowedExternalRoutes }
+
+    private fun ensureMuseNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = getSystemService(NotificationManager::class.java)
+            ?: return
+        val channel = NotificationChannel(
+            "muse_playback",
+            "Muse playback",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = "Playback controls and media status from Muse"
+            setShowBadge(false)
+        }
+        manager.createNotificationChannel(channel)
+    }
 
     companion object {
         const val ExtraOpenRoute =
