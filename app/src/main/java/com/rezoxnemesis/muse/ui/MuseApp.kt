@@ -19,6 +19,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -6155,6 +6157,20 @@ private fun MuseEqualizerRack(
     onBandChange: (Int, Int) -> Unit,
 ) {
     val safeRange = (maxMb - minMb).coerceAtLeast(1)
+    var curveEntered by remember { mutableStateOf(false) }
+    LaunchedEffect(frequencies) {
+        if (frequencies.isNotEmpty()) {
+            curveEntered = true
+        }
+    }
+    val curveReveal by animateFloatAsState(
+        targetValue = if (curveEntered) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 420,
+            easing = FastOutSlowInEasing,
+        ),
+        label = "MuseEqualizerCurveReveal",
+    )
 
     MuseGlassSurface(
         modifier = Modifier.fillMaxWidth(),
@@ -6202,7 +6218,7 @@ private fun MuseEqualizerRack(
                         span / (frequencies.size - 1)
                     }
 
-                    fun point(index: Int): Offset {
+                    fun rawPoint(index: Int): Offset {
                         val level = levelsMb.getOrNull(index) ?: 0
                         val normalized = (
                             (level - minMb).toFloat() / safeRange.toFloat()
@@ -6223,6 +6239,14 @@ private fun MuseEqualizerRack(
                     ).coerceIn(0f, 1f)
                     val zeroY = graphBottom -
                         zeroNormalized * (graphBottom - graphTop)
+
+                    fun point(index: Int): Offset {
+                        val target = rawPoint(index)
+                        return Offset(
+                            x = target.x,
+                            y = zeroY + (target.y - zeroY) * curveReveal,
+                        )
+                    }
 
                     drawLine(
                         color = MuseGreen.copy(alpha = 0.12f),
@@ -6383,7 +6407,13 @@ private fun AudioEffectControl(
                     enabled = controlsEnabled,
                 )
             }
-            if (checked) {
+            AnimatedVisibility(
+                visible = checked,
+                enter = fadeIn(animationSpec = tween(140)) +
+                    expandVertically(animationSpec = tween(180)),
+                exit = fadeOut(animationSpec = tween(100)) +
+                    shrinkVertically(animationSpec = tween(140)),
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
