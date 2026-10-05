@@ -13,6 +13,12 @@ adb shell settings put secure user_setup_complete 1 || true
 
 adb shell pm grant com.rezoxnemesis.muse android.permission.READ_MEDIA_AUDIO || true
 
+# The headless Pixel launcher can ANR under SwiftShader and obscure motion captures.
+# Muse is started explicitly, so disable the launcher for this CI-only emulator.
+adb shell am force-stop com.google.android.apps.nexuslauncher || true
+adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
+adb shell input keyevent KEYCODE_BACK || true
+
 adb shell mkdir -p /sdcard/Music
 adb push Muse_Runtime_Demo.wav /sdcard/Music/Muse_Runtime_Demo.wav
 adb shell am broadcast \
@@ -57,9 +63,11 @@ capture_route settings muse-settings-font130-runtime.png 1.3
 adb shell settings put system font_scale 1.0
 adb shell am force-stop com.rezoxnemesis.muse
 adb shell am start -W   -n com.rezoxnemesis.muse/.MainActivity   --es com.rezoxnemesis.muse.extra.OPEN_ROUTE home
-sleep 2
+sleep 3
+adb shell input keyevent KEYCODE_BACK || true
+sleep 0.5
 
-adb shell screenrecord --bit-rate 6000000 --time-limit 13 /sdcard/muse-motion-demo.mp4 &
+adb shell screenrecord --size 540x1140 --bit-rate 2500000 --time-limit 15 /sdcard/muse-motion-demo.mp4 &
 record_pid=$!
 sleep 1
 
