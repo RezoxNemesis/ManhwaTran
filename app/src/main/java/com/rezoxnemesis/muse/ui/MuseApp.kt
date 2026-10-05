@@ -516,13 +516,17 @@ fun MuseApp(
 
 private fun NavHostController.popBackOrHome() {
     if (!popBackStack()) {
-        navigate("home") {
-            popUpTo(graph.startDestinationId) {
-                inclusive = false
-            }
-            launchSingleTop = true
-            restoreState = true
+        goHomeFromDetail()
+    }
+}
+
+private fun NavHostController.goHomeFromDetail() {
+    navigate("home") {
+        popUpTo("home") {
+            inclusive = false
         }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 
@@ -1819,7 +1823,7 @@ private fun NowPlayingScreen(
     val duration = playback.durationMs.coerceAtLeast(1L)
 
     BackHandler {
-        navController.popBackOrHome()
+        navController.goHomeFromDetail()
     }
 
     Column(
@@ -1835,7 +1839,7 @@ private fun NowPlayingScreen(
     ) {
         ScreenHeader(
             title = "Now Playing",
-            onBack = { navController.popBackOrHome() },
+            onBack = { navController.goHomeFromDetail() },
             action = {
                 IconButton(onClick = { navController.navigate("more") }) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
