@@ -65,17 +65,12 @@ internal fun RowScope.MuseMotionNavItem(
     onClick: () -> Unit,
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (selected) 1.055f else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.78f,
-            stiffness = 520f,
+        targetValue = if (selected) 1.025f else 1f,
+        animationSpec = tween(
+            durationMillis = 180,
+            easing = FastOutSlowInEasing,
         ),
         label = "MuseNavItemScale",
-    )
-    val glowAlpha by animateFloatAsState(
-        targetValue = if (selected) 1f else 0f,
-        animationSpec = tween(170, easing = FastOutSlowInEasing),
-        label = "MuseNavGlow",
     )
     val contentColor by animateColorAsState(
         targetValue = if (selected) MuseGreen else MuseMuted,
@@ -100,24 +95,6 @@ internal fun RowScope.MuseMotionNavItem(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        if (glowAlpha > 0.001f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.88f)
-                    .height(48.dp)
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            listOf(
-                                MuseGlow.copy(alpha = 0.08f * glowAlpha),
-                                MuseGreen.copy(alpha = 0.25f * glowAlpha),
-                                MuseGlow.copy(alpha = 0.08f * glowAlpha),
-                            )
-                        ),
-                        shape = RoundedCornerShape(24.dp),
-                    )
-            )
-        }
-
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
