@@ -538,9 +538,9 @@ private fun MuseBottomNavigation(
             val targetOffset = itemWidth * selectedIndex
             val indicatorOffset by animateDpAsState(
                 targetValue = targetOffset,
-                animationSpec = spring(
-                    dampingRatio = 0.78f,
-                    stiffness = 520f,
+                animationSpec = tween(
+                    durationMillis = 235,
+                    easing = FastOutSlowInEasing,
                 ),
                 label = "MuseNavIndicatorOffset",
             )
@@ -549,8 +549,8 @@ private fun MuseBottomNavigation(
             // intentionally obvious, matching the supplied morphing-tab videos.
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset + itemWidth * 0.06f)
-                    .width(itemWidth * 0.88f)
+                    .offset(x = indicatorOffset + itemWidth * 0.035f)
+                    .width(itemWidth * 0.93f)
                     .height(52.dp)
                     .align(Alignment.CenterStart)
                     .background(
