@@ -33,6 +33,12 @@ capture_route() {
     --es com.rezoxnemesis.muse.extra.OPEN_ROUTE "$route"
   sleep 3
 
+  if ! adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+    echo "Muse process exited while opening route: $route" >&2
+    adb logcat -d -v threadtime | tail -n 500 >&2 || true
+    exit 1
+  fi
+
   adb exec-out screencap -p > "ui-captures/$output"
   test -s "ui-captures/$output"
 }
