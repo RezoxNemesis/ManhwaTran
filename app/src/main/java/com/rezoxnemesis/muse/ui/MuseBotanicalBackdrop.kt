@@ -71,59 +71,36 @@ internal fun MuseNativeBotanicalBackdrop(
         MuseVisualIntensity.Balanced -> 1.0f
         MuseVisualIntensity.Vivid -> 1.16f
     }
-    val transition = rememberInfiniteTransition(label = "NativeBotanicalMotion")
-    val drift by transition.animateFloat(
-        initialValue = -0.018f,
-        targetValue = 0.018f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (active) 8_000 else 16_000,
-                easing = LinearEasing,
-            ),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "BotanicalDrift",
-    )
-    val pulse by transition.animateFloat(
-        initialValue = if (active) 0.72f else 0.86f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (active) 5_500 else 11_000,
-                easing = LinearEasing,
-            ),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "BotanicalPulse",
-    )
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MuseBackground),
     ) {
+        // Keep the expensive botanical geometry static. This makes tab changes much
+        // lighter while preserving the rich foliage and glass contrast.
         Canvas(Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF020806),
-                        Color(0xFF03150A),
-                        Color(0xFF001006),
+                        Color(0xFF010604),
+                        Color(0xFF03170B),
+                        Color(0xFF001108),
                         Color(0xFF020805),
                     ),
                 ),
             )
 
             val sunCenter = Offset(
-                x = size.width * (0.78f + drift),
+                x = size.width * 0.79f,
                 y = size.height * 0.055f,
             )
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFFFF7A0).copy(alpha = 0.22f * pulse * strength),
-                        Color(0xFFB8FF63).copy(alpha = 0.12f * strength),
-                        Color(0xFF5DDF5B).copy(alpha = 0.035f * strength),
+                        Color(0xFFFFF9B3).copy(alpha = 0.24f * strength),
+                        Color(0xFFB9FF68).copy(alpha = 0.13f * strength),
+                        Color(0xFF5BE15B).copy(alpha = 0.038f * strength),
                         Color.Transparent,
                     ),
                     center = sunCenter,
@@ -134,23 +111,24 @@ internal fun MuseNativeBotanicalBackdrop(
             )
 
             val bokeh = listOf(
-                floatArrayOf(0.16f, 0.13f, 0.055f, 0.12f),
-                floatArrayOf(0.28f, 0.08f, 0.032f, 0.15f),
-                floatArrayOf(0.52f, 0.12f, 0.044f, 0.13f),
-                floatArrayOf(0.67f, 0.18f, 0.028f, 0.18f),
-                floatArrayOf(0.88f, 0.16f, 0.052f, 0.12f),
-                floatArrayOf(0.11f, 0.38f, 0.064f, 0.08f),
-                floatArrayOf(0.35f, 0.31f, 0.030f, 0.10f),
-                floatArrayOf(0.72f, 0.37f, 0.050f, 0.09f),
-                floatArrayOf(0.92f, 0.48f, 0.034f, 0.12f),
-                floatArrayOf(0.15f, 0.69f, 0.050f, 0.08f),
-                floatArrayOf(0.44f, 0.75f, 0.035f, 0.10f),
-                floatArrayOf(0.80f, 0.72f, 0.061f, 0.08f),
-                floatArrayOf(0.61f, 0.91f, 0.042f, 0.08f),
+                floatArrayOf(0.10f, 0.10f, 0.060f, 0.10f),
+                floatArrayOf(0.22f, 0.17f, 0.032f, 0.15f),
+                floatArrayOf(0.34f, 0.07f, 0.024f, 0.13f),
+                floatArrayOf(0.53f, 0.12f, 0.046f, 0.12f),
+                floatArrayOf(0.67f, 0.18f, 0.030f, 0.18f),
+                floatArrayOf(0.88f, 0.16f, 0.054f, 0.12f),
+                floatArrayOf(0.11f, 0.38f, 0.068f, 0.08f),
+                floatArrayOf(0.35f, 0.31f, 0.032f, 0.10f),
+                floatArrayOf(0.72f, 0.37f, 0.052f, 0.09f),
+                floatArrayOf(0.92f, 0.48f, 0.036f, 0.12f),
+                floatArrayOf(0.15f, 0.69f, 0.052f, 0.08f),
+                floatArrayOf(0.44f, 0.75f, 0.037f, 0.10f),
+                floatArrayOf(0.80f, 0.72f, 0.064f, 0.08f),
+                floatArrayOf(0.61f, 0.91f, 0.044f, 0.08f),
             )
             bokeh.forEachIndexed { index, dot ->
                 val center = Offset(
-                    size.width * (dot[0] + drift * if (index % 2 == 0) 0.7f else -0.45f),
+                    size.width * dot[0],
                     size.height * dot[1],
                 )
                 val radius = size.minDimension * dot[2]
@@ -158,7 +136,7 @@ internal fun MuseNativeBotanicalBackdrop(
                     brush = Brush.radialGradient(
                         colors = listOf(
                             if (index % 3 == 0) {
-                                Color(0xFFFFF3A5).copy(alpha = dot[3] * pulse * strength)
+                                Color(0xFFFFF4A8).copy(alpha = dot[3] * strength)
                             } else {
                                 MuseGreen.copy(alpha = dot[3] * 0.62f * strength)
                             },
@@ -172,39 +150,109 @@ internal fun MuseNativeBotanicalBackdrop(
                 )
             }
 
-            nativeLeafLayout(route).forEachIndexed { index, spec ->
+            nativeLeafLayout(route).forEach { spec ->
                 drawBotanicalLeaf(
-                    spec = spec.copy(
-                        x = spec.x + drift * if (index % 2 == 0) 0.75f else -0.55f,
-                    ),
+                    spec = spec,
                     strength = strength,
-                    pulse = pulse,
+                    pulse = 0.96f,
                 )
             }
 
+            // A soft centre veil keeps the excellent text clarity from the current
+            // build while the leaves stay brighter and more dimensional at the edge.
             drawRect(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.Transparent,
-                        Color.Transparent,
-                        Color.Black.copy(alpha = 0.48f),
+                        Color.Black.copy(alpha = 0.04f),
+                        Color.Black.copy(alpha = 0.10f),
+                        Color.Black.copy(alpha = 0.50f),
                     ),
-                    center = Offset(size.width * 0.52f, size.height * 0.46f),
-                    radius = size.maxDimension * 0.78f,
+                    center = Offset(size.width * 0.52f, size.height * 0.47f),
+                    radius = size.maxDimension * 0.80f,
                 ),
+            )
+        }
+
+        if (active) {
+            MuseBotanicalMotionOverlay(
+                strength = strength,
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }
 }
 
+@Composable
+private fun MuseBotanicalMotionOverlay(
+    strength: Float,
+    modifier: Modifier = Modifier,
+) {
+    val transition = rememberInfiniteTransition(label = "MuseAmbientLight")
+    val drift by transition.animateFloat(
+        initialValue = -0.018f,
+        targetValue = 0.018f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 9_500,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "MuseAmbientDrift",
+    )
+    val pulse by transition.animateFloat(
+        initialValue = 0.72f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 6_800,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "MuseAmbientPulse",
+    )
+
+    Canvas(modifier) {
+        val upper = Offset(
+            x = size.width * (0.76f + drift),
+            y = size.height * 0.10f,
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFDFFF80).copy(alpha = 0.070f * pulse * strength),
+                    MuseGlow.copy(alpha = 0.030f * pulse * strength),
+                    Color.Transparent,
+                ),
+                center = upper,
+                radius = size.minDimension * 0.56f,
+            ),
+            center = upper,
+            radius = size.minDimension * 0.56f,
+        )
+
+        val lower = Offset(
+            x = size.width * (0.18f - drift * 0.5f),
+            y = size.height * 0.78f,
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    MuseGreen.copy(alpha = 0.030f * pulse * strength),
+                    Color.Transparent,
+                ),
+                center = lower,
+                radius = size.minDimension * 0.42f,
+            ),
+            center = lower,
+            radius = size.minDimension * 0.42f,
+        )
+    }
+}
+
 private fun nativeLeafLayout(route: String?): List<LeafSpec> =
     when (route) {
-        "equalizer" -> listOf(
-            LeafSpec(-0.04f, 0.17f, 0.34f, 0.18f, -44f, 0.78f, true),
-            LeafSpec(0.97f, 0.22f, 0.29f, 0.16f, 36f, 0.74f, true, true),
-            LeafSpec(0.90f, 0.79f, 0.34f, 0.18f, -35f, 0.72f, false),
-            LeafSpec(0.09f, 0.93f, 0.30f, 0.16f, 24f, 0.68f, false),
-        )
         "sleep" -> listOf(
             LeafSpec(0.02f, 0.19f, 0.39f, 0.21f, -38f, 0.90f, true),
             LeafSpec(0.96f, 0.16f, 0.34f, 0.19f, 40f, 0.86f, true, true),
@@ -274,27 +322,70 @@ private fun DrawScope.drawBotanicalLeaf(
             close()
         }
 
+        // A dark offset silhouette gives each leaf real separation from the forest.
+        drawPath(
+            path = leaf,
+            color = Color.Black.copy(alpha = alpha * if (spec.foreground) 0.28f else 0.18f),
+        )
         drawPath(
             path = leaf,
             brush = Brush.linearGradient(
                 colors = if (spec.foreground) {
                     listOf(
-                        Color(0xFFB4FF70).copy(alpha = alpha),
-                        Color(0xFF4ECB42).copy(alpha = alpha),
-                        Color(0xFF12612B).copy(alpha = alpha),
-                        Color(0xFF03170B).copy(alpha = alpha),
+                        Color(0xFFC8FF82).copy(alpha = alpha),
+                        Color(0xFF72DF4F).copy(alpha = alpha),
+                        Color(0xFF258238).copy(alpha = alpha),
+                        Color(0xFF082813).copy(alpha = alpha),
+                        Color(0xFF020E07).copy(alpha = alpha),
                     )
                 } else {
                     listOf(
-                        Color(0xFF69CF4B).copy(alpha = alpha * 0.78f),
-                        Color(0xFF1B6A2A).copy(alpha = alpha * 0.82f),
-                        Color(0xFF03130A).copy(alpha = alpha),
+                        Color(0xFF7ED95A).copy(alpha = alpha * 0.80f),
+                        Color(0xFF2E7C35).copy(alpha = alpha * 0.84f),
+                        Color(0xFF07190D).copy(alpha = alpha),
                     )
                 },
-                start = Offset(center.x - half, tip.y),
+                start = Offset(center.x - half * 0.78f, tip.y),
                 end = Offset(center.x + half, base.y),
             ),
         )
+
+        if (spec.foreground) {
+            // Subtle chlorophyll mottling and wet-surface sparkle. Deterministic
+            // positions keep the renderer cheap and stable across frames.
+            val texture = listOf(
+                floatArrayOf(-0.23f, -0.27f, 0.020f, 0.15f),
+                floatArrayOf(0.18f, -0.31f, 0.014f, 0.18f),
+                floatArrayOf(-0.31f, -0.08f, 0.018f, 0.12f),
+                floatArrayOf(0.28f, 0.02f, 0.022f, 0.13f),
+                floatArrayOf(-0.16f, 0.16f, 0.016f, 0.14f),
+                floatArrayOf(0.17f, 0.28f, 0.013f, 0.16f),
+            )
+            texture.forEachIndexed { index, spot ->
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            if (index % 2 == 0) {
+                                Color(0xFFE9FFC4).copy(alpha = alpha * spot[3])
+                            } else {
+                                Color(0xFF174D26).copy(alpha = alpha * spot[3] * 0.90f)
+                            },
+                            Color.Transparent,
+                        ),
+                        center = Offset(
+                            center.x + width * spot[0] * mirror,
+                            center.y + height * spot[1],
+                        ),
+                        radius = width * spot[2] * 3.0f,
+                    ),
+                    center = Offset(
+                        center.x + width * spot[0] * mirror,
+                        center.y + height * spot[1],
+                    ),
+                    radius = width * spot[2] * 3.0f,
+                )
+            }
+        }
 
         val gloss = Path().apply {
             moveTo(center.x - width * 0.12f * mirror, tip.y + height * 0.09f)
@@ -325,6 +416,17 @@ private fun DrawScope.drawBotanicalLeaf(
             path = leaf,
             color = Color(0xFFD7FF9A).copy(alpha = alpha * 0.50f),
             style = Stroke(width = 1.05.dp.toPx()),
+        )
+
+        drawLine(
+            color = Color(0xFF173D20).copy(alpha = alpha * 0.80f),
+            start = base,
+            end = Offset(
+                center.x + width * 0.055f * mirror,
+                base.y + height * 0.16f,
+            ),
+            strokeWidth = if (spec.foreground) 2.1.dp.toPx() else 1.2.dp.toPx(),
+            cap = StrokeCap.Round,
         )
 
         drawLine(
