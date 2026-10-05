@@ -4,21 +4,25 @@ import android.content.Context
 import android.media.AudioManager
 import android.os.Build
 import android.media.audiofx.BassBoost
-import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.os.Bundle
 
 class AudioEffectEngine(
     private val context: Context,
+    private val softwareProcessor: MuseSoftwareAudioProcessor,
 ) {
     private val preferences = context.getSharedPreferences(
         PreferencesName,
         Context.MODE_PRIVATE,
     )
 
+    init {
+        restoreValues()
+        applyEnabledState()
+    }
+
     private var audioSessionId: Int = 0
-    private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
     private var virtualizer: Virtualizer? = null
     private var loudnessEnhancer: LoudnessEnhancer? = null
@@ -37,7 +41,6 @@ class AudioEffectEngine(
         releaseEffects()
         audioSessionId = sessionId
 
-        equalizer = runCatching { Equalizer(0, sessionId) }.getOrNull()
         bassBoost = runCatching { BassBoost(0, sessionId) }.getOrNull()
         virtualizer = runCatching { Virtualizer(0, sessionId) }.getOrNull()
         loudnessEnhancer = runCatching { LoudnessEnhancer(sessionId) }.getOrNull()
@@ -134,52 +137,52 @@ class AudioEffectEngine(
             runCatching { loudnessEnhancer?.setTargetGain(value) }
         }
 
+        if (args.containsKey(AudioEffectProtocol.KeySpatialEnabled)) {
+            val enabled = args.getBoolean(AudioEffectProtocol.KeySpatialEnabled)
+            preferences.edit().putBoolean(KeySpatialEnabledPref, enabled).apply()
+            softwareProcessor.setSpatialEnabled(enabled)
+        }
+        if (args.containsKey(AudioEffectProtocol.KeySpatialWidth)) {
+            val width = args.getInt(AudioEffectProtocol.KeySpatialWidth)
+                .coerceIn(0, 1000)
+            preferences.edit().putInt(KeySpatialWidthPref, width).apply()
+            softwareProcessor.setSpatialWidth(width)
+        }
+
         applyEnabledState()
         return snapshot()
     }
 
     fun snapshot(): Bundle {
-        val eq = equalizer
-        val bandCount = eq?.numberOfBands?.toInt() ?: 0
-        val centers = IntArray(bandCount) { index ->
-            runCatching {
-                eq?.getCenterFreq(index.toShort())?.div(1000)
-            }.getOrNull() ?: 0
-        }
-        val levels = IntArray(bandCount) { index ->
-            runCatching {
-                eq?.getBandLevel(index.toShort())?.toInt()
-            }.getOrNull() ?: 0
-        }
-        val range = runCatching { eq?.bandLevelRange }.getOrNull()
-        val presetNames = ArrayList<String>()
-        val presetCount = runCatching { eq?.numberOfPresets?.toInt() }.getOrNull() ?: 0
-        repeat(presetCount) { index ->
-            presetNames += runCatching {
-                eq?.getPresetName(index.toShort()).orEmpty()
-            }.getOrDefault("Preset ${index + 1}")
-        }
-
+        val centers = MuseSoftwareAudioProcessor.BandCentersHz.copyOf()
+        val levels = softwareProcessor.currentLevels()
         val spatial = spatialCapability()
+        val softwareSpatialEnabled = softwareProcessor.isSpatialEnabled()
+        val compatibilityMode = softwareSpatialEnabled && !spatial.enabled
 
         return Bundle().apply {
-            putBoolean(AudioEffectProtocol.KeySessionReady, audioSessionId > 0)
+            // The Muse software DSP is available as soon as the service is
+            // connected, even before an OEM audio session effect can attach.
+            putBoolean(AudioEffectProtocol.KeySessionReady, true)
             putInt(AudioEffectProtocol.KeyAudioSessionId, audioSessionId)
             putBoolean(AudioEffectProtocol.KeyMasterEnabled, masterEnabled)
             putBoolean(AudioEffectProtocol.KeyBypass, bypass)
 
-            putBoolean(AudioEffectProtocol.KeyEqAvailable, eq != null)
+            putBoolean(AudioEffectProtocol.KeyEqAvailable, true)
             putIntArray(AudioEffectProtocol.KeyEqCentersHz, centers)
             putInt(
                 AudioEffectProtocol.KeyEqMinMb,
-                range?.getOrNull(0)?.toInt() ?: 0,
+                MuseSoftwareAudioProcessor.MinLevelMb,
             )
             putInt(
                 AudioEffectProtocol.KeyEqMaxMb,
-                range?.getOrNull(1)?.toInt() ?: 0,
+                MuseSoftwareAudioProcessor.MaxLevelMb,
             )
             putIntArray(AudioEffectProtocol.KeyEqLevelsMb, levels)
-            putStringArrayList(AudioEffectProtocol.KeyEqPresetNames, presetNames)
+            putStringArrayList(
+                AudioEffectProtocol.KeyEqPresetNames,
+                arrayListOf("Flat", "Warm", "Vocal", "Air", "Deep"),
+            )
 
             putBoolean(AudioEffectProtocol.KeyBassAvailable, bassBoost != null)
             putBoolean(
@@ -220,17 +223,22 @@ class AudioEffectEngine(
                 preferences.getInt(KeyLoudnessGainPref, DefaultLoudnessGainMb),
             )
 
-            putBoolean(
-                AudioEffectProtocol.KeySpatialSupported,
-                spatial.supported,
-            )
-            putBoolean(
-                AudioEffectProtocol.KeySpatialAvailable,
-                spatial.available,
-            )
+            // Always expose a usable spatial mode. Native Android Spatializer
+            // state is reported when present; otherwise Muse's PCM widening DSP
+            // provides compatibility mode for ordinary stereo tracks.
+            putBoolean(AudioEffectProtocol.KeySpatialSupported, true)
+            putBoolean(AudioEffectProtocol.KeySpatialAvailable, true)
             putBoolean(
                 AudioEffectProtocol.KeySpatialEnabled,
-                spatial.enabled,
+                softwareSpatialEnabled || spatial.enabled,
+            )
+            putBoolean(
+                AudioEffectProtocol.KeySpatialCompatibilityMode,
+                compatibilityMode,
+            )
+            putInt(
+                AudioEffectProtocol.KeySpatialWidth,
+                preferences.getInt(KeySpatialWidthPref, DefaultSpatialWidth),
             )
             putBoolean(
                 AudioEffectProtocol.KeyHeadTrackerAvailable,
@@ -240,25 +248,23 @@ class AudioEffectEngine(
     }
 
     private fun restoreValues() {
-        val eq = equalizer
-        if (eq != null) {
-            val stored = preferences.getString(KeyEqLevelsPref, null)
-                ?.split(',')
-                ?.mapNotNull(String::toIntOrNull)
-                .orEmpty()
-            val range = runCatching { eq.bandLevelRange }.getOrNull()
-            val minimum = range?.getOrNull(0)?.toInt() ?: 0
-            val maximum = range?.getOrNull(1)?.toInt() ?: 0
-            repeat(eq.numberOfBands.toInt()) { index ->
-                val value = stored.getOrNull(index) ?: 0
-                runCatching {
-                    eq.setBandLevel(
-                        index.toShort(),
-                        value.coerceIn(minimum, maximum).toShort(),
-                    )
-                }
-            }
-        }
+        val storedLevels = preferences.getString(KeyEqLevelsPref, null)
+            ?.split(',')
+            ?.mapNotNull(String::toIntOrNull)
+            ?.toIntArray()
+            ?: IntArray(MuseSoftwareAudioProcessor.BandCentersHz.size)
+        softwareProcessor.setLevels(storedLevels)
+
+        val spatialEnabled = preferences.getBoolean(
+            KeySpatialEnabledPref,
+            false,
+        )
+        val spatialWidth = preferences.getInt(
+            KeySpatialWidthPref,
+            DefaultSpatialWidth,
+        )
+        softwareProcessor.setSpatialEnabled(spatialEnabled)
+        softwareProcessor.setSpatialWidth(spatialWidth)
 
         val bassStrength = preferences
             .getInt(KeyBassStrengthPref, DefaultBassStrength)
@@ -280,89 +286,59 @@ class AudioEffectEngine(
         bandIndex: Int,
         requestedLevelMb: Int,
     ) {
-        val eq = equalizer ?: return
-        if (bandIndex !in 0 until eq.numberOfBands.toInt()) return
-
-        val range = runCatching { eq.bandLevelRange }.getOrNull() ?: return
-        val minimum = range.getOrNull(0)?.toInt() ?: return
-        val maximum = range.getOrNull(1)?.toInt() ?: return
-        val level = requestedLevelMb.coerceIn(minimum, maximum)
-
-        runCatching {
-            eq.setBandLevel(bandIndex.toShort(), level.toShort())
-        }.onSuccess {
-            persistEqualizerLevels(eq)
-        }
+        if (bandIndex !in MuseSoftwareAudioProcessor.BandCentersHz.indices) return
+        softwareProcessor.setBandLevel(
+            bandIndex,
+            requestedLevelMb.coerceIn(
+                MuseSoftwareAudioProcessor.MinLevelMb,
+                MuseSoftwareAudioProcessor.MaxLevelMb,
+            ),
+        )
+        persistEqualizerLevels()
     }
 
     private fun useEqualizerPreset(presetIndex: Int) {
-        val eq = equalizer ?: return
-        if (presetIndex !in 0 until eq.numberOfPresets.toInt()) return
-        runCatching {
-            eq.usePreset(presetIndex.toShort())
-        }.onSuccess {
-            persistEqualizerLevels(eq)
-        }
+        val presets = listOf(
+            intArrayOf(0, 0, 0, 0, 0, 0, 0),
+            intArrayOf(350, 260, 120, 0, -80, -120, -150),
+            intArrayOf(-120, -80, 60, 280, 340, 160, -60),
+            intArrayOf(-140, -80, 0, 80, 160, 320, 420),
+            intArrayOf(520, 380, 180, 0, -80, 40, 120),
+        )
+        val preset = presets.getOrNull(presetIndex) ?: return
+        softwareProcessor.setLevels(preset)
+        persistEqualizerLevels()
     }
 
     private fun applyEqualizerProfile(
         savedCentersHz: IntArray,
         savedLevelsMb: IntArray,
     ) {
-        val eq = equalizer ?: return
-        val range = runCatching { eq.bandLevelRange }.getOrNull() ?: return
-        val minimum = range.getOrNull(0)?.toInt() ?: return
-        val maximum = range.getOrNull(1)?.toInt() ?: return
-
-        val targetCentersHz = IntArray(
-            eq.numberOfBands.toInt(),
-        ) { bandIndex ->
-            runCatching {
-                eq.getCenterFreq(bandIndex.toShort()) / 1000
-            }.getOrDefault(1)
-        }
         val mappedLevels = SoundProfileBandMapper.mapLevels(
             savedCentersHz = savedCentersHz,
             savedLevelsMb = savedLevelsMb,
-            targetCentersHz = targetCentersHz,
-            minimumLevelMb = minimum,
-            maximumLevelMb = maximum,
+            targetCentersHz = MuseSoftwareAudioProcessor.BandCentersHz,
+            minimumLevelMb = MuseSoftwareAudioProcessor.MinLevelMb,
+            maximumLevelMb = MuseSoftwareAudioProcessor.MaxLevelMb,
         )
-
-        mappedLevels.forEachIndexed { bandIndex, level ->
-            runCatching {
-                eq.setBandLevel(
-                    bandIndex.toShort(),
-                    level.toShort(),
-                )
-            }
-        }
-
-        persistEqualizerLevels(eq)
+        softwareProcessor.setLevels(mappedLevels)
+        persistEqualizerLevels()
     }
 
-    private fun persistEqualizerLevels(eq: Equalizer) {
-        val levels = buildList {
-            repeat(eq.numberOfBands.toInt()) { index ->
-                add(
-                    runCatching {
-                        eq.getBandLevel(index.toShort()).toInt()
-                    }.getOrDefault(0)
-                )
-            }
-        }
+    private fun persistEqualizerLevels() {
         preferences.edit().putString(
             KeyEqLevelsPref,
-            levels.joinToString(","),
+            softwareProcessor.currentLevels().joinToString(","),
         ).apply()
     }
 
     private fun applyEnabledState() {
         val processingEnabled = masterEnabled && !bypass
 
-        runCatching {
-            equalizer?.enabled = processingEnabled
-        }
+        softwareProcessor.setProcessingEnabled(
+            enabled = masterEnabled,
+            isBypassed = bypass,
+        )
         runCatching {
             bassBoost?.enabled = processingEnabled &&
                 preferences.getBoolean(KeyBassEnabledPref, false)
@@ -403,11 +379,10 @@ class AudioEffectEngine(
     }
 
     private fun releaseEffects() {
-        listOf(equalizer, bassBoost, virtualizer, loudnessEnhancer).forEach { effect ->
+        listOf(bassBoost, virtualizer, loudnessEnhancer).forEach { effect ->
             runCatching { effect?.enabled = false }
             runCatching { effect?.release() }
         }
-        equalizer = null
         bassBoost = null
         virtualizer = null
         loudnessEnhancer = null
@@ -432,10 +407,13 @@ class AudioEffectEngine(
         const val KeyVirtualizerStrengthPref = "virtualizer_strength"
         const val KeyLoudnessEnabledPref = "loudness_enabled"
         const val KeyLoudnessGainPref = "loudness_gain_mb"
+        const val KeySpatialEnabledPref = "spatial_enabled"
+        const val KeySpatialWidthPref = "spatial_width"
 
         const val DefaultBassStrength = 350
         const val DefaultVirtualizerStrength = 350
         const val DefaultLoudnessGainMb = 0
+        const val DefaultSpatialWidth = 680
 
         // BassBoost accepts 0..1000, but Muse intentionally caps ordinary UI control
         // below the platform maximum to avoid aggressive gain changes.
