@@ -6824,7 +6824,8 @@ private fun MiniPlayer(
         onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .height(72.dp),
         variant = MuseGlassVariant.Elevated,
         cornerRadius = 24.dp,
     ) {
