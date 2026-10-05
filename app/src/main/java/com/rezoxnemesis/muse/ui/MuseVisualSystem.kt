@@ -452,11 +452,11 @@ internal fun MuseGlassSurface(
         )
     }
     val elevation = when (variant) {
-        MuseGlassVariant.Standard -> 12.dp
-        MuseGlassVariant.Strong -> 17.dp
-        MuseGlassVariant.Elevated -> 21.dp
-        MuseGlassVariant.Selected -> 22.dp
-        MuseGlassVariant.Destructive -> 14.dp
+        MuseGlassVariant.Standard -> 10.dp
+        MuseGlassVariant.Strong -> 14.dp
+        MuseGlassVariant.Elevated -> 18.dp
+        MuseGlassVariant.Selected -> 18.dp
+        MuseGlassVariant.Destructive -> 12.dp
     }
 
     Box(
