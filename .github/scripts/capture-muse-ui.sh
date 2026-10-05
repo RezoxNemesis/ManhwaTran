@@ -113,6 +113,20 @@ if ! grep -Fq "Home" /tmp/muse-back-window.xml; then
   exit 1
 fi
 
+# Regression for the real-device behaviour reported by the user: after leaving a
+# deep-linked Now Playing screen, a normal launcher start must not resurrect the
+# stale route or leave only the botanical background.
+adb shell am force-stop com.rezoxnemesis.muse
+adb shell am start -W   -a android.intent.action.MAIN   -c android.intent.category.LAUNCHER   -n com.rezoxnemesis.muse/.MainActivity
+sleep 4
+adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+adb pull /sdcard/muse-window.xml /tmp/muse-relaunch-window.xml >/dev/null 2>&1 || true
+if ! grep -Fq "Home" /tmp/muse-relaunch-window.xml; then
+  echo "Launcher relaunch did not land on Home" >&2
+  cat /tmp/muse-relaunch-window.xml >&2 || true
+  exit 1
+fi
+
 # Record a real interaction pass so the moving tab capsule, directional page
 # transitions and widget motion are verified on an Android runtime, not only
 # inferred from static screenshots.
