@@ -176,6 +176,29 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToLong
 
+private fun museNotificationPermissionGranted(
+    context: android.content.Context,
+): Boolean =
+    android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU ||
+        androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.POST_NOTIFICATIONS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+private fun openMuseNotificationSettings(
+    context: android.content.Context,
+) {
+    val intent = Intent(
+        android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS,
+    ).apply {
+        putExtra(
+            android.provider.Settings.EXTRA_APP_PACKAGE,
+            context.packageName,
+        )
+    }
+    context.startActivity(intent)
+}
+
 private data class PrimaryDestination(
     val route: String,
     val label: String,
@@ -703,6 +726,18 @@ private fun HomeScreen(
     val voiceSearchAvailable = remember(context) {
         voiceSearchIntent.resolveActivity(context.packageManager) != null
     }
+    var homeNotificationPermissionGranted by remember {
+        mutableStateOf(museNotificationPermissionGranted(context))
+    }
+    val homeNotificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        homeNotificationPermissionGranted = granted
+        if (granted) {
+            openMuseNotificationSettings(context)
+        }
+    }
+
     val voiceSearchLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -761,15 +796,17 @@ private fun HomeScreen(
 
                 MuseGlassAction(
                     onClick = {
-                        val intent = Intent(
-                            android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS,
-                        ).apply {
-                            putExtra(
-                                android.provider.Settings.EXTRA_APP_PACKAGE,
-                                context.packageName,
+                        if (
+                            android.os.Build.VERSION.SDK_INT >=
+                            android.os.Build.VERSION_CODES.TIRAMISU &&
+                            !homeNotificationPermissionGranted
+                        ) {
+                            homeNotificationPermissionLauncher.launch(
+                                android.Manifest.permission.POST_NOTIFICATIONS,
                             )
+                        } else {
+                            openMuseNotificationSettings(context)
                         }
-                        context.startActivity(intent)
                     },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -4586,6 +4623,18 @@ private fun SettingsScreen(
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         )
     }
+    var notificationPermissionGranted by remember {
+        mutableStateOf(museNotificationPermissionGranted(context))
+    }
+    val settingsNotificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        notificationPermissionGranted = granted
+        if (granted) {
+            openMuseNotificationSettings(context)
+        }
+    }
+
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -4707,17 +4756,23 @@ private fun SettingsScreen(
                     SettingsPanelItem(
                         icon = Icons.Rounded.Notifications,
                         title = "Notifications",
-                        subtitle = "Android media and playback notification settings",
+                        subtitle = if (notificationPermissionGranted) {
+                            "Enabled • tap to manage playback notifications"
+                        } else {
+                            "Permission required • tap to enable"
+                        },
                         onClick = {
-                            val intent = Intent(
-                                android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS,
-                            ).apply {
-                                putExtra(
-                                    android.provider.Settings.EXTRA_APP_PACKAGE,
-                                    context.packageName,
+                            if (
+                                android.os.Build.VERSION.SDK_INT >=
+                                android.os.Build.VERSION_CODES.TIRAMISU &&
+                                !notificationPermissionGranted
+                            ) {
+                                settingsNotificationPermissionLauncher.launch(
+                                    android.Manifest.permission.POST_NOTIFICATIONS,
                                 )
+                            } else {
+                                openMuseNotificationSettings(context)
                             }
-                            context.startActivity(intent)
                         },
                     )
                     SettingsPanelDivider()
