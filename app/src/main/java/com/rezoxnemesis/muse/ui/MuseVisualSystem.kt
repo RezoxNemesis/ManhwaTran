@@ -404,29 +404,29 @@ internal fun MuseGlassSurface(
     val shape = RoundedCornerShape(cornerRadius)
     val fill = when (variant) {
         MuseGlassVariant.Standard -> listOf(
-            MuseGlass.copy(alpha = 0.94f),
-            Color(0xA806120A),
-            Color(0xC0081A0E),
+            Color(0xA60B2614),
+            Color(0x7806110A),
+            Color(0x9008190E),
         )
         MuseGlassVariant.Strong -> listOf(
-            MuseGlassStrong.copy(alpha = 0.98f),
-            Color(0xE607140A),
-            Color(0xE30A1A0D),
+            Color(0xC20D2A18),
+            Color(0xAE07150B),
+            Color(0xB70B2112),
         )
         MuseGlassVariant.Elevated -> listOf(
-            MuseGlassElevated,
-            Color(0xE00B2112),
-            Color(0xD908160C),
+            Color(0xC511321C),
+            Color(0x9E0B2112),
+            Color(0xA6091A0D),
         )
         MuseGlassVariant.Selected -> listOf(
-            Color(0xDA173F21),
-            Color(0xD90A2111),
-            Color(0xE10A170C),
+            Color(0xD021592E),
+            Color(0xB50A2A15),
+            Color(0xB70B1E10),
         )
         MuseGlassVariant.Destructive -> listOf(
-            Color(0xD43A1214),
-            Color(0xD320090B),
-            Color(0xE1140708),
+            Color(0xCB49171A),
+            Color(0xA9260B0D),
+            Color(0xB818080A),
         )
     }
     val rim = when (variant) {
@@ -484,9 +484,9 @@ internal fun MuseGlassSurface(
                 drawRoundRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.075f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.10f),
+                            Color.White.copy(alpha = 0.14f),
+                            Color.White.copy(alpha = 0.025f),
+                            Color.Black.copy(alpha = 0.08f),
                         ),
                         endY = size.height * 0.80f,
                     ),
@@ -500,8 +500,8 @@ internal fun MuseGlassSurface(
                     brush = Brush.horizontalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.White.copy(alpha = 0.16f),
-                            MuseGlow.copy(alpha = 0.16f),
+                            Color.White.copy(alpha = 0.28f),
+                            MuseGlow.copy(alpha = 0.22f),
                             Color.Transparent,
                         ),
                     ),
