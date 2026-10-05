@@ -2512,7 +2512,7 @@ private fun LyricsScreen(
                                         color = MuseMuted,
                                         style = MaterialTheme.typography.labelSmall,
                                     )
-                                    Switch(
+                                    MuseMotionToggle(
                                         checked = autoFollow,
                                         onCheckedChange = { autoFollow = it },
                                     )
@@ -5714,7 +5714,7 @@ private fun EqualizerScreen(
             ScreenHeader(
                 title = "Equalizer",
                 action = {
-                    Switch(
+                    MuseMotionToggle(
                         checked = effects.masterEnabled,
                         onCheckedChange = viewModel.playback::setAudioEffectsEnabled,
                         enabled = effects.connected,
@@ -6027,7 +6027,7 @@ private fun ReferenceToggleRow(
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        Switch(
+        MuseMotionToggle(
             checked = checked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
@@ -6267,7 +6267,7 @@ private fun AudioEffectControl(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Switch(
+                MuseMotionToggle(
                     checked = checked,
                     onCheckedChange = onCheckedChange,
                     enabled = controlsEnabled,
