@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +47,10 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rezoxnemesis.muse.ui.MuseExactVisualApp
+import com.rezoxnemesis.muse.ui.MuseReferenceScreen
+import com.rezoxnemesis.muse.ui.MuseGlassVariant
+import com.rezoxnemesis.muse.ui.MuseGlassSurface
+import com.rezoxnemesis.muse.ui.MuseExactReferenceSurface
 import com.rezoxnemesis.muse.ui.MuseBrandMark
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
@@ -175,7 +181,7 @@ private fun PermissionAwareMuse(
                         "continue_without_library_access",
                         true,
                     )
-                    .apply()
+                    .commit()
                 continueWithoutLibraryAccess = true
             },
         )
@@ -190,59 +196,81 @@ private fun MusicPermissionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .testTag("MuseRoot")
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(MuseBackground, MaterialTheme.colorScheme.surfaceVariant),
-                )
-            )
-            .padding(28.dp),
-        contentAlignment = Alignment.Center,
+            .testTag("MuseRoot"),
     ) {
-        Column(
+        // Keep onboarding inside the same high-fidelity Muse world instead of
+        // dropping the user onto a flat black utility screen.
+        MuseExactReferenceSurface(
+            screen = MuseReferenceScreen.Splash,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.18f)),
+        )
+
+        MuseGlassSurface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 18.dp, vertical = 18.dp)
+                .navigationBarsPadding(),
+            variant = MuseGlassVariant.Strong,
+            cornerRadius = 30.dp,
         ) {
-            MuseBrandMark(
-                modifier = Modifier.size(142.dp),
-            )
-            Spacer(Modifier.height(20.dp))
-            Text(
-                text = "Welcome to Muse",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "Muse is local-first. Allow music access so it can discover and play audio already on this device.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(26.dp))
-            Button(
-                onClick = onRequestPermission,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MuseGreen,
-                    contentColor = MuseBackground,
-                ),
-                shape = RoundedCornerShape(18.dp),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Allow music access")
+                Text(
+                    text = "Your music, on your device",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Allow music access so Muse can discover and play audio already on this device. Muse stays local-first.",
+                    color = Color(0xFFD2E3D3),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(18.dp))
+                Button(
+                    onClick = onRequestPermission,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MuseGreen,
+                        contentColor = MuseBackground,
+                    ),
+                    shape = RoundedCornerShape(22.dp),
+                ) {
+                    Text(
+                        text = "Allow music access",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                TextButton(
+                    onClick = onContinueWithoutPermission,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Continue with imported files",
+                        color = MuseGreen,
+                    )
+                }
+                Text(
+                    text = "You can change this later. Imported files still work through Android’s secure file picker.",
+                    color = Color(0xFF9FB4A2),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
-            Spacer(Modifier.height(10.dp))
-            TextButton(onClick = onContinueWithoutPermission) {
-                Text("Continue with imported files")
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "You can grant device-library access later. Muse can still play files you choose through Android’s secure file picker.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
 }
