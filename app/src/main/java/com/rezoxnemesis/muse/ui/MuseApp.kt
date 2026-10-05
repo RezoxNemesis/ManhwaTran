@@ -336,34 +336,12 @@ fun MuseApp(
                         fromRoute in PrimaryRoutes && toRoute in PrimaryRoutes
 
                     if (primaryTabHop) {
-                        val fromIndex = PrimaryDestinations
-                            .indexOfFirst { it.route == fromRoute }
-                        val toIndex = PrimaryDestinations
-                            .indexOfFirst { it.route == toRoute }
-                        val direction = if (toIndex >= fromIndex) 1 else -1
-
                         fadeIn(
                             animationSpec = tween(
-                                durationMillis = 135,
+                                durationMillis = 120,
                                 easing = FastOutSlowInEasing,
                             ),
-                        ) +
-                            slideInHorizontally(
-                                animationSpec = tween(
-                                    durationMillis = 180,
-                                    easing = FastOutSlowInEasing,
-                                ),
-                                initialOffsetX = { width ->
-                                    direction * (width / 7)
-                                },
-                            ) +
-                            scaleIn(
-                                animationSpec = tween(
-                                    durationMillis = 165,
-                                    easing = FastOutSlowInEasing,
-                                ),
-                                initialScale = 0.985f,
-                            )
+                        )
                     } else {
                         val nowPlaying = toRoute == "nowPlaying"
                         fadeIn(
@@ -394,27 +372,12 @@ fun MuseApp(
                         fromRoute in PrimaryRoutes && toRoute in PrimaryRoutes
 
                     if (primaryTabHop) {
-                        val fromIndex = PrimaryDestinations
-                            .indexOfFirst { it.route == fromRoute }
-                        val toIndex = PrimaryDestinations
-                            .indexOfFirst { it.route == toRoute }
-                        val direction = if (toIndex >= fromIndex) -1 else 1
-
                         fadeOut(
                             animationSpec = tween(
-                                durationMillis = 105,
+                                durationMillis = 90,
                                 easing = FastOutSlowInEasing,
                             ),
-                        ) +
-                            slideOutHorizontally(
-                                animationSpec = tween(
-                                    durationMillis = 155,
-                                    easing = FastOutSlowInEasing,
-                                ),
-                                targetOffsetX = { width ->
-                                    direction * (width / 10)
-                                },
-                            )
+                        )
                     } else {
                         fadeOut(
                             animationSpec = tween(
@@ -549,6 +512,7 @@ private fun MuseBottomNavigation(
     var travelFromIndex by remember { mutableStateOf(routeIndex) }
     val travel = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
 
     LaunchedEffect(routeIndex) {
         if (routeIndex != visualIndex) {
@@ -558,7 +522,7 @@ private fun MuseBottomNavigation(
             travel.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(
-                    durationMillis = 320,
+                    durationMillis = 340,
                     easing = FastOutSlowInEasing,
                 ),
             )
@@ -579,91 +543,63 @@ private fun MuseBottomNavigation(
                 .padding(horizontal = 5.dp, vertical = 5.dp),
         ) {
             val itemWidth = maxWidth / PrimaryDestinations.size
+            val itemWidthPx = with(density) { itemWidth.toPx() }
             val progress = travel.value.coerceIn(0f, 1f)
             val eased = FastOutSlowInEasing.transform(progress)
             val from = travelFromIndex.toFloat()
             val to = visualIndex.toFloat()
             val direction = kotlin.math.sign(to - from)
-            val baseWidth = itemWidth * 0.92f
-
-            val startCenter = itemWidth * (from + 0.5f)
-            val endCenter = itemWidth * (to + 0.5f)
-            val startLeft = startCenter - baseWidth / 2
-            val startRight = startCenter + baseWidth / 2
-            val endLeft = endCenter - baseWidth / 2
-            val endRight = endCenter + baseWidth / 2
-
-            fun mixDp(
-                a: androidx.compose.ui.unit.Dp,
-                b: androidx.compose.ui.unit.Dp,
-                t: Float,
-            ) = a + (b - a) * t.coerceIn(0f, 1f)
-
-            // True "worm" motion: the leading glass edge reaches the next icon
-            // first, the capsule visibly stretches across the gap, then the
-            // trailing edge catches up and the glass contracts into place.
-            val firstHalf = (eased * 2f).coerceIn(0f, 1f)
-            val secondHalf = ((eased - 0.5f) * 2f).coerceIn(0f, 1f)
-
-            val indicatorLeft: androidx.compose.ui.unit.Dp
-            val indicatorRight: androidx.compose.ui.unit.Dp
-            if (direction >= 0f) {
-                indicatorLeft = if (eased < 0.5f) {
-                    startLeft
-                } else {
-                    mixDp(startLeft, endLeft, secondHalf)
-                }
-                indicatorRight = if (eased < 0.5f) {
-                    mixDp(startRight, endRight, firstHalf)
-                } else {
-                    endRight
-                }
-            } else {
-                indicatorLeft = if (eased < 0.5f) {
-                    mixDp(startLeft, endLeft, firstHalf)
-                } else {
-                    endLeft
-                }
-                indicatorRight = if (eased < 0.5f) {
-                    startRight
-                } else {
-                    mixDp(startRight, endRight, secondHalf)
-                }
-            }
-
-            val indicatorWidth =
-                (indicatorRight - indicatorLeft).coerceAtLeast(baseWidth * 0.90f)
-            val indicatorOffset = indicatorLeft
+            val distance = kotlin.math.abs(to - from).coerceAtLeast(1f)
+            val animatedIndex = from + (to - from) * eased
             val stretchPhase = kotlin.math.sin(
-                Math.PI.toFloat() * progress
+                Math.PI.toFloat() * progress,
             ).coerceAtLeast(0f)
+
+            // This indicator never changes its layout width during travel.
+            // Translation/stretch are GPU transforms, so the bottom bar no
+            // longer remeasures every animation frame and therefore does not
+            // "jump" when navigation content is doing work at the same time.
+            val stretch = 1f +
+                stretchPhase *
+                (0.40f + 0.10f * distance.coerceAtMost(3f))
+            val squashY = 1f + stretchPhase * 0.055f
 
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
-                    .width(indicatorWidth)
+                    .offset(x = itemWidth * 0.04f)
+                    .width(itemWidth * 0.92f)
                     .height(52.dp)
                     .align(Alignment.CenterStart)
                     .graphicsLayer {
-                        scaleY = 1f + stretchPhase * 0.045f
+                        translationX = itemWidthPx * animatedIndex
+                        scaleX = stretch
+                        scaleY = squashY
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                            pivotFractionX = when {
+                                direction > 0f -> 0.18f
+                                direction < 0f -> 0.82f
+                                else -> 0.5f
+                            },
+                            pivotFractionY = 0.5f,
+                        )
                     }
                     .background(
                         brush = Brush.horizontalGradient(
                             listOf(
-                                MuseGreen.copy(alpha = 0.13f),
-                                MuseGreen.copy(alpha = 0.34f),
-                                Color(0xFFB8FF7A).copy(alpha = 0.11f),
+                                MuseGreen.copy(alpha = 0.12f),
+                                Color(0xFF93FF7B).copy(alpha = 0.35f),
+                                MuseGreen.copy(alpha = 0.15f),
                             )
                         ),
                         shape = RoundedCornerShape(26.dp),
                     )
                     .border(
-                        width = 0.85.dp,
+                        width = 0.9.dp,
                         brush = Brush.horizontalGradient(
                             listOf(
-                                Color.White.copy(alpha = 0.16f),
-                                MuseGreen.copy(alpha = 0.62f),
-                                Color.White.copy(alpha = 0.09f),
+                                Color.White.copy(alpha = 0.18f),
+                                Color(0xFFB6FF98).copy(alpha = 0.68f),
+                                MuseGreen.copy(alpha = 0.44f),
                             )
                         ),
                         shape = RoundedCornerShape(26.dp),
@@ -694,14 +630,12 @@ private fun MuseBottomNavigation(
                                 travel.animateTo(
                                     targetValue = 1f,
                                     animationSpec = tween(
-                                        durationMillis = 320,
+                                        durationMillis = 340,
                                         easing = FastOutSlowInEasing,
                                     ),
                                 )
                             }
 
-                            // Navigation begins at the same instant as the glass
-                            // reaction, so the capsule never feels late.
                             onNavigate(destination.route)
                         },
                     )
