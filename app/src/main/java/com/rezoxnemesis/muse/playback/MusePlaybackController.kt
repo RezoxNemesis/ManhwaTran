@@ -494,6 +494,9 @@ class MusePlaybackController(
     }
 
     fun setBassEnabled(enabled: Boolean) {
+        _audioEffects.value = _audioEffects.value.copy(
+            bassEnabled = enabled,
+        )
         sendAudioEffectUpdate(
             Bundle().apply {
                 putBoolean(AudioEffectProtocol.KeyBassEnabled, enabled)
@@ -502,6 +505,9 @@ class MusePlaybackController(
     }
 
     fun setBassStrength(strength: Int) {
+        _audioEffects.value = _audioEffects.value.copy(
+            bassStrength = strength.coerceIn(0, 700),
+        )
         sendAudioEffectUpdate(
             Bundle().apply {
                 putInt(AudioEffectProtocol.KeyBassStrength, strength)
@@ -510,6 +516,9 @@ class MusePlaybackController(
     }
 
     fun setVirtualizerEnabled(enabled: Boolean) {
+        _audioEffects.value = _audioEffects.value.copy(
+            virtualizerEnabled = enabled,
+        )
         sendAudioEffectUpdate(
             Bundle().apply {
                 putBoolean(AudioEffectProtocol.KeyVirtualizerEnabled, enabled)
@@ -518,6 +527,9 @@ class MusePlaybackController(
     }
 
     fun setVirtualizerStrength(strength: Int) {
+        _audioEffects.value = _audioEffects.value.copy(
+            virtualizerStrength = strength.coerceIn(0, 1000),
+        )
         sendAudioEffectUpdate(
             Bundle().apply {
                 putInt(AudioEffectProtocol.KeyVirtualizerStrength, strength)
@@ -526,6 +538,9 @@ class MusePlaybackController(
     }
 
     fun setLoudnessEnabled(enabled: Boolean) {
+        _audioEffects.value = _audioEffects.value.copy(
+            loudnessEnabled = enabled,
+        )
         sendAudioEffectUpdate(
             Bundle().apply {
                 putBoolean(AudioEffectProtocol.KeyLoudnessEnabled, enabled)
@@ -534,6 +549,9 @@ class MusePlaybackController(
     }
 
     fun setLoudnessGainMb(gainMb: Int) {
+        _audioEffects.value = _audioEffects.value.copy(
+            loudnessGainMb = gainMb.coerceIn(0, 600),
+        )
         sendAudioEffectUpdate(
             Bundle().apply {
                 putInt(AudioEffectProtocol.KeyLoudnessGainMb, gainMb)
