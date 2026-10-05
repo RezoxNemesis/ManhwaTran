@@ -603,9 +603,14 @@ internal fun MuseGlassAction(
     val pressed by interactionSource.collectIsPressedAsState()
     val activePress = pressed && enabled
     val scale by animateFloatAsState(
-        targetValue = if (activePress) 0.965f else 1f,
-        animationSpec = tween(durationMillis = 85),
+        targetValue = if (activePress) 0.952f else 1f,
+        animationSpec = tween(durationMillis = if (activePress) 78 else 120),
         label = "MuseGlassPressScale",
+    )
+    val pressGlow by animateFloatAsState(
+        targetValue = if (activePress) 1f else 0f,
+        animationSpec = tween(durationMillis = if (activePress) 70 else 145),
+        label = "MuseGlassPressGlow",
     )
 
     MuseGlassSurface(
@@ -621,14 +626,39 @@ internal fun MuseGlassAction(
                 enabled = enabled,
                 onClick = onClick,
             ),
-        variant = if (activePress && variant == MuseGlassVariant.Standard) {
-            MuseGlassVariant.Selected
-        } else {
-            variant
-        },
+        variant = variant,
         cornerRadius = cornerRadius,
-        content = content,
-    )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    if (pressGlow > 0.001f) {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.16f * pressGlow),
+                                    MuseGlow.copy(alpha = 0.17f * pressGlow),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(
+                                    x = size.width * 0.50f,
+                                    y = size.height * 0.46f,
+                                ),
+                                radius = size.maxDimension * 0.66f,
+                            ),
+                            center = Offset(
+                                x = size.width * 0.50f,
+                                y = size.height * 0.46f,
+                            ),
+                            radius = size.maxDimension * 0.66f,
+                        )
+                    }
+                },
+        ) {
+            content()
+        }
+    }
 }
 
 private data class Bokeh(
