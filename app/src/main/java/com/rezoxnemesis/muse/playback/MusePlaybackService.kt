@@ -8,7 +8,10 @@ import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
@@ -29,6 +32,7 @@ class MusePlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private lateinit var snapshotStore: PlaybackSnapshotStore
     private lateinit var audioEffects: AudioEffectEngine
+    private lateinit var softwareAudioProcessor: MuseSoftwareAudioProcessor
     private lateinit var sleepTimer: SleepTimerEngine
     private lateinit var preferences: MusePreferences
     private val handler = Handler(Looper.getMainLooper())
@@ -226,7 +230,11 @@ class MusePlaybackService : MediaSessionService() {
         super.onCreate()
 
         snapshotStore = PlaybackSnapshotStore(this)
-        audioEffects = AudioEffectEngine(this)
+        softwareAudioProcessor = MuseSoftwareAudioProcessor()
+        audioEffects = AudioEffectEngine(
+            context = this,
+            softwareProcessor = softwareAudioProcessor,
+        )
         preferences = MusePreferences(this)
 
         val audioAttributes = AudioAttributes.Builder()
@@ -234,7 +242,38 @@ class MusePlaybackService : MediaSessionService() {
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
-        val player = ExoPlayer.Builder(this)
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: android.content.Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean,
+                enableOffload: Boolean,
+            ): AudioSink {
+                return DefaultAudioSink.Builder(context)
+                    // Muse DSP intentionally operates on PCM16. Keeping float
+                    // output disabled guarantees a stable processor input format.
+                    .setEnableFloatOutput(false)
+                    .setEnableAudioTrackPlaybackParams(
+                        enableAudioTrackPlaybackParams,
+                    )
+                    .setOffloadMode(
+                        if (enableOffload) {
+                            DefaultAudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED
+                        } else {
+                            DefaultAudioSink.OFFLOAD_MODE_DISABLED
+                        }
+                    )
+                    .setAudioProcessors(
+                        arrayOf(softwareAudioProcessor),
+                    )
+                    .build()
+            }
+        }
+
+        val player = ExoPlayer.Builder(
+            this,
+            renderersFactory,
+        )
             .build()
             .apply {
                 setAudioAttributes(audioAttributes, true)
