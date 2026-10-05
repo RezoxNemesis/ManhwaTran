@@ -86,11 +86,11 @@ jobs:
       - name: Publish GitHub prerelease assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: muse-v0.2.0-native-preview.1
+          TAG: muse-v0.2.0-native-preview.2
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG"               dist/Muse-0.1.0-preview-debug.apk               dist/Muse-0.1.0-release-unsigned.apk               dist/SHA256SUMS.txt               --clobber
           else
-            gh release create "$TAG"               dist/Muse-0.1.0-preview-debug.apk               dist/Muse-0.1.0-release-unsigned.apk               dist/SHA256SUMS.txt               --target "$GITHUB_SHA"               --title "Muse Native UI Preview 1"               --prerelease               --notes "Install Muse-0.1.0-preview-debug.apk for Android testing. This build uses the native coded botanical/glass UI and does not package full-screen reference screenshots. The release-unsigned APK is included only as an optimized/R8 verification output. SHA256SUMS.txt contains integrity hashes."
+            gh release create "$TAG"               dist/Muse-0.1.0-preview-debug.apk               dist/Muse-0.1.0-release-unsigned.apk               dist/SHA256SUMS.txt               --target "$GITHUB_SHA"               --title "Muse Native UI Preview 2"               --prerelease               --notes "Install Muse-0.1.0-preview-debug.apk for Android testing. This build uses the refined native botanical/glass UI with deeper layered glass, more realistic coded foliage, and lighter navigation transitions. It does not package full-screen reference screenshots. The release-unsigned APK is included only as an optimized/R8 verification output. SHA256SUMS.txt contains integrity hashes."
           fi
