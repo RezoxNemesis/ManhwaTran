@@ -5971,7 +5971,7 @@ private fun EqualizerScreen(
                     } else {
                         "Start a track to activate the equalizer"
                     },
-                    body = "The controls stay tied to the real Android playback session. The design remains visible, but Muse never pretends an unavailable audio effect is active.",
+                    body = "Muse's software curve EQ and spatial compatibility DSP will become interactive as soon as the playback service connects.",
                 )
             }
         }
@@ -6002,13 +6002,6 @@ private fun EqualizerScreen(
                     }
                 }
             }
-        } else {
-            item {
-                EmptyCard(
-                    title = "Equalizer unavailable on this route",
-                    body = "Muse will enable the native EQ as soon as Android exposes one for the active playback session.",
-                )
-            }
         }
 
         item {
@@ -6037,12 +6030,16 @@ private fun EqualizerScreen(
                     },
                 )
                 ReferenceEffectOrb(
-                    title = "3D Audio",
+                    title = "Spatial 3D",
                     icon = Icons.Rounded.Explore,
-                    active = effects.spatialEnabled && effects.spatialAvailable,
-                    enabled = false,
+                    active = effects.spatialEnabled,
+                    enabled = effects.spatialAvailable && controlsEnabled,
                     modifier = Modifier.weight(1f),
-                    onClick = {},
+                    onClick = {
+                        viewModel.playback.setSpatialEnabled(
+                            !effects.spatialEnabled,
+                        )
+                    },
                 )
             }
         }
@@ -6078,17 +6075,64 @@ private fun EqualizerScreen(
                     )
                     HorizontalDivider(color = MuseBorder.copy(alpha = 0.35f))
                     ReferenceToggleRow(
-                        title = "3D Audio",
+                        title = "Muse Spatial 3D",
                         subtitle = when {
-                            !effects.spatialSupported -> "Not supported by this device"
-                            effects.spatialEnabled && effects.spatialAvailable -> "System spatial audio active"
-                            effects.spatialAvailable -> "Available through Android"
-                            else -> "Unavailable on the current route"
+                            effects.spatialCompatibilityMode ->
+                                "Compatibility DSP • works without Android Spatializer"
+                            effects.headTrackerAvailable && effects.spatialEnabled ->
+                                "System spatial route • head tracking available"
+                            effects.spatialEnabled ->
+                                "Muse stereo spatial field active"
+                            else ->
+                                "Software-compatible spatial widening"
                         },
-                        checked = effects.spatialEnabled && effects.spatialAvailable,
-                        enabled = false,
-                        onCheckedChange = {},
+                        checked = effects.spatialEnabled,
+                        enabled = effects.spatialAvailable && controlsEnabled,
+                        onCheckedChange = viewModel.playback::setSpatialEnabled,
                     )
+                    AnimatedVisibility(
+                        visible = effects.spatialEnabled,
+                        enter = fadeIn(animationSpec = tween(140)) +
+                            expandVertically(animationSpec = tween(180)),
+                        exit = fadeOut(animationSpec = tween(100)) +
+                            shrinkVertically(animationSpec = tween(140)),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(
+                                start = 16.dp,
+                                end = 16.dp,
+                                bottom = 14.dp,
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "Spatial Width",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "${effects.spatialWidth / 10}%",
+                                    color = MuseGreen,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                            Slider(
+                                value = effects.spatialWidth.toFloat(),
+                                onValueChange = {
+                                    viewModel.playback.setSpatialWidth(
+                                        it.roundToLong().toInt(),
+                                    )
+                                },
+                                valueRange = 0f..1000f,
+                                enabled = controlsEnabled,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
             }
         }
