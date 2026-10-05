@@ -629,9 +629,14 @@ internal fun MuseGlassAction(
         variant = variant,
         cornerRadius = cornerRadius,
     ) {
+        // IMPORTANT: do not fill the parent's unconstrained vertical space here.
+        // MuseGlassAction is used inside Scaffold bottom bars. A fillMaxSize()
+        // wrapper caused the newly-visible MiniPlayer to measure almost a full
+        // screen tall, which pushed the current destination off-screen and
+        // produced the "blank botanical screen with player strip at the top"
+        // seen in the user's real-device recording.
         Box(
             modifier = Modifier
-                .fillMaxSize()
                 .drawBehind {
                     if (pressGlow > 0.001f) {
                         drawCircle(
