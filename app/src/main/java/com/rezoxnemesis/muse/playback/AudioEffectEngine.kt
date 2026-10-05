@@ -17,11 +17,6 @@ class AudioEffectEngine(
         Context.MODE_PRIVATE,
     )
 
-    init {
-        restoreValues()
-        applyEnabledState()
-    }
-
     private var audioSessionId: Int = 0
     private var bassBoost: BassBoost? = null
     private var virtualizer: Virtualizer? = null
@@ -34,6 +29,11 @@ class AudioEffectEngine(
     private var bypass: Boolean
         get() = preferences.getBoolean(KeyBypassPref, false)
         set(value) = preferences.edit().putBoolean(KeyBypassPref, value).apply()
+
+    init {
+        restoreValues()
+        applyEnabledState()
+    }
 
     fun attach(sessionId: Int) {
         if (sessionId <= 0 || sessionId == audioSessionId) return
