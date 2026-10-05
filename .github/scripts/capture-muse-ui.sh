@@ -2,6 +2,12 @@
 set -euo pipefail
 
 adb wait-for-device
+until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do
+  sleep 2
+done
+adb shell input keyevent KEYCODE_WAKEUP || true
+adb shell wm dismiss-keyguard || true
+sleep 5
 adb shell settings put system font_scale 1.0
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
@@ -37,11 +43,29 @@ capture_route() {
   adb shell am start -W \
     -n com.rezoxnemesis.muse/.MainActivity \
     --es com.rezoxnemesis.muse.extra.OPEN_ROUTE "$route"
-  sleep 3
+  sleep 6
 
   if ! adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
     echo "Muse process exited while opening route: $route" >&2
     adb logcat -d -v threadtime | tail -n 500 >&2 || true
+    exit 1
+  fi
+
+  # Do not accept a splash screen as proof that a requested route rendered.
+  adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null
+  adb pull /sdcard/muse-window.xml /tmp/muse-window.xml >/dev/null
+  case "$route" in
+    home) expected="Home" ;;
+    explore) expected="Explore" ;;
+    library) expected="Your Library" ;;
+    equalizer) expected="Equalizer" ;;
+    settings) expected="Settings" ;;
+    sleep) expected="Sleep Timer" ;;
+    *) expected="" ;;
+  esac
+  if [[ -n "$expected" ]] && ! grep -Fq "$expected" /tmp/muse-window.xml; then
+    echo "Requested route '$route' did not reach expected UI '$expected'" >&2
+    cat /tmp/muse-window.xml >&2 || true
     exit 1
   fi
 
