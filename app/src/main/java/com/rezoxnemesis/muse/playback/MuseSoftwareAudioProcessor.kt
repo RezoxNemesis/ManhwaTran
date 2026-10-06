@@ -5,6 +5,7 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
@@ -63,6 +64,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
     private val rightFilters = Array(BandCentersHz.size) { Biquad() }
     private val bassLeft = Biquad()
     private val bassRight = Biquad()
+    private val visualEnergyMeter = MuseAudioEnergyMeter()
 
     fun setProcessingEnabled(
         enabled: Boolean,
@@ -95,6 +97,8 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
     }
 
     fun currentLevels(): IntArray = levelsMb.copyOf()
+
+    fun currentVisualEnergy(): Float = visualEnergyMeter.value()
 
     fun setBassEnabled(enabled: Boolean) {
         bassEnabled = enabled
@@ -160,6 +164,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
 
     override fun onFlush() {
         resetFilterMemory()
+        visualEnergyMeter.reset()
         appliedRevision = Long.MIN_VALUE
     }
 
@@ -195,6 +200,9 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
             1f
         }
 
+        var blockEnergySum = 0f
+        var blockFrameCount = 0
+
         while (inputBuffer.remaining() >= StereoFrameBytes) {
             var left = inputBuffer.short.toFloat()
             var right = inputBuffer.short.toFloat()
@@ -226,8 +234,19 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
                 right *= loudnessGain
             }
 
+            blockEnergySum += (
+                abs(left) + abs(right)
+                ) * 0.5f / Short.MAX_VALUE.toFloat()
+            blockFrameCount += 1
+
             output.putShort(left.toPcm16())
             output.putShort(right.toPcm16())
+        }
+
+        if (blockFrameCount > 0) {
+            visualEnergyMeter.observeBlock(
+                blockEnergySum / blockFrameCount,
+            )
         }
 
         // Defensive passthrough for an incomplete trailing frame.

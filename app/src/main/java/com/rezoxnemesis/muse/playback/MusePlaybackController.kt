@@ -85,6 +85,7 @@ data class AudioEffectsUiState(
     val spatialCompatibilityMode: Boolean = false,
     val spatialWidth: Int = 680,
     val headTrackerAvailable: Boolean = false,
+    val visualEnergy: Float = 0f,
 )
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -394,6 +395,32 @@ class MusePlaybackController(
             {
                 runCatching { future.get() }
                     .onSuccess(::applyAudioEffectResult)
+            },
+            mainExecutor,
+        )
+    }
+
+    private fun refreshVisualEnergy() {
+        val mediaController = controller ?: return
+        val future = mediaController.sendCustomCommand(
+            AudioEffectProtocol.GetVisualEnergyCommand,
+            Bundle.EMPTY,
+        )
+        future.addListener(
+            {
+                runCatching { future.get() }
+                    .onSuccess { result ->
+                        if (result.resultCode != SessionResult.RESULT_SUCCESS) {
+                            return@onSuccess
+                        }
+                        val energy = result.extras.getFloat(
+                            AudioEffectProtocol.KeyVisualEnergy,
+                            0f,
+                        ).coerceIn(0f, 1f)
+                        _audioEffects.value = _audioEffects.value.copy(
+                            visualEnergy = energy,
+                        )
+                    }
             },
             mainExecutor,
         )
@@ -721,6 +748,7 @@ class MusePlaybackController(
             headTrackerAvailable = extras.getBoolean(
                 AudioEffectProtocol.KeyHeadTrackerAvailable,
             ),
+            visualEnergy = _audioEffects.value.visualEnergy,
         )
     }
 
@@ -729,8 +757,9 @@ class MusePlaybackController(
         tickerJob = scope.launch {
             while (isActive) {
                 controller?.let(::syncFrom)
+                refreshVisualEnergy()
                 syncSleepTimerCountdown()
-                delay(500)
+                delay(350)
             }
         }
     }

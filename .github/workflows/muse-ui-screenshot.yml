@@ -5,6 +5,7 @@ on:
     branches:
       - feature/muse-foundation
       - feature/muse-native-reference-ui
+      - feature/muse-living-atmosphere
   workflow_dispatch:
 
 permissions:

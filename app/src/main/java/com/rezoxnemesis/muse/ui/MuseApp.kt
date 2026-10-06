@@ -263,6 +263,19 @@ fun MuseApp(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
+    val audioEffects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
+    val visualEnergy by animateFloatAsState(
+        targetValue = if (playback.isPlaying) {
+            audioEffects.visualEnergy
+        } else {
+            0f
+        },
+        animationSpec = spring(
+            dampingRatio = 0.82f,
+            stiffness = 280f,
+        ),
+        label = "MuseAudioEnergy",
+    )
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val visualPreferences = remember(context) {
@@ -371,6 +384,7 @@ fun MuseApp(
             intensity = visualIntensity,
             profile = resolvedVisualProfile,
             rainLevel = rainLevel,
+            audioEnergy = visualEnergy,
             touchRipple = touchRipple,
             modifier = Modifier.fillMaxSize(),
         )
@@ -644,9 +658,9 @@ private fun MuseBottomNavigation(
             travel.snapTo(0f)
             travel.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = 340,
-                    easing = FastOutSlowInEasing,
+                animationSpec = spring(
+                    dampingRatio = 0.76f,
+                    stiffness = 430f,
                 ),
             )
         }
@@ -667,13 +681,15 @@ private fun MuseBottomNavigation(
         ) {
             val itemWidth = maxWidth / PrimaryDestinations.size
             val itemWidthPx = with(density) { itemWidth.toPx() }
-            val progress = travel.value.coerceIn(0f, 1f)
-            val eased = FastOutSlowInEasing.transform(progress)
+            val rawProgress = travel.value
+            val progress = rawProgress.coerceIn(0f, 1f)
             val from = travelFromIndex.toFloat()
             val to = visualIndex.toFloat()
             val direction = kotlin.math.sign(to - from)
             val distance = kotlin.math.abs(to - from).coerceAtLeast(1f)
-            val animatedIndex = from + (to - from) * eased
+            // Keep the spring's tiny overshoot for position so the capsule
+            // arrives, compresses, then settles instead of stopping dead.
+            val animatedIndex = from + (to - from) * rawProgress
             val stretchPhase = kotlin.math.sin(
                 Math.PI.toFloat() * progress,
             ).coerceAtLeast(0f)
@@ -685,7 +701,12 @@ private fun MuseBottomNavigation(
             val stretch = 1f +
                 stretchPhase *
                 (0.40f + 0.10f * distance.coerceAtMost(3f))
-            val squashY = 1f + stretchPhase * 0.055f
+            val squashY = 1f - stretchPhase * 0.050f
+            val leadingPullPx =
+                direction *
+                    itemWidthPx *
+                    stretchPhase *
+                    (0.035f + 0.012f * distance.coerceAtMost(3f))
 
             Box(
                 modifier = Modifier
@@ -694,7 +715,8 @@ private fun MuseBottomNavigation(
                     .height(52.dp)
                     .align(Alignment.CenterStart)
                     .graphicsLayer {
-                        translationX = itemWidthPx * animatedIndex
+                        translationX =
+                            itemWidthPx * animatedIndex + leadingPullPx
                         scaleX = stretch
                         scaleY = squashY
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
@@ -752,9 +774,9 @@ private fun MuseBottomNavigation(
                                 travel.snapTo(0f)
                                 travel.animateTo(
                                     targetValue = 1f,
-                                    animationSpec = tween(
-                                        durationMillis = 340,
-                                        easing = FastOutSlowInEasing,
+                                    animationSpec = spring(
+                                        dampingRatio = 0.76f,
+                                        stiffness = 430f,
                                     ),
                                 )
                             }

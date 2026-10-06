@@ -154,10 +154,12 @@ internal fun MuseNativeBotanicalBackdrop(
     intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
     profile: MuseVisualProfile = MuseVisualProfile.VerdantRain,
     rainLevel: MuseRainLevel = MuseRainLevel.Rain,
+    audioEnergy: Float = 0f,
     touchRipple: MuseTouchRipple? = null,
     modifier: Modifier = Modifier,
 ) {
     val palette = profile.backdropPalette()
+    val atmosphere = profile.atmosphereBehavior()
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -239,13 +241,15 @@ internal fun MuseNativeBotanicalBackdrop(
                 )
             }
 
-            nativeLeafLayout(route).forEach { spec ->
-                drawBotanicalLeaf(
-                    spec = spec,
-                    strength = strength,
-                    pulse = 0.96f,
-                )
-            }
+            nativeLeafLayout(route)
+                .filterNot(LeafSpec::foreground)
+                .forEach { spec ->
+                    drawBotanicalLeaf(
+                        spec = spec,
+                        strength = strength,
+                        pulse = 0.96f,
+                    )
+                }
 
             // A soft centre veil keeps the excellent text clarity from the current
             // build while the leaves stay brighter and more dimensional at the edge.
@@ -262,26 +266,56 @@ internal fun MuseNativeBotanicalBackdrop(
             )
         }
 
-        if (active) {
-            MuseBotanicalMotionOverlay(
-                strength = strength,
-                palette = palette,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        MuseBotanicalMotionOverlay(
+            route = route,
+            active = active,
+            behavior = atmosphere,
+            strength = strength,
+            palette = palette,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        MuseProfileAtmosphereOverlay(
+            profile = profile,
+            behavior = atmosphere,
+            active = active,
+            audioEnergy = audioEnergy,
+            intensity = intensity,
+            modifier = Modifier.fillMaxSize(),
+        )
 
         if (rainLevel != MuseRainLevel.Off) {
-            MuseRainOverlay(
+            MuseLivingRainOverlay(
                 level = rainLevel,
-                palette = palette,
+                profile = profile,
+                behavior = atmosphere,
                 intensity = intensity,
                 modifier = Modifier.fillMaxSize(),
             )
         }
 
+        MuseAtmosphereV2Overlay(
+            route = route,
+            profile = profile,
+            behavior = atmosphere,
+            active = active,
+            audioEnergy = audioEnergy,
+            rainLevel = rainLevel,
+            intensity = intensity,
+            touchRipple = touchRipple,
+            modifier = Modifier.fillMaxSize(),
+        )
+
         MuseTouchRippleOverlay(
             ripple = touchRipple,
             palette = palette,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        MuseReactiveDropletOverlay(
+            ripple = touchRipple,
+            profile = profile,
+            behavior = atmosphere,
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -289,6 +323,9 @@ internal fun MuseNativeBotanicalBackdrop(
 
 @Composable
 private fun MuseBotanicalMotionOverlay(
+    route: String?,
+    active: Boolean,
+    behavior: MuseAtmosphereBehavior,
     strength: Float,
     palette: MuseBackdropPalette,
     modifier: Modifier = Modifier,
@@ -299,7 +336,7 @@ private fun MuseBotanicalMotionOverlay(
         targetValue = 0.018f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 9_500,
+                durationMillis = if (active) 7_600 else 12_800,
                 easing = LinearEasing,
             ),
             repeatMode = RepeatMode.Reverse,
@@ -311,7 +348,7 @@ private fun MuseBotanicalMotionOverlay(
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 6_800,
+                durationMillis = if (active) 5_400 else 9_800,
                 easing = LinearEasing,
             ),
             repeatMode = RepeatMode.Reverse,
@@ -354,6 +391,59 @@ private fun MuseBotanicalMotionOverlay(
             center = lower,
             radius = size.minDimension * 0.42f,
         )
+
+        // Foreground foliage lives on the animated layer. The back canopy stays
+        // still, so this produces real depth/parallax without moving the UI.
+        val swayAmplitude = size.width *
+            (if (active) 0.012f else 0.0055f) *
+            behavior.foliageMotion *
+            behavior.depthParallax
+        val liftAmplitude = size.height *
+            (if (active) 0.0055f else 0.0025f) *
+            behavior.foliageMotion *
+            behavior.depthParallax
+
+        nativeLeafLayout(route)
+            .filter(LeafSpec::foreground)
+            .forEachIndexed { index, spec ->
+                val direction = if (index % 2 == 0) 1f else -1f
+                val localPhase = drift * direction
+                val shifted = spec.copy(
+                    x = spec.x + (localPhase * 0.22f * behavior.foliageMotion),
+                    y = spec.y + (localPhase * 0.07f * behavior.foliageMotion),
+                    angle = spec.angle +
+                        localPhase * 18f * behavior.foliageMotion,
+                )
+                drawBotanicalLeaf(
+                    spec = shifted,
+                    strength = strength,
+                    pulse = 0.90f + pulse * 0.10f,
+                )
+
+                // A tiny moving specular bead gives wet leaves a physical shimmer
+                // without turning the foliage into a flashing visualizer.
+                if (index % 2 == 0) {
+                    val center = Offset(
+                        x = size.width * shifted.x +
+                            swayAmplitude * direction * pulse,
+                        y = size.height * shifted.y -
+                            liftAmplitude * pulse,
+                    )
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.11f * pulse * strength),
+                                palette.keyLight.copy(alpha = 0.045f * pulse * strength),
+                                Color.Transparent,
+                            ),
+                            center = center,
+                            radius = 8.dp.toPx(),
+                        ),
+                        center = center,
+                        radius = 8.dp.toPx(),
+                    )
+                }
+            }
     }
 }
 
