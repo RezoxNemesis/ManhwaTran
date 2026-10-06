@@ -158,6 +158,7 @@ internal fun MuseNativeBotanicalBackdrop(
     modifier: Modifier = Modifier,
 ) {
     val palette = profile.backdropPalette()
+    val atmosphere = profile.atmosphereBehavior()
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -270,10 +271,19 @@ internal fun MuseNativeBotanicalBackdrop(
             )
         }
 
+        MuseProfileAtmosphereOverlay(
+            profile = profile,
+            behavior = atmosphere,
+            active = active,
+            intensity = intensity,
+            modifier = Modifier.fillMaxSize(),
+        )
+
         if (rainLevel != MuseRainLevel.Off) {
-            MuseRainOverlay(
+            MuseLivingRainOverlay(
                 level = rainLevel,
-                palette = palette,
+                profile = profile,
+                behavior = atmosphere,
                 intensity = intensity,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -282,6 +292,13 @@ internal fun MuseNativeBotanicalBackdrop(
         MuseTouchRippleOverlay(
             ripple = touchRipple,
             palette = palette,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        MuseReactiveDropletOverlay(
+            ripple = touchRipple,
+            profile = profile,
+            behavior = atmosphere,
             modifier = Modifier.fillMaxSize(),
         )
     }
