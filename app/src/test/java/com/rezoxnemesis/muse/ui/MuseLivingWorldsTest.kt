@@ -78,4 +78,57 @@ class MuseLivingWorldsTest {
         assertNotEquals(aurora.chromeKind, ocean.chromeKind)
     }
 
+    @Test
+    fun worldIdentityChangesGeometryAndChromeMotionNotOnlyColor() {
+        val foliage = MuseVisualProfile.entries.map {
+            it.livingWorldStyle().foliageKind.geometry()
+        }
+        val chrome = MuseVisualProfile.entries.map {
+            it.livingWorldStyle().chromeKind.geometry()
+        }
+
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            foliage.map {
+                listOf(
+                    it.shoulderWidth,
+                    it.waistWidth,
+                    it.waveAmount,
+                    it.asymmetry,
+                    it.serration,
+                    it.roundness,
+                )
+            }.distinct().size,
+        )
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            chrome.map {
+                listOf(
+                    it.topStartScale,
+                    it.topEndScale,
+                    it.bottomEndScale,
+                    it.bottomStartScale,
+                    it.sheenTravel,
+                    it.rimPulse,
+                )
+            }.distinct().size,
+        )
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            chrome.map { it.motionPeriodMillis }.distinct().size,
+        )
+
+        val verdant = MuseWorldFoliageKind.WetBroadleaf.geometry()
+        val aurora = MuseWorldFoliageKind.PrismBlade.geometry()
+        val ember = MuseWorldFoliageKind.CharredShard.geometry()
+        val moon = MuseWorldFoliageKind.MoonLance.geometry()
+        val ocean = MuseWorldFoliageKind.TidalFrond.geometry()
+        val rose = MuseWorldFoliageKind.VelvetPetal.geometry()
+
+        assertTrue(ember.serration > aurora.serration)
+        assertTrue(ocean.waveAmount > moon.waveAmount)
+        assertTrue(rose.roundness > aurora.roundness)
+        assertTrue(verdant.shoulderWidth > moon.shoulderWidth)
+    }
+
 }
