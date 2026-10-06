@@ -278,7 +278,10 @@ internal fun MuseNativeBotanicalBackdrop(
             modifier = Modifier.fillMaxSize(),
         )
 
-        if (rainLevel != MuseRainLevel.Off) {
+        if (
+            rainLevel != MuseRainLevel.Off &&
+            profile.usesBotanicalRainLayer()
+        ) {
             MuseLivingRainOverlay(
                 level = rainLevel,
                 profile = profile,
