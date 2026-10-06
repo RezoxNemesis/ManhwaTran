@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Muse" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+
+    <style name="Theme.Muse.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#07140B</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/muse_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Muse</item>
+    </style>
+</resources>

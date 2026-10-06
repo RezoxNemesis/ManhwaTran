@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Muse</string>
+    <string name="tagline">Feel the Music</string>
+
+    <string name="widget_idle">Open Muse to start listening</string>
+    <string name="widget_previous">Previous track</string>
+    <string name="widget_play_pause">Play or pause</string>
+    <string name="widget_next">Next track</string>
+    <string name="widget_description">Muse playback controls</string>
+    <string name="widget_compact_description">Muse compact playback control</string>
+    <string name="widget_large_description">Muse expanded now-playing controls</string>
+    <string name="widget_actions_description">Muse quick access controls</string>
+    <string name="widget_actions_title">Muse Shortcuts</string>
+    <string name="widget_action_library">Library</string>
+    <string name="widget_action_downloads">Downloads</string>
+    <string name="widget_action_equalizer">Equalizer</string>
+    <string name="widget_action_sleep">Sleep Timer</string>
+</resources>
