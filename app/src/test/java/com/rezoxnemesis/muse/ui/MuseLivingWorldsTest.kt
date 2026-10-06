@@ -141,4 +141,36 @@ class MuseLivingWorldsTest {
         )
     }
 
+    @Test
+    fun worldsUseDifferentSceneCompositionsNotOnlyDifferentShapes() {
+        val scenes = MuseVisualProfile.entries.map { it.worldSceneGeometry() }
+
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            scenes.map {
+                listOf(
+                    it.widthScale,
+                    it.heightScale,
+                    it.verticalBias,
+                    it.rotationBias,
+                    it.edgePull,
+                    it.alphaScale,
+                )
+            }.distinct().size,
+        )
+
+        val verdant = MuseVisualProfile.VerdantRain.worldSceneGeometry()
+        val aurora = MuseVisualProfile.AuroraGlass.worldSceneGeometry()
+        val ember = MuseVisualProfile.MidnightEmber.worldSceneGeometry()
+        val moon = MuseVisualProfile.MoonlitViolet.worldSceneGeometry()
+        val ocean = MuseVisualProfile.OceanPulse.worldSceneGeometry()
+        val rose = MuseVisualProfile.RoseNoir.worldSceneGeometry()
+
+        assertTrue(verdant.widthScale > moon.widthScale)
+        assertTrue(ember.verticalBias > aurora.verticalBias)
+        assertTrue(ocean.heightScale > verdant.heightScale)
+        assertTrue(rose.rotationBias != moon.rotationBias)
+        assertTrue(aurora.alphaScale < verdant.alphaScale)
+    }
+
 }
