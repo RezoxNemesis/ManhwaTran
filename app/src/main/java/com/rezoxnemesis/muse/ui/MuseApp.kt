@@ -265,16 +265,36 @@ fun MuseApp(
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
     val audioEffects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
     val visualEnergy by animateFloatAsState(
-        targetValue = if (playback.isPlaying) {
-            audioEffects.visualEnergy
-        } else {
-            0f
-        },
-        animationSpec = spring(
-            dampingRatio = 0.82f,
-            stiffness = 280f,
-        ),
+        targetValue = if (playback.isPlaying) audioEffects.visualEnergy else 0f,
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = 280f),
         label = "MuseAudioEnergy",
+    )
+    val visualBass by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualBass else 0f,
+        animationSpec = spring(dampingRatio = 0.74f, stiffness = 360f),
+        label = "MuseAudioBass",
+    )
+    val visualMid by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualMid else 0f,
+        animationSpec = spring(dampingRatio = 0.80f, stiffness = 315f),
+        label = "MuseAudioMid",
+    )
+    val visualHigh by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualHigh else 0f,
+        animationSpec = spring(dampingRatio = 0.70f, stiffness = 410f),
+        label = "MuseAudioHigh",
+    )
+    val visualTransient by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualTransient else 0f,
+        animationSpec = spring(dampingRatio = 0.62f, stiffness = 520f),
+        label = "MuseAudioTransient",
+    )
+    val visualSpectrum = MuseAudioSpectrum(
+        energy = visualEnergy,
+        bass = visualBass,
+        mid = visualMid,
+        high = visualHigh,
+        transient = visualTransient,
     )
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -384,7 +404,7 @@ fun MuseApp(
             intensity = visualIntensity,
             profile = resolvedVisualProfile,
             rainLevel = rainLevel,
-            audioEnergy = visualEnergy,
+            audioSpectrum = visualSpectrum,
             touchRipple = touchRipple,
             modifier = Modifier.fillMaxSize(),
         )
