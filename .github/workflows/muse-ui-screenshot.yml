@@ -1,9 +1,6 @@
 name: Muse Runtime UI Capture
 
 on:
-  push:
-    branches:
-      - feature/muse-foundation
   workflow_dispatch:
 
 permissions:
@@ -15,7 +12,7 @@ concurrency:
 
 jobs:
   capture-reference-screens:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 35
 
     steps:
