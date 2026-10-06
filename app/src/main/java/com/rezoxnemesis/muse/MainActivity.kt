@@ -33,7 +33,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,11 +46,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.rezoxnemesis.muse.ui.MuseExactVisualApp
-import com.rezoxnemesis.muse.ui.MuseExactReferenceSurface
-import com.rezoxnemesis.muse.ui.MuseReferenceScreen
+import com.rezoxnemesis.muse.ui.MuseApp
 import com.rezoxnemesis.muse.ui.MuseGlassVariant
 import com.rezoxnemesis.muse.ui.MuseGlassSurface
+import com.rezoxnemesis.muse.ui.MuseNativeBotanicalBackdrop
+import com.rezoxnemesis.muse.ui.MuseBrandMark
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
 import com.rezoxnemesis.muse.ui.theme.MuseTheme
@@ -173,7 +172,7 @@ private fun PermissionAwareMuse(
     }
 
     if (granted || continueWithoutLibraryAccess) {
-        MuseExactVisualApp(
+        MuseApp(
             viewModel = viewModel,
             requestedRoute = requestedRoute,
             onRouteHandled = onRouteHandled,
@@ -204,8 +203,9 @@ private fun MusicPermissionScreen(
             .fillMaxSize()
             .testTag("MuseRoot"),
     ) {
-        MuseExactReferenceSurface(
-            screen = MuseReferenceScreen.Splash,
+        MuseNativeBotanicalBackdrop(
+            route = "splash",
+            active = false,
             modifier = Modifier.fillMaxSize(),
         )
 

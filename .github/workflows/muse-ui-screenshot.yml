@@ -19,14 +19,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Materialize repaired Muse visual screens
+      - name: Guard native Muse UI architecture
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq webp
-          python3 -m pip install --quiet pillow
-          python3 .github/scripts/materialize-muse-assets.py
+          test -f app/src/main/java/com/rezoxnemesis/muse/ui/MuseApp.kt
+          test -f app/src/main/java/com/rezoxnemesis/muse/ui/MuseBotanicalBackdrop.kt
+          test ! -f app/src/main/java/com/rezoxnemesis/muse/ui/MuseExactVisualApp.kt
+          test ! -f app/src/main/java/com/rezoxnemesis/muse/ui/MuseReferenceBackdrop.kt
+          ! grep -R "MuseExactVisualApp\|MuseExactReferenceSurface" app/src/main/java/com/rezoxnemesis/muse
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
