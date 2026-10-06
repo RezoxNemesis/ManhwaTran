@@ -323,6 +323,9 @@ fun MuseApp(
             descriptor = visualDescriptor,
         )
     }
+    var touchRipple by remember {
+        mutableStateOf<MuseTouchRipple?>(null)
+    }
     val showPrimaryNav = currentRoute in PrimaryRoutes
 
     LaunchedEffect(requestedRoute) {
@@ -339,7 +342,25 @@ fun MuseApp(
         modifier = Modifier
             .fillMaxSize()
             .testTag("MuseRoot")
-            .background(MuseBackground),
+            .background(MuseBackground)
+            .pointerInput(Unit) {
+                var sequence = 0L
+                awaitEachGesture {
+                    val down = awaitFirstDown(
+                        requireUnconsumed = false,
+                    )
+                    val width = size.width.toFloat().coerceAtLeast(1f)
+                    val height = size.height.toFloat().coerceAtLeast(1f)
+                    sequence += 1L
+                    touchRipple = MuseTouchRipple(
+                        id = sequence,
+                        xFraction = (down.position.x / width)
+                            .coerceIn(0f, 1f),
+                        yFraction = (down.position.y / height)
+                            .coerceIn(0f, 1f),
+                    )
+                }
+            },
     ) {
         MuseNativeBotanicalBackdrop(
             route = currentRoute,
@@ -347,6 +368,7 @@ fun MuseApp(
             intensity = visualIntensity,
             profile = resolvedVisualProfile,
             rainLevel = rainLevel,
+            touchRipple = touchRipple,
             modifier = Modifier.fillMaxSize(),
         )
 

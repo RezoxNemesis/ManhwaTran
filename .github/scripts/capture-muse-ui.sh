@@ -33,6 +33,25 @@ adb shell am broadcast \
 
 mkdir -p ui-captures
 
+dump_ui_to() {
+  local output="$1"
+
+  for attempt in 1 2 3 4 5; do
+    rm -f "$output"
+    adb shell rm -f /sdcard/muse-window.xml >/dev/null 2>&1 || true
+    adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+    adb pull /sdcard/muse-window.xml "$output" >/dev/null 2>&1 || true
+    if [[ -s "$output" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "UiAutomator did not produce a window dump: $output" >&2
+  adb logcat -d -v threadtime | tail -n 250 >&2 || true
+  return 1
+}
+
 capture_route() {
   local route="$1"
   local output="$2"
@@ -59,6 +78,7 @@ capture_route() {
     explore) expected="Explore" ;;
     library) expected="Your Library" ;;
     equalizer) expected="Equalizer" ;;
+    tools) expected="Muse Lab" ;;
     settings) expected="Settings" ;;
     sleep) expected="Sleep Timer" ;;
     *) expected="" ;;
@@ -68,8 +88,7 @@ capture_route() {
     matched=0
     for attempt in 1 2 3 4 5; do
       rm -f /tmp/muse-window.xml
-      adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
-      adb pull /sdcard/muse-window.xml /tmp/muse-window.xml >/dev/null 2>&1 || true
+      dump_ui_to /tmp/muse-window.xml || true
       if [[ -s /tmp/muse-window.xml ]] && grep -Fq "$expected" /tmp/muse-window.xml; then
         matched=1
         break
@@ -101,8 +120,7 @@ adb shell am start -W \
   -n com.rezoxnemesis.muse/.MainActivity \
   --es com.rezoxnemesis.muse.extra.OPEN_ROUTE library
 sleep 6
-adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
-adb pull /sdcard/muse-window.xml /tmp/muse-library-before-play.xml >/dev/null 2>&1 || true
+dump_ui_to /tmp/muse-library-before-play.xml
 
 python3 - <<'PY'
 import re
@@ -141,8 +159,7 @@ PY
 )
 adb shell input tap "$track_x" "$track_y"
 sleep 3
-adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
-adb pull /sdcard/muse-window.xml /tmp/muse-library-after-play.xml >/dev/null 2>&1 || true
+dump_ui_to /tmp/muse-library-after-play.xml
 if ! grep -Fq "Your Library" /tmp/muse-library-after-play.xml; then
   echo "Starting playback expanded the mini player/bottom bar over the Library screen" >&2
   cat /tmp/muse-library-after-play.xml >&2 || true
@@ -152,6 +169,18 @@ adb exec-out screencap -p > ui-captures/muse-library-playing-runtime.png
 test -s ui-captures/muse-library-playing-runtime.png
 
 capture_route equalizer muse-equalizer-runtime.png
+capture_route tools muse-lab-runtime.png
+dump_ui_to /tmp/muse-lab.xml
+if ! grep -Fq "Atmosphere Studio" /tmp/muse-lab.xml; then
+  echo "Muse Lab did not expose the live Atmosphere Studio" >&2
+  cat /tmp/muse-lab.xml >&2 || true
+  exit 1
+fi
+if ! grep -Fq "Auto" /tmp/muse-lab.xml || ! grep -Fq "Verdant Rain" /tmp/muse-lab.xml; then
+  echo "Muse Lab visual scene controls were not reachable" >&2
+  cat /tmp/muse-lab.xml >&2 || true
+  exit 1
+fi
 
 # The Equalizer must remain present even on the CI emulator where the OEM
 # Equalizer/Spatializer stack is absent. Muse's software DSP is the fallback.

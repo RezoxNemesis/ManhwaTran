@@ -1,5 +1,7 @@
 package com.rezoxnemesis.muse.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -11,7 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -26,6 +30,12 @@ import androidx.compose.ui.unit.dp
 import com.rezoxnemesis.muse.ui.theme.MuseBackground
 import com.rezoxnemesis.muse.ui.theme.MuseGlow
 import com.rezoxnemesis.muse.ui.theme.MuseGreen
+
+internal data class MuseTouchRipple(
+    val id: Long,
+    val xFraction: Float,
+    val yFraction: Float,
+)
 
 internal enum class MuseVisualIntensity(
     val storedValue: String,
@@ -144,6 +154,7 @@ internal fun MuseNativeBotanicalBackdrop(
     intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
     profile: MuseVisualProfile = MuseVisualProfile.VerdantRain,
     rainLevel: MuseRainLevel = MuseRainLevel.Rain,
+    touchRipple: MuseTouchRipple? = null,
     modifier: Modifier = Modifier,
 ) {
     val palette = profile.backdropPalette()
@@ -267,6 +278,12 @@ internal fun MuseNativeBotanicalBackdrop(
                 modifier = Modifier.fillMaxSize(),
             )
         }
+
+        MuseTouchRippleOverlay(
+            ripple = touchRipple,
+            palette = palette,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
@@ -340,6 +357,72 @@ private fun MuseBotanicalMotionOverlay(
     }
 }
 
+
+
+@Composable
+private fun MuseTouchRippleOverlay(
+    ripple: MuseTouchRipple?,
+    palette: MuseBackdropPalette,
+    modifier: Modifier = Modifier,
+) {
+    if (ripple == null) return
+
+    val progress = remember { Animatable(1f) }
+    LaunchedEffect(ripple.id) {
+        progress.snapTo(0f)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = 820,
+                easing = FastOutSlowInEasing,
+            ),
+        )
+    }
+
+    Canvas(modifier) {
+        val p = progress.value.coerceIn(0f, 1f)
+        val center = Offset(
+            x = size.width * ripple.xFraction,
+            y = size.height * ripple.yFraction,
+        )
+        val fade = (1f - p).coerceIn(0f, 1f)
+        val baseRadius = size.minDimension * (0.035f + 0.24f * p)
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    palette.keyLight.copy(alpha = 0.11f * fade),
+                    palette.secondaryLight.copy(alpha = 0.055f * fade),
+                    Color.Transparent,
+                ),
+                center = center,
+                radius = baseRadius.coerceAtLeast(1f),
+            ),
+            center = center,
+            radius = baseRadius.coerceAtLeast(1f),
+        )
+
+        repeat(3) { ring ->
+            val delayed = (p - ring * 0.10f).coerceIn(0f, 1f)
+            if (delayed <= 0f) return@repeat
+            val ringFade = (1f - delayed) * (1f - ring * 0.18f)
+            drawCircle(
+                color = palette.rainTint.copy(
+                    alpha = 0.30f * ringFade,
+                ),
+                radius = size.minDimension *
+                    (0.025f + delayed * (0.16f + ring * 0.045f)),
+                center = center,
+                style = Stroke(
+                    width = (1.25f - ring * 0.18f)
+                        .coerceAtLeast(0.7f)
+                        .dp
+                        .toPx(),
+                ),
+            )
+        }
+    }
+}
 
 @Composable
 private fun MuseRainOverlay(
