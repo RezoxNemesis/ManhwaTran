@@ -37,6 +37,7 @@ internal fun MuseProfileAtmosphereOverlay(
     profile: MuseVisualProfile,
     behavior: MuseAtmosphereBehavior,
     active: Boolean,
+    audioEnergy: Float,
     intensity: MuseVisualIntensity,
     modifier: Modifier = Modifier,
 ) {
@@ -79,8 +80,12 @@ internal fun MuseProfileAtmosphereOverlay(
         MuseVisualIntensity.Balanced -> 1f
         MuseVisualIntensity.Vivid -> 1.22f
     }
+    val normalizedEnergy = audioEnergy.coerceIn(0f, 1f)
     val musicLift = if (active) {
-        1f + behavior.musicResponse * 0.16f * breathe
+        1f + behavior.musicResponse * (
+            0.055f * breathe +
+                0.30f * normalizedEnergy
+            )
     } else {
         0.78f
     }
