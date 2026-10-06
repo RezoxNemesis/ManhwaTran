@@ -92,7 +92,7 @@ internal fun MuseProfileAtmosphereOverlay(
                 repeat(10) { index ->
                     val xSeed = ((index * 37 + 13) % 101) / 100f
                     val ySeed = ((index * 29 + 17) % 97) / 96f
-                    val drift = sin((phase * 2f * PI + index * 0.8).toFloat())
+                    val drift = sin(phase.toDouble() * 2.0 * PI + index * 0.8).toFloat()
                     val center = Offset(
                         x = size.width * (xSeed + drift * 0.006f * behavior.foliageMotion),
                         y = size.height * ySeed,
@@ -117,7 +117,7 @@ internal fun MuseProfileAtmosphereOverlay(
             MuseAtmosphereKind.AuroraRibbons -> {
                 repeat(3) { ribbon ->
                     val yBase = size.height * (0.16f + ribbon * 0.18f)
-                    val wave = sin((phase * 2f * PI + ribbon * 1.7).toFloat())
+                    val wave = sin(phase.toDouble() * 2.0 * PI + ribbon * 1.7).toFloat()
                     val path = Path().apply {
                         moveTo(-size.width * 0.08f, yBase)
                         cubicTo(
@@ -174,7 +174,7 @@ internal fun MuseProfileAtmosphereOverlay(
                     val ySeed = ((index * 31 + 5) % 109) / 108f
                     val speed = 0.26f + ((index * 17) % 31) / 100f
                     val y = (ySeed - phase * speed + 1.08f) % 1.08f
-                    val sway = sin((phase * 2f * PI + index).toFloat()) * 0.016f
+                    val sway = sin(phase.toDouble() * 2.0 * PI + index).toFloat() * 0.016f
                     val center = Offset(
                         size.width * (xSeed + sway),
                         size.height * y,
@@ -273,7 +273,7 @@ internal fun MuseProfileAtmosphereOverlay(
                 }
 
                 repeat(6) { beam ->
-                    val shift = sin((phase * 2f * PI + beam).toFloat()) * size.width * 0.025f
+                    val shift = sin(phase.toDouble() * 2.0 * PI + beam).toFloat() * size.width * 0.025f
                     drawLine(
                         brush = Brush.verticalGradient(
                             listOf(
