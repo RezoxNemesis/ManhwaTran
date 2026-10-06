@@ -413,11 +413,42 @@ private fun MuseBotanicalMotionOverlay(
             .forEachIndexed { index, spec ->
                 val direction = if (index % 2 == 0) 1f else -1f
                 val localPhase = drift * direction
+                val worldMotion = when (style.motionKind) {
+                    MuseWorldMotionKind.RainWeightedSway -> Triple(
+                        localPhase * 0.30f,
+                        localPhase * 0.08f + (1f - pulse) * 0.005f,
+                        localPhase * 24f,
+                    )
+                    MuseWorldMotionKind.RibbonDrift -> Triple(
+                        localPhase * 0.18f,
+                        (pulse - 0.86f) * 0.010f,
+                        localPhase * 11f,
+                    )
+                    MuseWorldMotionKind.ThermalLift -> Triple(
+                        localPhase * 0.08f,
+                        -(pulse - 0.72f) * 0.016f,
+                        localPhase * 7f,
+                    )
+                    MuseWorldMotionKind.LunarFloat -> Triple(
+                        localPhase * 0.10f,
+                        (pulse - 0.84f) * 0.006f,
+                        localPhase * 8f,
+                    )
+                    MuseWorldMotionKind.TidalPulse -> Triple(
+                        localPhase * 0.22f,
+                        (pulse - 0.82f) * 0.014f,
+                        localPhase * 15f,
+                    )
+                    MuseWorldMotionKind.PetalOrbit -> Triple(
+                        localPhase * 0.16f,
+                        direction * (pulse - 0.84f) * 0.010f,
+                        localPhase * 18f,
+                    )
+                }
                 val shifted = spec.copy(
-                    x = spec.x + (localPhase * 0.22f * behavior.foliageMotion),
-                    y = spec.y + (localPhase * 0.07f * behavior.foliageMotion),
-                    angle = spec.angle +
-                        localPhase * 18f * behavior.foliageMotion,
+                    x = spec.x + worldMotion.first * behavior.foliageMotion,
+                    y = spec.y + worldMotion.second * behavior.foliageMotion,
+                    angle = spec.angle + worldMotion.third * behavior.foliageMotion,
                 )
                 drawBotanicalLeaf(
                     spec = shifted,
@@ -661,17 +692,17 @@ private fun DrawScope.drawBotanicalLeaf(
             brush = Brush.linearGradient(
                 colors = if (spec.foreground) {
                     listOf(
-                        Color(0xFFC8FF82).copy(alpha = alpha),
-                        Color(0xFF72DF4F).copy(alpha = alpha),
-                        Color(0xFF258238).copy(alpha = alpha),
-                        Color(0xFF082813).copy(alpha = alpha),
-                        Color(0xFF020E07).copy(alpha = alpha),
+                        style.leafHighlight.copy(alpha = alpha),
+                        style.leafPrimary.copy(alpha = alpha),
+                        style.leafSecondary.copy(alpha = alpha),
+                        style.leafShadow.copy(alpha = alpha),
+                        Color.Black.copy(alpha = alpha * 0.92f),
                     )
                 } else {
                     listOf(
-                        Color(0xFF7ED95A).copy(alpha = alpha * 0.80f),
-                        Color(0xFF2E7C35).copy(alpha = alpha * 0.84f),
-                        Color(0xFF07190D).copy(alpha = alpha),
+                        style.leafPrimary.copy(alpha = alpha * 0.72f),
+                        style.leafSecondary.copy(alpha = alpha * 0.82f),
+                        style.leafShadow.copy(alpha = alpha),
                     )
                 },
                 start = Offset(center.x - half * 0.78f, tip.y),
@@ -695,9 +726,13 @@ private fun DrawScope.drawBotanicalLeaf(
                     brush = Brush.radialGradient(
                         colors = listOf(
                             if (index % 2 == 0) {
-                                Color(0xFFE9FFC4).copy(alpha = alpha * spot[3])
+                                style.subsurfaceTint.copy(
+                                    alpha = alpha * spot[3] * style.subsurfaceLight,
+                                )
                             } else {
-                                Color(0xFF174D26).copy(alpha = alpha * spot[3] * 0.90f)
+                                style.leafShadow.copy(
+                                    alpha = alpha * spot[3] * style.surfaceRoughness,
+                                )
                             },
                             Color.Transparent,
                         ),
@@ -731,8 +766,14 @@ private fun DrawScope.drawBotanicalLeaf(
             path = gloss,
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = alpha * 0.42f * pulse),
-                    Color(0xFFCBFF8F).copy(alpha = alpha * 0.12f),
+                    style.specularTint.copy(
+                        alpha = alpha *
+                            (0.22f + (1f - style.surfaceRoughness) * 0.34f) *
+                            pulse,
+                    ),
+                    style.subsurfaceTint.copy(
+                        alpha = alpha * 0.14f * style.subsurfaceLight,
+                    ),
                     Color.Transparent,
                 ),
                 startY = tip.y,
@@ -743,12 +784,14 @@ private fun DrawScope.drawBotanicalLeaf(
 
         drawPath(
             path = leaf,
-            color = Color(0xFFD7FF9A).copy(alpha = alpha * 0.50f),
+            color = style.leafHighlight.copy(
+                alpha = alpha * (0.22f + style.subsurfaceLight * 0.28f),
+            ),
             style = Stroke(width = 1.05.dp.toPx()),
         )
 
         drawLine(
-            color = Color(0xFF173D20).copy(alpha = alpha * 0.80f),
+            color = style.leafShadow.copy(alpha = alpha * 0.88f),
             start = base,
             end = Offset(
                 center.x + width * 0.055f * mirror,
@@ -761,9 +804,9 @@ private fun DrawScope.drawBotanicalLeaf(
         drawLine(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color(0xFFF2FFD3).copy(alpha = alpha * 0.86f),
-                    Color(0xFF8DFF62).copy(alpha = alpha * 0.52f),
-                    Color(0xFF1B7C36).copy(alpha = alpha * 0.26f),
+                    style.specularTint.copy(alpha = alpha * 0.72f),
+                    style.vein.copy(alpha = alpha * 0.58f),
+                    style.leafSecondary.copy(alpha = alpha * 0.30f),
                 ),
                 startY = tip.y,
                 endY = base.y,
@@ -781,14 +824,18 @@ private fun DrawScope.drawBotanicalLeaf(
             val span = half * taper
             val rise = height * (0.105f - index * 0.005f)
             drawLine(
-                color = Color(0xFFD8FFAB).copy(alpha = alpha * 0.28f),
+                color = style.vein.copy(
+                    alpha = alpha * (0.18f + style.subsurfaceLight * 0.18f),
+                ),
                 start = Offset(center.x, y),
                 end = Offset(center.x + span * mirror, y - rise),
                 strokeWidth = 0.72.dp.toPx(),
                 cap = StrokeCap.Round,
             )
             drawLine(
-                color = Color(0xFF8EF067).copy(alpha = alpha * 0.20f),
+                color = style.subsurfaceTint.copy(
+                    alpha = alpha * (0.10f + style.subsurfaceLight * 0.14f),
+                ),
                 start = Offset(center.x, y),
                 end = Offset(center.x - span * 0.88f * mirror, y - rise * 0.86f),
                 strokeWidth = 0.64.dp.toPx(),
@@ -812,9 +859,13 @@ private fun DrawScope.drawBotanicalLeaf(
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.90f * alpha),
-                            Color(0xFFD7FFCE).copy(alpha = 0.34f * alpha),
-                            Color(0xFF285B34).copy(alpha = 0.18f * alpha),
+                            Color.White.copy(
+                                alpha = 0.72f * alpha * style.waterAdhesion,
+                            ),
+                            style.specularTint.copy(
+                                alpha = 0.36f * alpha * style.waterAdhesion,
+                            ),
+                            style.leafShadow.copy(alpha = 0.16f * alpha),
                             Color.Transparent,
                         ),
                         center = Offset(point.x - radius * 0.24f, point.y - radius * 0.28f),
@@ -824,7 +875,11 @@ private fun DrawScope.drawBotanicalLeaf(
                     radius = radius * 1.45f,
                 )
                 drawCircle(
-                    color = Color.White.copy(alpha = (0.80f - index * 0.08f) * alpha),
+                    color = Color.White.copy(
+                        alpha = (0.72f - index * 0.07f) *
+                            alpha *
+                            style.waterAdhesion,
+                    ),
                     center = Offset(point.x - radius * 0.34f, point.y - radius * 0.38f),
                     radius = radius * 0.22f,
                 )
@@ -837,8 +892,12 @@ private fun DrawScope.drawBotanicalLeaf(
             drawOval(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = alpha * 0.86f),
-                        MuseGlow.copy(alpha = alpha * 0.28f),
+                        Color.White.copy(
+                            alpha = alpha * 0.76f * style.waterAdhesion,
+                        ),
+                        style.specularTint.copy(
+                            alpha = alpha * 0.32f * style.waterAdhesion,
+                        ),
                         Color.Transparent,
                     ),
                     center = Offset(dropCenter.x - width * 0.006f, dropCenter.y - height * 0.006f),
