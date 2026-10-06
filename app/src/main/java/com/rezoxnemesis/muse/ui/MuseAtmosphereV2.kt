@@ -191,13 +191,6 @@ internal fun MuseAtmosphereV2Overlay(
             energy = energy,
             strength = intensityScale,
         )
-        drawProfileSignatureV2(
-            chrome = chrome,
-            behavior = behavior,
-            phase = phase,
-            microPhase = microPhase,
-            strength = signatureStrength,
-        )
         drawLeafBoundWater(
             route = route,
             chrome = chrome,
