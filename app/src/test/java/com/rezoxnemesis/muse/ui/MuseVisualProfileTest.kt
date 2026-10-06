@@ -70,6 +70,16 @@ class MuseVisualProfileTest {
             behaviors.getValue(MuseVisualProfile.RoseNoir).bloomStrength > 0.5f,
         )
         assertTrue(behaviors.values.all { it.musicResponse in 0.2f..1.0f })
+        assertTrue(behaviors.values.all { it.depthParallax in 0.5f..1.0f })
+        assertTrue(behaviors.values.all { it.leafWetness in 0.55f..1.0f })
+        assertTrue(behaviors.values.all { it.profileSignature >= 0.72f })
+        assertTrue(
+            behaviors.getValue(MuseVisualProfile.VerdantRain).rainImpactResponse > 0.85f,
+        )
+        assertTrue(
+            behaviors.getValue(MuseVisualProfile.OceanPulse).musicTransientResponse >
+                behaviors.getValue(MuseVisualProfile.MoonlitViolet).musicTransientResponse,
+        )
     }
 
     @Test
