@@ -52,4 +52,30 @@ class MuseLivingWorldsTest {
         assertTrue(ocean.refractionImpulse > verdant.refractionImpulse)
         assertTrue(moon.calmFactor > ocean.calmFactor)
     }
+    @Test
+    fun worldsHaveDistinctFoliageSilhouettesAndUiMaterialLanguages() {
+        val worlds = MuseVisualProfile.entries.associateWith { it.livingWorldStyle() }
+
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            worlds.values.map { it.foliageKind }.distinct().size,
+        )
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            worlds.values.map { it.chromeKind }.distinct().size,
+        )
+
+        val verdant = worlds.getValue(MuseVisualProfile.VerdantRain)
+        val aurora = worlds.getValue(MuseVisualProfile.AuroraGlass)
+        val ember = worlds.getValue(MuseVisualProfile.MidnightEmber)
+        val moon = worlds.getValue(MuseVisualProfile.MoonlitViolet)
+        val ocean = worlds.getValue(MuseVisualProfile.OceanPulse)
+        val rose = worlds.getValue(MuseVisualProfile.RoseNoir)
+
+        assertTrue(verdant.edgeIrregularity > aurora.edgeIrregularity)
+        assertTrue(ember.edgeIrregularity > moon.edgeIrregularity)
+        assertNotEquals(verdant.foliageKind, rose.foliageKind)
+        assertNotEquals(aurora.chromeKind, ocean.chromeKind)
+    }
+
 }
