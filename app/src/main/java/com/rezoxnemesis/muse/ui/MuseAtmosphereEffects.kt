@@ -453,8 +453,8 @@ internal fun MuseReactiveDropletOverlay(
                 0.004f *
                 behavior.dropletMobility
             val center = Offset(
-                x = origin.x + cos(angle) * spread + wobble,
-                y = origin.y + sin(angle) * spread +
+                x = origin.x + cos(angle.toDouble()).toFloat() * spread + wobble,
+                y = origin.y + sin(angle.toDouble()).toFloat() * spread +
                     size.height * p * 0.028f * behavior.dropletMobility,
             )
             val radius = (1.6f + (index % 3) * 0.55f).dp.toPx()
