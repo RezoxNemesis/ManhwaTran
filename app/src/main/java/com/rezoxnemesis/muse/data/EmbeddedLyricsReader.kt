@@ -1,0 +1,320 @@
+package com.rezoxnemesis.muse.data
+
+import java.nio.charset.Charset
+
+object EmbeddedLyricsReader {
+    fun readUnsynchronisedLyrics(
+        bytes: ByteArray,
+    ): String? {
+        if (bytes.size < Id3HeaderBytes) return null
+        if (
+            bytes[0] != 'I'.code.toByte() ||
+            bytes[1] != 'D'.code.toByte() ||
+            bytes[2] != '3'.code.toByte()
+        ) {
+            return null
+        }
+
+        val majorVersion = bytes[3].toInt() and 0xFF
+        if (majorVersion !in 2..4) return null
+
+        val flags = bytes[5].toInt() and 0xFF
+        val declaredSize = synchsafeInt(bytes, 6)
+            ?: return null
+        val tagEnd = (Id3HeaderBytes + declaredSize)
+            .coerceAtMost(bytes.size)
+        if (tagEnd <= Id3HeaderBytes) return null
+
+        var payload = bytes.copyOfRange(
+            Id3HeaderBytes,
+            tagEnd,
+        )
+        if (flags and 0x80 != 0) {
+            payload = removeUnsynchronisation(payload)
+        }
+
+        var offset = extendedHeaderOffset(
+            payload = payload,
+            majorVersion = majorVersion,
+            hasExtendedHeader = flags and 0x40 != 0,
+        )
+
+        while (offset < payload.size) {
+            val parsed = when (majorVersion) {
+                2 -> parseV22Frame(payload, offset)
+                3 -> parseV23Frame(payload, offset)
+                else -> parseV24Frame(payload, offset)
+            } ?: break
+
+            val frameId = parsed.id
+            if (
+                (majorVersion == 2 && frameId == "ULT") ||
+                (majorVersion >= 3 && frameId == "USLT")
+            ) {
+                decodeLyricsFrame(parsed.body)?.let { lyric ->
+                    if (lyric.isNotBlank()) {
+                        return lyric.trim()
+                    }
+                }
+            }
+
+            if (parsed.nextOffset <= offset) break
+            offset = parsed.nextOffset
+        }
+
+        return null
+    }
+
+    private fun parseV22Frame(
+        payload: ByteArray,
+        offset: Int,
+    ): Frame? {
+        if (offset + 6 > payload.size) return null
+        val id = ascii(payload, offset, 3)
+        if (!validFrameId(id)) return null
+
+        val size =
+            ((payload[offset + 3].toInt() and 0xFF) shl 16) or
+                ((payload[offset + 4].toInt() and 0xFF) shl 8) or
+                (payload[offset + 5].toInt() and 0xFF)
+        if (size <= 0) return null
+
+        val bodyStart = offset + 6
+        val bodyEnd = bodyStart + size
+        if (bodyEnd > payload.size) return null
+
+        return Frame(
+            id = id,
+            body = payload.copyOfRange(bodyStart, bodyEnd),
+            nextOffset = bodyEnd,
+        )
+    }
+
+    private fun parseV23Frame(
+        payload: ByteArray,
+        offset: Int,
+    ): Frame? {
+        if (offset + 10 > payload.size) return null
+        val id = ascii(payload, offset, 4)
+        if (!validFrameId(id)) return null
+
+        val size = bigEndianInt(payload, offset + 4)
+            ?: return null
+        if (size <= 0) return null
+
+        val bodyStart = offset + 10
+        val bodyEnd = bodyStart + size
+        if (bodyEnd > payload.size) return null
+
+        return Frame(
+            id = id,
+            body = payload.copyOfRange(bodyStart, bodyEnd),
+            nextOffset = bodyEnd,
+        )
+    }
+
+    private fun parseV24Frame(
+        payload: ByteArray,
+        offset: Int,
+    ): Frame? {
+        if (offset + 10 > payload.size) return null
+        val id = ascii(payload, offset, 4)
+        if (!validFrameId(id)) return null
+
+        val size = synchsafeInt(payload, offset + 4)
+            ?: return null
+        if (size <= 0) return null
+
+        val bodyStart = offset + 10
+        val bodyEnd = bodyStart + size
+        if (bodyEnd > payload.size) return null
+
+        return Frame(
+            id = id,
+            body = payload.copyOfRange(bodyStart, bodyEnd),
+            nextOffset = bodyEnd,
+        )
+    }
+
+    private fun decodeLyricsFrame(
+        body: ByteArray,
+    ): String? {
+        if (body.size < 4) return null
+
+        val encoding = body[0].toInt() and 0xFF
+        val textStart = 4
+        if (textStart >= body.size) return null
+
+        val descriptorEnd = when (encoding) {
+            1, 2 -> findDoubleZero(body, textStart)
+            else -> findZero(body, textStart)
+        }
+
+        val lyricStart = if (descriptorEnd < 0) {
+            textStart
+        } else {
+            descriptorEnd + if (encoding == 1 || encoding == 2) 2 else 1
+        }.coerceAtMost(body.size)
+
+        if (lyricStart >= body.size) return null
+        val lyricBytes = body.copyOfRange(
+            lyricStart,
+            body.size,
+        )
+
+        return decodeText(
+            bytes = lyricBytes,
+            encoding = encoding,
+        )
+            ?.trim('\u0000', '\uFEFF', '\uFFFE')
+            ?.replace("\u0000", "")
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun decodeText(
+        bytes: ByteArray,
+        encoding: Int,
+    ): String? =
+        runCatching {
+            val charset = when (encoding) {
+                0 -> Charset.forName("ISO-8859-1")
+                1 -> Charset.forName("UTF-16")
+                2 -> Charset.forName("UTF-16BE")
+                3 -> Charsets.UTF_8
+                else -> return null
+            }
+            String(bytes, charset)
+        }.getOrNull()
+
+    private fun extendedHeaderOffset(
+        payload: ByteArray,
+        majorVersion: Int,
+        hasExtendedHeader: Boolean,
+    ): Int {
+        if (!hasExtendedHeader || payload.size < 4) {
+            return 0
+        }
+
+        return when (majorVersion) {
+            3 -> {
+                val size = bigEndianInt(payload, 0)
+                    ?: return 0
+                (4 + size).coerceAtMost(payload.size)
+            }
+
+            4 -> {
+                val size = synchsafeInt(payload, 0)
+                    ?: return 0
+                size.coerceAtMost(payload.size)
+            }
+
+            else -> 0
+        }
+    }
+
+    private fun removeUnsynchronisation(
+        source: ByteArray,
+    ): ByteArray {
+        val output = ByteArray(source.size)
+        var write = 0
+        var read = 0
+        while (read < source.size) {
+            val current = source[read]
+            output[write++] = current
+            if (
+                current == 0xFF.toByte() &&
+                read + 1 < source.size &&
+                source[read + 1] == 0x00.toByte()
+            ) {
+                read += 1
+            }
+            read += 1
+        }
+        return output.copyOf(write)
+    }
+
+    private fun findZero(
+        bytes: ByteArray,
+        start: Int,
+    ): Int {
+        for (index in start until bytes.size) {
+            if (bytes[index] == 0.toByte()) return index
+        }
+        return -1
+    }
+
+    private fun findDoubleZero(
+        bytes: ByteArray,
+        start: Int,
+    ): Int {
+        var index = start
+        while (index + 1 < bytes.size) {
+            if (
+                bytes[index] == 0.toByte() &&
+                bytes[index + 1] == 0.toByte()
+            ) {
+                return index
+            }
+            index += 2
+        }
+        return -1
+    }
+
+    private fun validFrameId(
+        id: String,
+    ): Boolean =
+        id.isNotBlank() &&
+            id.all { char ->
+                char in 'A'..'Z' || char in '0'..'9'
+            }
+
+    private fun ascii(
+        bytes: ByteArray,
+        offset: Int,
+        length: Int,
+    ): String =
+        String(
+            bytes,
+            offset,
+            length,
+            Charsets.ISO_8859_1,
+        )
+
+    private fun bigEndianInt(
+        bytes: ByteArray,
+        offset: Int,
+    ): Int? {
+        if (offset + 4 > bytes.size) return null
+        return (
+            ((bytes[offset].toInt() and 0xFF) shl 24) or
+                ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
+                ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
+                (bytes[offset + 3].toInt() and 0xFF)
+            ).takeIf { it >= 0 }
+    }
+
+    private fun synchsafeInt(
+        bytes: ByteArray,
+        offset: Int,
+    ): Int? {
+        if (offset + 4 > bytes.size) return null
+        val values = IntArray(4) {
+            bytes[offset + it].toInt() and 0xFF
+        }
+        if (values.any { it and 0x80 != 0 }) return null
+        return (
+            (values[0] shl 21) or
+                (values[1] shl 14) or
+                (values[2] shl 7) or
+                values[3]
+            )
+    }
+
+    private data class Frame(
+        val id: String,
+        val body: ByteArray,
+        val nextOffset: Int,
+    )
+
+    private const val Id3HeaderBytes = 10
+}

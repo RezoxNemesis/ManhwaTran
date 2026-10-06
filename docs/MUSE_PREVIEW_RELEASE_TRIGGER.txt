@@ -1,0 +1,6 @@
+Muse preview release trigger
+
+Purpose: publish the current exact-visual Muse build after the legacy UI shell was removed.
+Source head before trigger: eb44e499ab4fd11395a1397072a9f6be04964f1b
+Visual mode: approved botanical/glass reference surface only, with transparent functional hotspots over real app actions.
+CI status before trigger: green.
