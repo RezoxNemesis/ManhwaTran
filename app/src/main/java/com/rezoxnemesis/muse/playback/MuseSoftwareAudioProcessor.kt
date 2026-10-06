@@ -101,7 +101,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
 
     fun currentVisualEnergy(): Float = visualSpectrumMeter.value().energy
 
-    fun currentVisualSpectrum(): MuseAudioSpectrum = visualSpectrumMeter.value()
+    internal fun currentVisualSpectrum(): MuseAudioSpectrum = visualSpectrumMeter.value()
 
     fun setBassEnabled(enabled: Boolean) {
         bassEnabled = enabled
