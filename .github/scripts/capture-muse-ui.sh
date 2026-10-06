@@ -52,6 +52,45 @@ dump_ui_to() {
   return 1
 }
 
+tap_text_from_dump() {
+  local dump_file="$1"
+  local needle="$2"
+  local tap_x
+  local tap_y
+
+  read tap_x tap_y < <(python3 - "$dump_file" "$needle" <<'PY'
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+path, needle = sys.argv[1], sys.argv[2]
+root = ET.parse(path).getroot()
+for node in root.iter("node"):
+    text = " ".join(
+        part for part in (
+            node.attrib.get("text") or "",
+            node.attrib.get("content-desc") or "",
+        )
+        if part
+    )
+    if needle not in text:
+        continue
+    match = re.match(
+        r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+        node.attrib.get("bounds", ""),
+    )
+    if match:
+        x1, y1, x2, y2 = map(int, match.groups())
+        print((x1 + x2) // 2, (y1 + y2) // 2)
+        break
+else:
+    raise SystemExit(f"Could not find UI text: {needle}")
+PY
+  )
+
+  adb shell input tap "$tap_x" "$tap_y"
+}
+
 capture_route() {
   local route="$1"
   local output="$2"
@@ -169,6 +208,21 @@ adb exec-out screencap -p > ui-captures/muse-library-playing-runtime.png
 test -s ui-captures/muse-library-playing-runtime.png
 
 capture_route equalizer muse-equalizer-runtime.png
+
+# The Equalizer must remain present even on the CI emulator where the OEM
+# Equalizer/Spatializer stack is absent. Muse's software DSP is the fallback.
+dump_ui_to /tmp/muse-equalizer.xml
+if ! grep -Fq "Muse Spatial 3D" /tmp/muse-equalizer.xml; then
+  echo "Muse Spatial 3D compatibility control is missing" >&2
+  cat /tmp/muse-equalizer.xml >&2 || true
+  exit 1
+fi
+if grep -Fq "Equalizer unavailable" /tmp/muse-equalizer.xml; then
+  echo "Software Equalizer fallback was not exposed" >&2
+  cat /tmp/muse-equalizer.xml >&2 || true
+  exit 1
+fi
+
 capture_route tools muse-lab-runtime.png
 dump_ui_to /tmp/muse-lab.xml
 if ! grep -Fq "Atmosphere Studio" /tmp/muse-lab.xml; then
@@ -182,20 +236,27 @@ if ! grep -Fq "Auto" /tmp/muse-lab.xml || ! grep -Fq "Verdant Rain" /tmp/muse-la
   exit 1
 fi
 
-# The Equalizer must remain present even on the CI emulator where the OEM
-# Equalizer/Spatializer stack is absent. Muse's software DSP is the fallback.
-adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
-adb pull /sdcard/muse-window.xml /tmp/muse-equalizer.xml >/dev/null 2>&1 || true
-if ! grep -Fq "Muse Spatial 3D" /tmp/muse-equalizer.xml; then
-  echo "Muse Spatial 3D compatibility control is missing" >&2
-  cat /tmp/muse-equalizer.xml >&2 || true
+# Prove the scene cards are real controls, not decorative labels. Select a
+# non-default profile through the running UI and verify the debug app persists it.
+tap_text_from_dump /tmp/muse-lab.xml "Aurora Glass"
+sleep 1
+visual_prefs="$(adb shell run-as com.rezoxnemesis.muse   cat shared_prefs/muse_visual_preferences.xml 2>/dev/null | tr -d '\r' || true)"
+if ! grep -Fq "aurora_glass" <<<"$visual_prefs"; then
+  echo "Aurora Glass selection did not persist from the real Muse Lab control" >&2
+  printf '%s\n' "$visual_prefs" >&2
   exit 1
 fi
-if grep -Fq "Equalizer unavailable" /tmp/muse-equalizer.xml; then
-  echo "Software Equalizer fallback was not exposed" >&2
-  cat /tmp/muse-equalizer.xml >&2 || true
+dump_ui_to /tmp/muse-lab-aurora.xml
+tap_text_from_dump /tmp/muse-lab-aurora.xml "Downpour"
+sleep 1
+visual_prefs="$(adb shell run-as com.rezoxnemesis.muse   cat shared_prefs/muse_visual_preferences.xml 2>/dev/null | tr -d '\r' || true)"
+if ! grep -Fq "downpour" <<<"$visual_prefs"; then
+  echo "Downpour rain selection did not persist from the real Muse Lab control" >&2
+  printf '%s\n' "$visual_prefs" >&2
   exit 1
 fi
+adb exec-out screencap -p > ui-captures/muse-lab-aurora-downpour-runtime.png
+test -s ui-captures/muse-lab-aurora-downpour-runtime.png
 
 capture_route settings muse-settings-runtime.png
 capture_route sleep muse-sleep-runtime.png
