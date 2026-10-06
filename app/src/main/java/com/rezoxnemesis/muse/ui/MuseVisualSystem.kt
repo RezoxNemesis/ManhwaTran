@@ -68,6 +68,12 @@ internal val LocalMuseChromePalette = staticCompositionLocalOf {
     MuseVisualProfile.VerdantRain.chromePalette()
 }
 
+internal val LocalMuseLivingWorldStyle = staticCompositionLocalOf {
+    MuseVisualProfile.VerdantRain.livingWorldStyle()
+}
+
+internal val LocalMuseChromeMotionPhase = staticCompositionLocalOf { 0f }
+
 @Composable
 internal fun MuseChromePaletteProvider(
     profile: MuseVisualProfile,
@@ -76,8 +82,30 @@ internal fun MuseChromePaletteProvider(
     val palette = remember(profile) {
         profile.chromePalette()
     }
+    val world = remember(profile) {
+        profile.livingWorldStyle()
+    }
+    val chromeGeometry = remember(world.chromeKind) {
+        world.chromeKind.geometry()
+    }
+    val transition = rememberInfiniteTransition(label = "MuseWorldChrome")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = chromeGeometry.motionPeriodMillis,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "MuseWorldChromePhase",
+    )
+
     CompositionLocalProvider(
         LocalMuseChromePalette provides palette,
+        LocalMuseLivingWorldStyle provides world,
+        LocalMuseChromeMotionPhase provides phase,
         content = content,
     )
 }
@@ -295,6 +323,10 @@ internal fun MuseLivingLightOverlay(
 fun MuseBrandMark(
     modifier: Modifier = Modifier,
 ) {
+    val chrome = LocalMuseChromePalette.current
+    val world = LocalMuseLivingWorldStyle.current
+    val phase = LocalMuseChromeMotionPhase.current
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -303,102 +335,228 @@ fun MuseBrandMark(
             val w = size.width
             val h = size.height
 
-            val leaf = Path().apply {
-                moveTo(w * 0.19f, h * 0.82f)
-                cubicTo(
-                    w * 0.32f, h * 0.34f,
-                    w * 0.61f, h * 0.12f,
-                    w * 0.82f, h * 0.08f,
-                )
-                cubicTo(
-                    w * 0.83f, h * 0.43f,
-                    w * 0.68f, h * 0.76f,
-                    w * 0.24f, h * 0.88f,
-                )
-                cubicTo(
-                    w * 0.21f, h * 0.87f,
-                    w * 0.19f, h * 0.85f,
-                    w * 0.19f, h * 0.82f,
-                )
+            val motif = Path().apply {
+                when (world.foliageKind) {
+                    MuseWorldFoliageKind.WetBroadleaf -> {
+                        moveTo(w * 0.19f, h * 0.82f)
+                        cubicTo(
+                            w * 0.32f, h * 0.34f,
+                            w * 0.61f, h * 0.12f,
+                            w * 0.82f, h * 0.08f,
+                        )
+                        cubicTo(
+                            w * 0.83f, h * 0.43f,
+                            w * 0.68f, h * 0.76f,
+                            w * 0.24f, h * 0.88f,
+                        )
+                        cubicTo(
+                            w * 0.21f, h * 0.87f,
+                            w * 0.19f, h * 0.85f,
+                            w * 0.19f, h * 0.82f,
+                        )
+                    }
+                    MuseWorldFoliageKind.PrismBlade -> {
+                        moveTo(w * 0.20f, h * 0.84f)
+                        lineTo(w * 0.35f, h * 0.42f)
+                        lineTo(w * 0.78f, h * 0.08f)
+                        lineTo(w * 0.70f, h * 0.52f)
+                        lineTo(w * 0.28f, h * 0.90f)
+                    }
+                    MuseWorldFoliageKind.CharredShard -> {
+                        moveTo(w * 0.18f, h * 0.86f)
+                        lineTo(w * 0.31f, h * 0.58f)
+                        lineTo(w * 0.27f, h * 0.43f)
+                        lineTo(w * 0.48f, h * 0.33f)
+                        lineTo(w * 0.54f, h * 0.13f)
+                        lineTo(w * 0.70f, h * 0.24f)
+                        lineTo(w * 0.82f, h * 0.08f)
+                        lineTo(w * 0.75f, h * 0.46f)
+                        lineTo(w * 0.59f, h * 0.60f)
+                        lineTo(w * 0.63f, h * 0.77f)
+                        lineTo(w * 0.25f, h * 0.91f)
+                    }
+                    MuseWorldFoliageKind.MoonLance -> {
+                        moveTo(w * 0.20f, h * 0.87f)
+                        cubicTo(
+                            w * 0.31f, h * 0.38f,
+                            w * 0.58f, h * 0.10f,
+                            w * 0.82f, h * 0.10f,
+                        )
+                        cubicTo(
+                            w * 0.61f, h * 0.31f,
+                            w * 0.47f, h * 0.68f,
+                            w * 0.25f, h * 0.91f,
+                        )
+                    }
+                    MuseWorldFoliageKind.TidalFrond -> {
+                        moveTo(w * 0.18f, h * 0.86f)
+                        cubicTo(
+                            w * 0.27f, h * 0.60f,
+                            w * 0.62f, h * 0.54f,
+                            w * 0.47f, h * 0.34f,
+                        )
+                        cubicTo(
+                            w * 0.35f, h * 0.18f,
+                            w * 0.66f, h * 0.11f,
+                            w * 0.82f, h * 0.08f,
+                        )
+                        cubicTo(
+                            w * 0.73f, h * 0.38f,
+                            w * 0.47f, h * 0.53f,
+                            w * 0.30f, h * 0.90f,
+                        )
+                    }
+                    MuseWorldFoliageKind.VelvetPetal -> {
+                        moveTo(w * 0.22f, h * 0.87f)
+                        cubicTo(
+                            w * 0.12f, h * 0.57f,
+                            w * 0.27f, h * 0.21f,
+                            w * 0.50f, h * 0.23f,
+                        )
+                        cubicTo(
+                            w * 0.59f, h * 0.06f,
+                            w * 0.88f, h * 0.14f,
+                            w * 0.82f, h * 0.40f,
+                        )
+                        cubicTo(
+                            w * 0.76f, h * 0.69f,
+                            w * 0.51f, h * 0.85f,
+                            w * 0.26f, h * 0.91f,
+                        )
+                    }
+                }
                 close()
             }
 
             drawPath(
-                path = leaf,
+                path = motif,
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color(0xFFB8FF64),
-                        Color(0xFF4CC53E),
-                        Color(0xFF0B4B1A),
-                        Color(0xFF06210E),
+                        world.leafHighlight,
+                        world.leafPrimary,
+                        world.leafSecondary,
+                        world.leafShadow,
                     ),
                     start = Offset(w * 0.78f, h * 0.08f),
-                    end = Offset(w * 0.20f, h * 0.88f),
+                    end = Offset(w * 0.20f, h * 0.90f),
                 ),
             )
             drawPath(
-                path = leaf,
-                color = Color(0xFFD9FF9C).copy(alpha = 0.72f),
-                style = Stroke(width = 1.3.dp.toPx()),
+                path = motif,
+                color = chrome.highlight.copy(alpha = 0.70f),
+                style = Stroke(width = 1.35.dp.toPx()),
             )
             drawLine(
                 brush = Brush.linearGradient(
                     listOf(
-                        Color(0xFFE7FFC5),
-                        MuseGreen,
-                        Color(0xFFFFB977),
+                        chrome.highlight,
+                        chrome.primaryStrong,
+                        world.specularTint,
                     ),
                 ),
                 start = Offset(w * 0.22f, h * 0.84f),
                 end = Offset(w * 0.74f, h * 0.15f),
-                strokeWidth = 1.7.dp.toPx(),
+                strokeWidth = 1.8.dp.toPx(),
                 cap = StrokeCap.Round,
             )
 
-            val veins = listOf(
-                0.34f to 0.55f,
-                0.43f to 0.47f,
-                0.52f to 0.39f,
-                0.61f to 0.30f,
-            )
-            veins.forEach { (x, y) ->
-                drawLine(
-                    color = Color.White.copy(alpha = 0.24f),
-                    start = Offset(w * x, h * y),
-                    end = Offset(w * (x + 0.20f), h * (y - 0.08f)),
-                    strokeWidth = 0.8.dp.toPx(),
-                    cap = StrokeCap.Round,
-                )
+            // Each world carries a tiny moving signature inside the brand mark.
+            when (world.chromeKind) {
+                MuseWorldChromeKind.DewGlass -> {
+                    repeat(3) { index ->
+                        val x = w * (0.38f + index * 0.14f)
+                        val y = h * (0.30f + ((phase + index * 0.23f) % 1f) * 0.38f)
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color.White.copy(alpha = 0.78f), Color.Transparent),
+                                center = Offset(x, y),
+                                radius = 4.2.dp.toPx(),
+                            ),
+                            center = Offset(x, y),
+                            radius = 4.2.dp.toPx(),
+                        )
+                    }
+                }
+                MuseWorldChromeKind.PrismFacet -> {
+                    val travel = w * (-0.05f + phase * 0.80f)
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.42f),
+                        start = Offset(travel, h * 0.75f),
+                        end = Offset(travel + w * 0.34f, h * 0.18f),
+                        strokeWidth = 2.4.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
+                MuseWorldChromeKind.ForgedEmber -> {
+                    repeat(4) { index ->
+                        val local = (phase + index * 0.21f) % 1f
+                        drawCircle(
+                            color = chrome.highlight.copy(alpha = (1f - local) * 0.66f),
+                            center = Offset(
+                                w * (0.40f + index * 0.10f),
+                                h * (0.74f - local * 0.48f),
+                            ),
+                            radius = (1.4f + index * 0.25f).dp.toPx(),
+                        )
+                    }
+                }
+                MuseWorldChromeKind.LunarHalo -> {
+                    drawCircle(
+                        color = chrome.highlight.copy(alpha = 0.18f + phase * 0.10f),
+                        center = Offset(w * 0.61f, h * 0.35f),
+                        radius = w * (0.19f + phase * 0.035f),
+                        style = Stroke(width = 1.2.dp.toPx()),
+                    )
+                }
+                MuseWorldChromeKind.TidalLens -> {
+                    repeat(2) { index ->
+                        val local = (phase + index * 0.45f) % 1f
+                        drawOval(
+                            color = chrome.highlight.copy(alpha = (1f - local) * 0.30f),
+                            topLeft = Offset(
+                                w * (0.28f - local * 0.08f),
+                                h * (0.32f + index * 0.13f),
+                            ),
+                            size = Size(
+                                w * (0.44f + local * 0.18f),
+                                h * (0.11f + local * 0.04f),
+                            ),
+                            style = Stroke(width = 1.2.dp.toPx()),
+                        )
+                    }
+                }
+                MuseWorldChromeKind.RoseVelvet -> {
+                    repeat(3) { index ->
+                        val local = (phase + index * 0.31f) % 1f
+                        drawOval(
+                            color = chrome.highlight.copy(alpha = 0.16f + (1f - local) * 0.18f),
+                            topLeft = Offset(
+                                w * (0.47f + index * 0.06f),
+                                h * (0.26f + local * 0.22f),
+                            ),
+                            size = Size(w * 0.10f, h * 0.16f),
+                        )
+                    }
+                }
             }
 
             val barXs = listOf(0.67f, 0.73f, 0.79f, 0.85f)
             val barHeights = listOf(0.16f, 0.27f, 0.21f, 0.12f)
             val barColors = listOf(
-                MuseGreen,
-                Color(0xFFFFD26C),
-                Color(0xFFFFA85C),
-                MuseGreen,
+                chrome.primaryStrong,
+                chrome.highlight,
+                world.specularTint,
+                chrome.primary,
             )
             barXs.indices.forEach { index ->
-                val bh = h * barHeights[index]
+                val bh = h * barHeights[index] *
+                    (0.88f + if (index % 2 == 0) phase * 0.20f else (1f - phase) * 0.20f)
                 drawLine(
                     color = barColors[index],
                     start = Offset(w * barXs[index], h * 0.58f - bh / 2f),
                     end = Offset(w * barXs[index], h * 0.58f + bh / 2f),
                     strokeWidth = 5.dp.toPx(),
                     cap = StrokeCap.Round,
-                )
-            }
-
-            listOf(
-                Offset(w * 0.58f, h * 0.22f),
-                Offset(w * 0.73f, h * 0.32f),
-                Offset(w * 0.36f, h * 0.67f),
-            ).forEachIndexed { index, point ->
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.28f - index * 0.05f),
-                    center = point,
-                    radius = (2.2.dp + index.dp * 0.35f).toPx(),
                 )
             }
         }
@@ -422,7 +580,31 @@ internal fun MuseGlassSurface(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val chrome = LocalMuseChromePalette.current
-    val shape = RoundedCornerShape(cornerRadius)
+    val world = LocalMuseLivingWorldStyle.current
+    val chromeGeometry = world.chromeKind.geometry()
+    val materialPhase = if (
+        variant == MuseGlassVariant.Standard ||
+        variant == MuseGlassVariant.Destructive
+    ) {
+        0.34f
+    } else {
+        LocalMuseChromeMotionPhase.current
+    }
+    fun scaledRadius(scale: Float): Dp =
+        (cornerRadius.value * scale).dp
+    val shape = RoundedCornerShape(
+        topStart = scaledRadius(chromeGeometry.topStartScale),
+        topEnd = scaledRadius(chromeGeometry.topEndScale),
+        bottomEnd = scaledRadius(chromeGeometry.bottomEndScale),
+        bottomStart = scaledRadius(chromeGeometry.bottomStartScale),
+    )
+    val materialAlpha = when (variant) {
+        MuseGlassVariant.Standard -> 0.46f
+        MuseGlassVariant.Strong -> 0.70f
+        MuseGlassVariant.Elevated -> 0.82f
+        MuseGlassVariant.Selected -> 1.00f
+        MuseGlassVariant.Destructive -> 0f
+    }
     val fill = when (variant) {
         MuseGlassVariant.Standard -> listOf(
             chrome.glassBase.copy(alpha = 0.65f),
@@ -544,6 +726,140 @@ internal fun MuseGlassSurface(
                     ),
                     radius = size.maxDimension * 0.66f,
                 )
+
+                // World-specific material behavior keeps the UI itself from becoming
+                // the same glass card with six different tints.
+                when (world.chromeKind) {
+                    MuseWorldChromeKind.DewGlass -> {
+                        repeat(3) { index ->
+                            val x = size.width * (0.18f + index * 0.31f)
+                            val y = size.height * (0.12f + ((materialPhase + index * 0.27f) % 1f) * 0.18f)
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.18f * materialAlpha),
+                                        chrome.glow.copy(alpha = 0.055f * materialAlpha),
+                                        Color.Transparent,
+                                    ),
+                                    center = Offset(x, y),
+                                    radius = 5.5.dp.toPx(),
+                                ),
+                                center = Offset(x, y),
+                                radius = 5.5.dp.toPx(),
+                            )
+                        }
+                    }
+                    MuseWorldChromeKind.PrismFacet -> {
+                        val travelX = size.width * (-0.28f + materialPhase * 1.45f)
+                        drawLine(
+                            brush = Brush.linearGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.24f * materialAlpha),
+                                    chrome.glow.copy(alpha = 0.19f * materialAlpha),
+                                    Color.Transparent,
+                                ),
+                            ),
+                            start = Offset(travelX, size.height * 1.10f),
+                            end = Offset(travelX + size.width * 0.46f, -size.height * 0.10f),
+                            strokeWidth = 4.5.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                    }
+                    MuseWorldChromeKind.ForgedEmber -> {
+                        drawOval(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    chrome.primaryStrong.copy(
+                                        alpha = (0.07f + materialPhase * 0.05f) * materialAlpha,
+                                    ),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(size.width * 0.52f, size.height * 1.02f),
+                                radius = size.width * 0.70f,
+                            ),
+                            topLeft = Offset(-size.width * 0.08f, size.height * 0.72f),
+                            size = Size(size.width * 1.16f, size.height * 0.42f),
+                        )
+                        repeat(3) { index ->
+                            val local = (materialPhase + index * 0.29f) % 1f
+                            drawCircle(
+                                color = chrome.highlight.copy(
+                                    alpha = (1f - local) * 0.16f * materialAlpha,
+                                ),
+                                center = Offset(
+                                    size.width * (0.24f + index * 0.25f),
+                                    size.height * (0.90f - local * 0.58f),
+                                ),
+                                radius = (1.0f + index * 0.35f).dp.toPx(),
+                            )
+                        }
+                    }
+                    MuseWorldChromeKind.LunarHalo -> {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.085f * materialAlpha),
+                                    chrome.glow.copy(
+                                        alpha = (0.04f + materialPhase * 0.025f) * materialAlpha,
+                                    ),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(size.width * 0.76f, size.height * 0.02f),
+                                radius = size.maxDimension * 0.52f,
+                            ),
+                            center = Offset(size.width * 0.76f, size.height * 0.02f),
+                            radius = size.maxDimension * 0.52f,
+                        )
+                    }
+                    MuseWorldChromeKind.TidalLens -> {
+                        repeat(2) { index ->
+                            val local = (materialPhase + index * 0.48f) % 1f
+                            val ringWidth = size.width * (0.28f + local * 0.26f)
+                            val ringHeight = size.height * (0.18f + local * 0.10f)
+                            drawOval(
+                                color = chrome.highlight.copy(
+                                    alpha = (1f - local) * 0.11f * materialAlpha,
+                                ),
+                                topLeft = Offset(
+                                    size.width * 0.50f - ringWidth,
+                                    size.height * (0.42f + index * 0.12f) - ringHeight,
+                                ),
+                                size = Size(ringWidth * 2f, ringHeight * 2f),
+                                style = Stroke(width = 0.9.dp.toPx()),
+                            )
+                        }
+                    }
+                    MuseWorldChromeKind.RoseVelvet -> {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    chrome.highlight.copy(
+                                        alpha = (0.075f + materialPhase * 0.035f) * materialAlpha,
+                                    ),
+                                    chrome.primary.copy(alpha = 0.028f * materialAlpha),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(size.width * 0.86f, size.height * 0.12f),
+                                radius = size.maxDimension * 0.52f,
+                            ),
+                            center = Offset(size.width * 0.86f, size.height * 0.12f),
+                            radius = size.maxDimension * 0.52f,
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    chrome.glow.copy(alpha = 0.050f * materialAlpha),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(size.width * 0.12f, size.height * 0.88f),
+                                radius = size.maxDimension * 0.35f,
+                            ),
+                            center = Offset(size.width * 0.12f, size.height * 0.88f),
+                            radius = size.maxDimension * 0.35f,
+                        )
+                    }
+                }
 
                 // Bright upper rim plus a darker lower internal rim create a
                 // thicker pane instead of a flat translucent card.
