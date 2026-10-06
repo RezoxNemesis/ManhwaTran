@@ -41,6 +41,136 @@ internal enum class MuseWorldChromeKind {
     RoseVelvet,
 }
 
+
+internal data class MuseFoliageGeometry(
+    val shoulderWidth: Float,
+    val waistWidth: Float,
+    val waveAmount: Float,
+    val asymmetry: Float,
+    val serration: Float,
+    val roundness: Float,
+)
+
+internal data class MuseChromeGeometry(
+    val topStartScale: Float,
+    val topEndScale: Float,
+    val bottomEndScale: Float,
+    val bottomStartScale: Float,
+    val motionPeriodMillis: Int,
+    val sheenTravel: Float,
+    val rimPulse: Float,
+)
+
+internal fun MuseWorldFoliageKind.geometry(): MuseFoliageGeometry =
+    when (this) {
+        MuseWorldFoliageKind.WetBroadleaf -> MuseFoliageGeometry(
+            shoulderWidth = 0.98f,
+            waistWidth = 0.72f,
+            waveAmount = 0.08f,
+            asymmetry = 0.06f,
+            serration = 0.78f,
+            roundness = 0.72f,
+        )
+        MuseWorldFoliageKind.PrismBlade -> MuseFoliageGeometry(
+            shoulderWidth = 0.66f,
+            waistWidth = 0.48f,
+            waveAmount = 0.03f,
+            asymmetry = 0.02f,
+            serration = 0.12f,
+            roundness = 0.18f,
+        )
+        MuseWorldFoliageKind.CharredShard -> MuseFoliageGeometry(
+            shoulderWidth = 0.88f,
+            waistWidth = 0.54f,
+            waveAmount = 0.12f,
+            asymmetry = 0.18f,
+            serration = 0.94f,
+            roundness = 0.10f,
+        )
+        MuseWorldFoliageKind.MoonLance -> MuseFoliageGeometry(
+            shoulderWidth = 0.52f,
+            waistWidth = 0.38f,
+            waveAmount = 0.04f,
+            asymmetry = 0.04f,
+            serration = 0.08f,
+            roundness = 0.58f,
+        )
+        MuseWorldFoliageKind.TidalFrond -> MuseFoliageGeometry(
+            shoulderWidth = 0.72f,
+            waistWidth = 0.50f,
+            waveAmount = 0.32f,
+            asymmetry = 0.11f,
+            serration = 0.06f,
+            roundness = 0.44f,
+        )
+        MuseWorldFoliageKind.VelvetPetal -> MuseFoliageGeometry(
+            shoulderWidth = 0.92f,
+            waistWidth = 0.74f,
+            waveAmount = 0.10f,
+            asymmetry = 0.08f,
+            serration = 0.16f,
+            roundness = 1.00f,
+        )
+    }
+
+internal fun MuseWorldChromeKind.geometry(): MuseChromeGeometry =
+    when (this) {
+        MuseWorldChromeKind.DewGlass -> MuseChromeGeometry(
+            topStartScale = 1.15f,
+            topEndScale = 0.80f,
+            bottomEndScale = 1.08f,
+            bottomStartScale = 0.72f,
+            motionPeriodMillis = 5_200,
+            sheenTravel = 0.38f,
+            rimPulse = 0.44f,
+        )
+        MuseWorldChromeKind.PrismFacet -> MuseChromeGeometry(
+            topStartScale = 0.46f,
+            topEndScale = 1.10f,
+            bottomEndScale = 0.46f,
+            bottomStartScale = 1.10f,
+            motionPeriodMillis = 3_600,
+            sheenTravel = 0.92f,
+            rimPulse = 0.60f,
+        )
+        MuseWorldChromeKind.ForgedEmber -> MuseChromeGeometry(
+            topStartScale = 0.32f,
+            topEndScale = 0.32f,
+            bottomEndScale = 0.78f,
+            bottomStartScale = 0.78f,
+            motionPeriodMillis = 2_400,
+            sheenTravel = 0.28f,
+            rimPulse = 0.92f,
+        )
+        MuseWorldChromeKind.LunarHalo -> MuseChromeGeometry(
+            topStartScale = 1.28f,
+            topEndScale = 1.28f,
+            bottomEndScale = 1.28f,
+            bottomStartScale = 1.28f,
+            motionPeriodMillis = 7_600,
+            sheenTravel = 0.18f,
+            rimPulse = 0.30f,
+        )
+        MuseWorldChromeKind.TidalLens -> MuseChromeGeometry(
+            topStartScale = 1.18f,
+            topEndScale = 0.56f,
+            bottomEndScale = 1.18f,
+            bottomStartScale = 0.56f,
+            motionPeriodMillis = 4_100,
+            sheenTravel = 0.78f,
+            rimPulse = 0.70f,
+        )
+        MuseWorldChromeKind.RoseVelvet -> MuseChromeGeometry(
+            topStartScale = 1.32f,
+            topEndScale = 0.66f,
+            bottomEndScale = 1.32f,
+            bottomStartScale = 0.66f,
+            motionPeriodMillis = 6_100,
+            sheenTravel = 0.52f,
+            rimPulse = 0.58f,
+        )
+    }
+
 internal data class MuseLivingWorldStyle(
     val materialKind: MuseWorldMaterialKind,
     val motionKind: MuseWorldMotionKind,
