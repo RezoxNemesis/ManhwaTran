@@ -1,6 +1,6 @@
 # Muse 15-Screen Visual Reference Manifest
 
-This manifest locks the exact high-quality UI references approved for Muse. The original high-quality source images remain the visual authority. Runtime Muse now packages compact, softened derivatives of all 15 approved screens as screen-specific photographic atmosphere, while every readable label, icon, control, list item and action remains native Compose backed by real user/library state. The source mockups are never used as fake clickable screenshots.
+This manifest locks the exact high-quality UI references approved for Muse. The original high-quality source images remain visual references only. Runtime Muse must recreate the approved hierarchy, atmosphere and interaction quality with native Compose components backed by real user/library state. Full-screen mockups, flattened screenshots, invisible hotspot interfaces and reference images containing readable UI are forbidden as runtime surfaces. Decorative imagery may be used only for genuine artwork, texture or atmosphere that does not substitute for live controls.
 
 The canonical identity is deep forest green / near-black, realistic wet botanical atmosphere, translucent green glass surfaces, controlled luminous-green accents, white high-contrast typography, rounded geometry and album-art contrast. Example mock content in the images is not production data.
 
@@ -25,7 +25,7 @@ The canonical identity is deep forest green / near-black, realistic wet botanica
 ## Implementation rules
 
 - Treat the 15 references as visual, interaction and feature-density contracts.
-- Package reference-derived photographic atmosphere for all 15 destinations so the wet-leaf/bokeh/artwork character comes from the approved imagery rather than a generic procedural substitute.
+- Recreate the wet-leaf, rain, bokeh, glass and artwork character with live native layers. Decorative photographic assets are allowed only when they contain no baked UI and remain non-interactive atmosphere behind real Compose controls.
 - Never let readable mock text or mock controls become the functional interface. Real Compose controls must sit above the artwork and own all interaction/state.
 - Do not remove a visible reference action merely because it is inconvenient to implement. Implement a real useful behaviour when lawful/platform-feasible; otherwise show a truthful capability-disabled state rather than silently deleting it.
 - Use the exact approved Muse leaf/music-note logo where branding appears.

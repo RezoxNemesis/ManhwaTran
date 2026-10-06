@@ -48,6 +48,84 @@ internal enum class MuseVisualIntensity(
     }
 }
 
+
+private data class MuseBackdropPalette(
+    val background: List<Color>,
+    val keyLight: Color,
+    val secondaryLight: Color,
+    val rainTint: Color,
+)
+
+private fun MuseVisualProfile.backdropPalette(): MuseBackdropPalette =
+    when (this) {
+        MuseVisualProfile.VerdantRain -> MuseBackdropPalette(
+            background = listOf(
+                Color(0xFF010604),
+                Color(0xFF03170B),
+                Color(0xFF001108),
+                Color(0xFF020805),
+            ),
+            keyLight = Color(0xFFDFFF80),
+            secondaryLight = Color(0xFF72E666),
+            rainTint = Color(0xFFE8FFD8),
+        )
+        MuseVisualProfile.AuroraGlass -> MuseBackdropPalette(
+            background = listOf(
+                Color(0xFF01070A),
+                Color(0xFF062127),
+                Color(0xFF071724),
+                Color(0xFF020609),
+            ),
+            keyLight = Color(0xFF9CFFE1),
+            secondaryLight = Color(0xFF71B8FF),
+            rainTint = Color(0xFFD8FFF6),
+        )
+        MuseVisualProfile.MidnightEmber -> MuseBackdropPalette(
+            background = listOf(
+                Color(0xFF050302),
+                Color(0xFF170806),
+                Color(0xFF100704),
+                Color(0xFF030201),
+            ),
+            keyLight = Color(0xFFFFB36B),
+            secondaryLight = Color(0xFFDB5D3C),
+            rainTint = Color(0xFFFFDEC2),
+        )
+        MuseVisualProfile.MoonlitViolet -> MuseBackdropPalette(
+            background = listOf(
+                Color(0xFF030208),
+                Color(0xFF130B23),
+                Color(0xFF0B0718),
+                Color(0xFF020105),
+            ),
+            keyLight = Color(0xFFD4B8FF),
+            secondaryLight = Color(0xFF8D78FF),
+            rainTint = Color(0xFFE7DCFF),
+        )
+        MuseVisualProfile.OceanPulse -> MuseBackdropPalette(
+            background = listOf(
+                Color(0xFF001014),
+                Color(0xFF04262D),
+                Color(0xFF00202A),
+                Color(0xFF00080B),
+            ),
+            keyLight = Color(0xFF79F4FF),
+            secondaryLight = Color(0xFF31BFD2),
+            rainTint = Color(0xFFCFFBFF),
+        )
+        MuseVisualProfile.RoseNoir -> MuseBackdropPalette(
+            background = listOf(
+                Color(0xFF070207),
+                Color(0xFF1C0812),
+                Color(0xFF150610),
+                Color(0xFF030103),
+            ),
+            keyLight = Color(0xFFFFA3C5),
+            secondaryLight = Color(0xFFCC5A89),
+            rainTint = Color(0xFFFFDFEA),
+        )
+    }
+
 private data class LeafSpec(
     val x: Float,
     val y: Float,
@@ -64,8 +142,11 @@ internal fun MuseNativeBotanicalBackdrop(
     route: String?,
     active: Boolean,
     intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
+    profile: MuseVisualProfile = MuseVisualProfile.VerdantRain,
+    rainLevel: MuseRainLevel = MuseRainLevel.Rain,
     modifier: Modifier = Modifier,
 ) {
+    val palette = profile.backdropPalette()
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -82,12 +163,7 @@ internal fun MuseNativeBotanicalBackdrop(
         Canvas(Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF010604),
-                        Color(0xFF03170B),
-                        Color(0xFF001108),
-                        Color(0xFF020805),
-                    ),
+                    colors = palette.background,
                 ),
             )
 
@@ -98,9 +174,9 @@ internal fun MuseNativeBotanicalBackdrop(
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFFFF9B3).copy(alpha = 0.24f * strength),
-                        Color(0xFFB9FF68).copy(alpha = 0.13f * strength),
-                        Color(0xFF5BE15B).copy(alpha = 0.038f * strength),
+                        palette.keyLight.copy(alpha = 0.24f * strength),
+                        palette.secondaryLight.copy(alpha = 0.13f * strength),
+                        palette.secondaryLight.copy(alpha = 0.038f * strength),
                         Color.Transparent,
                     ),
                     center = sunCenter,
@@ -136,9 +212,11 @@ internal fun MuseNativeBotanicalBackdrop(
                     brush = Brush.radialGradient(
                         colors = listOf(
                             if (index % 3 == 0) {
-                                Color(0xFFFFF4A8).copy(alpha = dot[3] * strength)
+                                palette.keyLight.copy(alpha = dot[3] * strength)
                             } else {
-                                MuseGreen.copy(alpha = dot[3] * 0.62f * strength)
+                                palette.secondaryLight.copy(
+                                    alpha = dot[3] * 0.62f * strength,
+                                )
                             },
                             Color.Transparent,
                         ),
@@ -176,6 +254,16 @@ internal fun MuseNativeBotanicalBackdrop(
         if (active) {
             MuseBotanicalMotionOverlay(
                 strength = strength,
+                palette = palette,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        if (rainLevel != MuseRainLevel.Off) {
+            MuseRainOverlay(
+                level = rainLevel,
+                palette = palette,
+                intensity = intensity,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -185,6 +273,7 @@ internal fun MuseNativeBotanicalBackdrop(
 @Composable
 private fun MuseBotanicalMotionOverlay(
     strength: Float,
+    palette: MuseBackdropPalette,
     modifier: Modifier = Modifier,
 ) {
     val transition = rememberInfiniteTransition(label = "MuseAmbientLight")
@@ -221,8 +310,8 @@ private fun MuseBotanicalMotionOverlay(
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFFDFFF80).copy(alpha = 0.070f * pulse * strength),
-                    MuseGlow.copy(alpha = 0.030f * pulse * strength),
+                    palette.keyLight.copy(alpha = 0.070f * pulse * strength),
+                    palette.secondaryLight.copy(alpha = 0.030f * pulse * strength),
                     Color.Transparent,
                 ),
                 center = upper,
@@ -239,7 +328,7 @@ private fun MuseBotanicalMotionOverlay(
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    MuseGreen.copy(alpha = 0.030f * pulse * strength),
+                    palette.secondaryLight.copy(alpha = 0.030f * pulse * strength),
                     Color.Transparent,
                 ),
                 center = lower,
@@ -248,6 +337,66 @@ private fun MuseBotanicalMotionOverlay(
             center = lower,
             radius = size.minDimension * 0.42f,
         )
+    }
+}
+
+
+@Composable
+private fun MuseRainOverlay(
+    level: MuseRainLevel,
+    palette: MuseBackdropPalette,
+    intensity: MuseVisualIntensity,
+    modifier: Modifier = Modifier,
+) {
+    if (level == MuseRainLevel.Off) return
+
+    val transition = rememberInfiniteTransition(label = "MuseRain")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = (1700f / level.speedMultiplier)
+                    .toInt()
+                    .coerceAtLeast(620),
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "MuseRainPhase",
+    )
+    val intensityScale = when (intensity) {
+        MuseVisualIntensity.Calm -> 0.72f
+        MuseVisualIntensity.Balanced -> 1f
+        MuseVisualIntensity.Vivid -> 1.24f
+    }
+
+    Canvas(modifier) {
+        repeat(level.dropCount) { index ->
+            val xSeed = ((index * 37 + 11) % 101) / 100f
+            val ySeed = ((index * 53 + 7) % 113) / 112f
+            val speed = 0.58f + ((index * 19) % 37) / 100f
+            val drift = (((index * 13) % 17) - 8) / 1000f
+            val normalizedY = (ySeed + phase * speed) % 1.12f - 0.06f
+            val x = size.width * (xSeed + normalizedY * (0.020f + drift))
+            val y = size.height * normalizedY
+            val longDrop = index % 5 == 0
+            val length = size.height * if (longDrop) 0.034f else 0.020f
+            val alpha = (
+                if (longDrop) 0.22f else 0.13f
+            ) * intensityScale
+
+            drawLine(
+                color = palette.rainTint.copy(alpha = alpha.coerceAtMost(0.34f)),
+                start = Offset(x, y),
+                end = Offset(
+                    x + size.width * 0.006f,
+                    y + length,
+                ),
+                strokeWidth = if (longDrop) 1.05.dp.toPx() else 0.72.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
     }
 }
 

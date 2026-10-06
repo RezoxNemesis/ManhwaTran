@@ -1,5 +1,8 @@
 # Muse Exact Visual Replacement Plan
 
+> **SUPERSEDED ON 2026-10-06 — DO NOT IMPLEMENT THIS PLAN.**  
+> This historical plan proposed drawing full-screen reference images with transparent hit regions. The user explicitly rejected that approach after testing the APK because it behaves like a still image instead of the running Muse interface. The active rule is: build every visible control, card, list, tab, slider, navigation surface and screen state as real native Android/Compose UI. Reference imagery may only be decorative/media atmosphere and must never replace the interface. Preserve this file only as history of the rejected approach.
+
 Date: 2026-10-05
 Branch: feature/muse-foundation
 

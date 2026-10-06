@@ -281,6 +281,48 @@ fun MuseApp(
             )
         )
     }
+    var visualMode by remember {
+        mutableStateOf(
+            MuseVisualMode.fromStored(
+                visualPreferences.getString(
+                    "visual_mode",
+                    null,
+                )
+            )
+        )
+    }
+    var rainLevel by remember {
+        mutableStateOf(
+            MuseRainLevel.fromStored(
+                visualPreferences.getString(
+                    "rain_level",
+                    null,
+                )
+            )
+        )
+    }
+    val visualDescriptor = buildString {
+        currentTrack?.let { track ->
+            append(track.title)
+            append(' ')
+            append(track.artist)
+            append(' ')
+            append(track.album)
+            track.genre?.let {
+                append(' ')
+                append(it)
+            }
+        }
+    }
+    val resolvedVisualProfile = remember(
+        visualMode,
+        visualDescriptor,
+    ) {
+        resolveMuseVisualProfile(
+            mode = visualMode,
+            descriptor = visualDescriptor,
+        )
+    }
     val showPrimaryNav = currentRoute in PrimaryRoutes
 
     LaunchedEffect(requestedRoute) {
@@ -303,6 +345,8 @@ fun MuseApp(
             route = currentRoute,
             active = playback.isPlaying,
             intensity = visualIntensity,
+            profile = resolvedVisualProfile,
+            rainLevel = rainLevel,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -439,7 +483,35 @@ fun MuseApp(
                     EqualizerScreen(viewModel, playback)
                 }
                 composable("tools") {
-                    MuseLabScreen(viewModel, navController)
+                    MuseLabScreen(
+                        viewModel = viewModel,
+                        navController = navController,
+                        visualMode = visualMode,
+                        resolvedVisualProfile = resolvedVisualProfile,
+                        rainLevel = rainLevel,
+                        visualIntensity = visualIntensity,
+                        onVisualModeChange = { next ->
+                            visualMode = next
+                            visualPreferences.edit()
+                                .putString("visual_mode", next.storedValue)
+                                .apply()
+                        },
+                        onRainLevelChange = { next ->
+                            rainLevel = next
+                            visualPreferences.edit()
+                                .putString("rain_level", next.storedValue)
+                                .apply()
+                        },
+                        onVisualIntensityChange = { next ->
+                            visualIntensity = next
+                            visualPreferences.edit()
+                                .putString(
+                                    "visual_intensity",
+                                    next.storedValue,
+                                )
+                                .apply()
+                        },
+                    )
                 }
                 composable("nowPlaying") {
                     NowPlayingScreen(viewModel, navController)
@@ -6808,6 +6880,13 @@ private fun AudioEffectControl(
 private fun MuseLabScreen(
     viewModel: MuseViewModel,
     navController: NavHostController,
+    visualMode: MuseVisualMode,
+    resolvedVisualProfile: MuseVisualProfile,
+    rainLevel: MuseRainLevel,
+    visualIntensity: MuseVisualIntensity,
+    onVisualModeChange: (MuseVisualMode) -> Unit,
+    onRainLevelChange: (MuseRainLevel) -> Unit,
+    onVisualIntensityChange: (MuseVisualIntensity) -> Unit,
 ) {
     val playCounts by viewModel.playCounts.collectAsStateWithLifecycle()
     val topPlayed by viewModel.topPlayedTracks.collectAsStateWithLifecycle()
@@ -6822,6 +6901,106 @@ private fun MuseLabScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { ScreenHeader("Muse Lab") }
+
+        item {
+            GlassCard {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.Palette,
+                            contentDescription = null,
+                            tint = MuseGreen,
+                        )
+                        Spacer(Modifier.size(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Atmosphere Studio",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                if (visualMode == MuseVisualMode.Auto) {
+                                    "Auto is using ${resolvedVisualProfile.label} for the current local track."
+                                } else {
+                                    resolvedVisualProfile.description
+                                },
+                                color = MuseMuted,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(
+                            items = MuseVisualMode.entries,
+                            key = { it.storedValue },
+                        ) { mode ->
+                            val profile = mode.fixedProfile ?: resolvedVisualProfile
+                            MuseVisualSceneCard(
+                                mode = mode,
+                                profile = profile,
+                                selected = visualMode == mode,
+                                onClick = { onVisualModeChange(mode) },
+                            )
+                        }
+                    }
+
+                    Text(
+                        "Rain",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(
+                            items = MuseRainLevel.entries,
+                            key = { it.storedValue },
+                        ) { level ->
+                            FilterChip(
+                                selected = rainLevel == level,
+                                onClick = { onRainLevelChange(level) },
+                                label = { Text(level.label) },
+                            )
+                        }
+                    }
+
+                    Text(
+                        "Motion intensity",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(
+                            items = MuseVisualIntensity.entries,
+                            key = { it.storedValue },
+                        ) { intensity ->
+                            FilterChip(
+                                selected = visualIntensity == intensity,
+                                onClick = { onVisualIntensityChange(intensity) },
+                                label = { Text(intensity.label) },
+                            )
+                        }
+                    }
+
+                    Text(
+                        "These scenes are rendered by live Compose layers. They do not replace the interface with a screenshot.",
+                        color = MuseMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
 
         item {
             GlassCard {
@@ -6957,6 +7136,65 @@ private fun MuseLabScreen(
                 "Library, privacy and playback",
                 { navController.navigate("settings") },
             )
+        }
+    }
+}
+
+
+@Composable
+private fun MuseVisualSceneCard(
+    mode: MuseVisualMode,
+    profile: MuseVisualProfile,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    MuseGlassAction(
+        onClick = onClick,
+        modifier = Modifier
+            .width(154.dp)
+            .height(112.dp),
+        variant = if (selected) {
+            MuseGlassVariant.Selected
+        } else {
+            MuseGlassVariant.Elevated
+        },
+        cornerRadius = 22.dp,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = profile.previewColors(),
+                    ),
+                )
+                .padding(12.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    mode.label,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (mode == MuseVisualMode.Auto) {
+                        "Follows local song mood"
+                    } else {
+                        profile.description
+                    },
+                    color = Color.White.copy(alpha = 0.78f),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
