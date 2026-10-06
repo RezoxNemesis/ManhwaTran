@@ -258,6 +258,59 @@ fi
 adb exec-out screencap -p > ui-captures/muse-lab-aurora-downpour-runtime.png
 test -s ui-captures/muse-lab-aurora-downpour-runtime.png
 
+# V3 visual acceptance requires every living world to be inspected independently.
+# Select each profile through the real Compose controls, scrolling Muse Lab only
+# when the target card is below the current viewport.
+capture_living_world() {
+  local label="$1"
+  local slug="$2"
+  local dump="/tmp/muse-world-${slug}.xml"
+  local found=0
+
+  adb shell am force-stop com.rezoxnemesis.muse
+  adb shell am start -W \
+    -n com.rezoxnemesis.muse/.MainActivity \
+    --es com.rezoxnemesis.muse.extra.OPEN_ROUTE tools
+  sleep 4
+
+  for attempt in 1 2 3 4; do
+    dump_ui_to "$dump"
+    if grep -Fq "$label" "$dump"; then
+      found=1
+      break
+    fi
+    adb shell input swipe 540 1660 540 720 550
+    sleep 1
+  done
+
+  if [[ "$found" -ne 1 ]]; then
+    echo "Living World control not reachable: $label" >&2
+    cat "$dump" >&2 || true
+    exit 1
+  fi
+
+  tap_text_from_dump "$dump" "$label"
+  sleep 3
+
+  visual_prefs="$(adb shell run-as com.rezoxnemesis.muse \
+    cat shared_prefs/muse_visual_preferences.xml 2>/dev/null | tr -d '\r' || true)"
+  if ! grep -Fq "$slug" <<<"$visual_prefs"; then
+    echo "Living World selection did not persist: $label / $slug" >&2
+    printf '%s\n' "$visual_prefs" >&2
+    exit 1
+  fi
+
+  adb exec-out screencap -p > "ui-captures/muse-world-${slug}-runtime.png"
+  test -s "ui-captures/muse-world-${slug}-runtime.png"
+}
+
+capture_living_world "Verdant Rain" "verdant_rain"
+capture_living_world "Aurora Glass" "aurora_glass"
+capture_living_world "Midnight Ember" "midnight_ember"
+capture_living_world "Moonlit Violet" "moonlit_violet"
+capture_living_world "Ocean Pulse" "ocean_pulse"
+capture_living_world "Rose Noir" "rose_noir"
+
 capture_route settings muse-settings-runtime.png
 capture_route sleep muse-sleep-runtime.png
 capture_route settings muse-settings-font130-runtime.png 1.3
