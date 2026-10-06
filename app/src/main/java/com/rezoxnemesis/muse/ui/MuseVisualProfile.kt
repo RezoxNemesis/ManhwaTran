@@ -56,6 +56,11 @@ internal data class MuseAtmosphereBehavior(
     val rainDepthLayers: Int,
     val dropletMobility: Float,
     val musicResponse: Float,
+    val depthParallax: Float,
+    val leafWetness: Float,
+    val profileSignature: Float,
+    val rainImpactResponse: Float,
+    val musicTransientResponse: Float,
     val auroraRibbonStrength: Float = 0f,
     val emberStrength: Float = 0f,
     val mistStrength: Float = 0f,
@@ -72,6 +77,11 @@ internal fun MuseVisualProfile.atmosphereBehavior(): MuseAtmosphereBehavior =
             rainDepthLayers = 3,
             dropletMobility = 1.00f,
             musicResponse = 0.74f,
+            depthParallax = 0.96f,
+            leafWetness = 1.00f,
+            profileSignature = 0.94f,
+            rainImpactResponse = 1.00f,
+            musicTransientResponse = 0.68f,
         )
         MuseVisualProfile.AuroraGlass -> MuseAtmosphereBehavior(
             kind = MuseAtmosphereKind.AuroraRibbons,
@@ -80,6 +90,11 @@ internal fun MuseVisualProfile.atmosphereBehavior(): MuseAtmosphereBehavior =
             rainDepthLayers = 3,
             dropletMobility = 0.58f,
             musicResponse = 0.86f,
+            depthParallax = 0.90f,
+            leafWetness = 0.72f,
+            profileSignature = 1.00f,
+            rainImpactResponse = 0.72f,
+            musicTransientResponse = 0.82f,
             auroraRibbonStrength = 0.94f,
         )
         MuseVisualProfile.MidnightEmber -> MuseAtmosphereBehavior(
@@ -89,6 +104,11 @@ internal fun MuseVisualProfile.atmosphereBehavior(): MuseAtmosphereBehavior =
             rainDepthLayers = 3,
             dropletMobility = 0.26f,
             musicResponse = 0.68f,
+            depthParallax = 0.74f,
+            leafWetness = 0.58f,
+            profileSignature = 0.97f,
+            rainImpactResponse = 0.56f,
+            musicTransientResponse = 0.91f,
             emberStrength = 0.92f,
         )
         MuseVisualProfile.MoonlitViolet -> MuseAtmosphereBehavior(
@@ -98,6 +118,11 @@ internal fun MuseVisualProfile.atmosphereBehavior(): MuseAtmosphereBehavior =
             rainDepthLayers = 3,
             dropletMobility = 0.42f,
             musicResponse = 0.42f,
+            depthParallax = 0.70f,
+            leafWetness = 0.66f,
+            profileSignature = 0.90f,
+            rainImpactResponse = 0.62f,
+            musicTransientResponse = 0.36f,
             mistStrength = 0.94f,
         )
         MuseVisualProfile.OceanPulse -> MuseAtmosphereBehavior(
@@ -107,6 +132,11 @@ internal fun MuseVisualProfile.atmosphereBehavior(): MuseAtmosphereBehavior =
             rainDepthLayers = 3,
             dropletMobility = 0.52f,
             musicResponse = 0.98f,
+            depthParallax = 1.00f,
+            leafWetness = 0.80f,
+            profileSignature = 1.00f,
+            rainImpactResponse = 0.82f,
+            musicTransientResponse = 1.00f,
             refractionStrength = 0.94f,
         )
         MuseVisualProfile.RoseNoir -> MuseAtmosphereBehavior(
@@ -116,6 +146,11 @@ internal fun MuseVisualProfile.atmosphereBehavior(): MuseAtmosphereBehavior =
             rainDepthLayers = 3,
             dropletMobility = 0.46f,
             musicResponse = 0.58f,
+            depthParallax = 0.82f,
+            leafWetness = 0.74f,
+            profileSignature = 0.95f,
+            rainImpactResponse = 0.68f,
+            musicTransientResponse = 0.54f,
             bloomStrength = 0.86f,
         )
     }
