@@ -131,4 +131,14 @@ class MuseLivingWorldsTest {
         assertTrue(verdant.shoulderWidth > moon.shoulderWidth)
     }
 
+    @Test
+    fun genericBotanicalRainIsReservedForVerdantSoOtherWorldsKeepTheirIdentity() {
+        assertTrue(MuseVisualProfile.VerdantRain.usesBotanicalRainLayer())
+        assertTrue(
+            MuseVisualProfile.entries
+                .filterNot { it == MuseVisualProfile.VerdantRain }
+                .none { it.usesBotanicalRainLayer() }
+        )
+    }
+
 }
