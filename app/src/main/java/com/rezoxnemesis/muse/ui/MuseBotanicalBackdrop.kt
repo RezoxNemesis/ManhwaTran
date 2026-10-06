@@ -655,31 +655,162 @@ private fun DrawScope.drawBotanicalLeaf(
     val height = size.height * spec.height
     val alpha = (spec.alpha * strength).coerceIn(0f, 1f)
     val mirror = if (spec.mirror) -1f else 1f
+    val geometry = style.foliageKind.geometry()
 
     rotate(spec.angle, center) {
         val tip = Offset(center.x, center.y - height * 0.50f)
         val base = Offset(center.x, center.y + height * 0.50f)
         val half = width * 0.50f
 
+        val shoulder = half * geometry.shoulderWidth
+        val waist = half * geometry.waistWidth
+        val wave = height * geometry.waveAmount
+        val asymmetry = height * geometry.asymmetry
+
         val leaf = Path().apply {
-            moveTo(tip.x, tip.y)
-            cubicTo(
-                center.x + half * 0.95f * mirror,
-                center.y - height * 0.37f,
-                center.x + half * 1.06f * mirror,
-                center.y + height * 0.18f,
-                base.x,
-                base.y,
-            )
-            cubicTo(
-                center.x - half * 0.98f * mirror,
-                center.y + height * 0.27f,
-                center.x - half * 0.88f * mirror,
-                center.y - height * 0.31f,
-                tip.x,
-                tip.y,
-            )
-            close()
+            when (style.foliageKind) {
+                MuseWorldFoliageKind.WetBroadleaf -> {
+                    // Broad rain leaf with irregular, lightly serrated shoulders.
+                    moveTo(tip.x, tip.y)
+                    lineTo(center.x + shoulder * 0.48f * mirror, center.y - height * 0.41f)
+                    lineTo(center.x + shoulder * 0.74f * mirror, center.y - height * 0.33f)
+                    lineTo(center.x + shoulder * 0.66f * mirror, center.y - height * 0.27f)
+                    lineTo(center.x + shoulder * 1.02f * mirror, center.y - height * 0.12f)
+                    lineTo(center.x + shoulder * 0.82f * mirror, center.y - height * 0.03f)
+                    lineTo(center.x + shoulder * 0.96f * mirror, center.y + height * 0.15f)
+                    lineTo(center.x + waist * 0.66f * mirror, center.y + height * 0.31f)
+                    lineTo(base.x, base.y)
+                    lineTo(center.x - waist * 0.61f * mirror, center.y + height * 0.29f + asymmetry * 0.18f)
+                    lineTo(center.x - shoulder * 0.92f * mirror, center.y + height * 0.12f)
+                    lineTo(center.x - shoulder * 0.77f * mirror, center.y - height * 0.02f)
+                    lineTo(center.x - shoulder * 0.96f * mirror, center.y - height * 0.17f)
+                    lineTo(center.x - shoulder * 0.62f * mirror, center.y - height * 0.30f)
+                    lineTo(center.x - shoulder * 0.46f * mirror, center.y - height * 0.41f)
+                    close()
+                }
+                MuseWorldFoliageKind.PrismBlade -> {
+                    // Aurora foliage reads as a translucent faceted blade.
+                    moveTo(tip.x, tip.y)
+                    lineTo(center.x + shoulder * 0.82f * mirror, center.y - height * 0.19f)
+                    lineTo(center.x + waist * 0.72f * mirror, center.y + height * 0.17f)
+                    lineTo(base.x, base.y)
+                    lineTo(center.x - waist * 0.64f * mirror, center.y + height * 0.13f)
+                    lineTo(center.x - shoulder * 0.72f * mirror, center.y - height * 0.23f)
+                    close()
+                }
+                MuseWorldFoliageKind.CharredShard -> {
+                    // Ember foliage is intentionally broken and asymmetric.
+                    moveTo(tip.x, tip.y)
+                    lineTo(center.x + shoulder * 0.42f * mirror, center.y - height * 0.39f)
+                    lineTo(center.x + shoulder * 0.88f * mirror, center.y - height * 0.28f)
+                    lineTo(center.x + shoulder * 0.62f * mirror, center.y - height * 0.16f)
+                    lineTo(center.x + shoulder * 1.04f * mirror, center.y - height * 0.01f)
+                    lineTo(center.x + waist * 0.58f * mirror, center.y + height * 0.13f)
+                    lineTo(center.x + waist * 0.84f * mirror, center.y + height * 0.29f)
+                    lineTo(base.x, base.y)
+                    lineTo(center.x - waist * 0.44f * mirror, center.y + height * 0.33f + asymmetry * 0.24f)
+                    lineTo(center.x - shoulder * 0.82f * mirror, center.y + height * 0.19f)
+                    lineTo(center.x - shoulder * 0.52f * mirror, center.y + height * 0.04f)
+                    lineTo(center.x - shoulder * 0.91f * mirror, center.y - height * 0.13f)
+                    lineTo(center.x - shoulder * 0.53f * mirror, center.y - height * 0.29f - asymmetry * 0.20f)
+                    close()
+                }
+                MuseWorldFoliageKind.MoonLance -> {
+                    // Moonlit leaves are long, quiet silver lances.
+                    moveTo(tip.x, tip.y)
+                    cubicTo(
+                        center.x + shoulder * 0.70f * mirror,
+                        center.y - height * 0.34f,
+                        center.x + waist * 0.78f * mirror,
+                        center.y + height * 0.18f,
+                        base.x,
+                        base.y,
+                    )
+                    cubicTo(
+                        center.x - waist * 0.70f * mirror,
+                        center.y + height * 0.16f,
+                        center.x - shoulder * 0.62f * mirror,
+                        center.y - height * 0.36f,
+                        tip.x,
+                        tip.y,
+                    )
+                    close()
+                }
+                MuseWorldFoliageKind.TidalFrond -> {
+                    // Ocean foliage bends in an S-curve instead of behaving like a leaf.
+                    moveTo(tip.x, tip.y)
+                    cubicTo(
+                        center.x + shoulder * 0.42f * mirror,
+                        center.y - height * 0.38f,
+                        center.x + shoulder * 1.02f * mirror,
+                        center.y - height * 0.15f + wave * 0.25f,
+                        center.x + waist * 0.70f * mirror,
+                        center.y + wave * 0.10f,
+                    )
+                    cubicTo(
+                        center.x + waist * 0.32f * mirror,
+                        center.y + height * 0.24f,
+                        center.x + waist * 0.48f * mirror,
+                        center.y + height * 0.38f,
+                        base.x,
+                        base.y,
+                    )
+                    cubicTo(
+                        center.x - waist * 0.62f * mirror,
+                        center.y + height * 0.34f,
+                        center.x - shoulder * 0.92f * mirror,
+                        center.y + height * 0.08f - wave * 0.20f,
+                        center.x - waist * 0.58f * mirror,
+                        center.y - height * 0.10f,
+                    )
+                    cubicTo(
+                        center.x - shoulder * 0.28f * mirror,
+                        center.y - height * 0.31f,
+                        center.x - shoulder * 0.18f * mirror,
+                        center.y - height * 0.43f,
+                        tip.x,
+                        tip.y,
+                    )
+                    close()
+                }
+                MuseWorldFoliageKind.VelvetPetal -> {
+                    // Rose Noir uses full petal lobes rather than botanical blades.
+                    moveTo(tip.x, tip.y)
+                    cubicTo(
+                        center.x + shoulder * 0.88f * mirror,
+                        center.y - height * 0.39f,
+                        center.x + shoulder * 1.08f * mirror,
+                        center.y - height * 0.03f,
+                        center.x + waist * 0.66f * mirror,
+                        center.y + height * 0.19f,
+                    )
+                    cubicTo(
+                        center.x + waist * 0.34f * mirror,
+                        center.y + height * 0.33f,
+                        center.x + waist * 0.14f * mirror,
+                        center.y + height * 0.43f,
+                        base.x,
+                        base.y,
+                    )
+                    cubicTo(
+                        center.x - waist * 0.22f * mirror,
+                        center.y + height * 0.40f,
+                        center.x - waist * 0.48f * mirror,
+                        center.y + height * 0.28f,
+                        center.x - waist * 0.72f * mirror,
+                        center.y + height * 0.11f,
+                    )
+                    cubicTo(
+                        center.x - shoulder * 1.02f * mirror,
+                        center.y - height * 0.09f,
+                        center.x - shoulder * 0.78f * mirror,
+                        center.y - height * 0.40f,
+                        tip.x,
+                        tip.y,
+                    )
+                    close()
+                }
+            }
         }
 
         // A dark offset silhouette gives each leaf real separation from the forest.
@@ -817,7 +948,20 @@ private fun DrawScope.drawBotanicalLeaf(
             cap = StrokeCap.Round,
         )
 
-        val veins = listOf(-0.30f, -0.18f, -0.05f, 0.09f, 0.23f, 0.35f)
+        val veins = when (style.foliageKind) {
+            MuseWorldFoliageKind.WetBroadleaf ->
+                listOf(-0.33f, -0.23f, -0.12f, 0.00f, 0.12f, 0.24f, 0.35f)
+            MuseWorldFoliageKind.PrismBlade ->
+                listOf(-0.24f, 0.02f, 0.27f)
+            MuseWorldFoliageKind.CharredShard ->
+                listOf(-0.31f, -0.17f, -0.03f, 0.14f, 0.30f)
+            MuseWorldFoliageKind.MoonLance ->
+                listOf(-0.24f, 0.03f, 0.29f)
+            MuseWorldFoliageKind.TidalFrond ->
+                listOf(-0.28f, -0.08f, 0.13f, 0.31f)
+            MuseWorldFoliageKind.VelvetPetal ->
+                listOf(-0.24f, -0.06f, 0.13f, 0.28f)
+        }
         veins.forEachIndexed { index, fraction ->
             val y = center.y + height * fraction
             val taper = 0.41f - index * 0.035f
