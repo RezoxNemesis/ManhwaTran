@@ -154,6 +154,7 @@ internal fun MuseNativeBotanicalBackdrop(
     intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
     profile: MuseVisualProfile = MuseVisualProfile.VerdantRain,
     rainLevel: MuseRainLevel = MuseRainLevel.Rain,
+    audioEnergy: Float = 0f,
     touchRipple: MuseTouchRipple? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -278,6 +279,7 @@ internal fun MuseNativeBotanicalBackdrop(
             profile = profile,
             behavior = atmosphere,
             active = active,
+            audioEnergy = audioEnergy,
             intensity = intensity,
             modifier = Modifier.fillMaxSize(),
         )
