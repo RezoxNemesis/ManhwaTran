@@ -48,8 +48,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.rezoxnemesis.muse.ui.theme.MuseGlow
-import com.rezoxnemesis.muse.ui.theme.MuseGreen
 import com.rezoxnemesis.muse.ui.theme.MuseMuted
 
 /**
@@ -64,6 +62,7 @@ internal fun RowScope.MuseMotionNavItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val chrome = LocalMuseChromePalette.current
     val scale by animateFloatAsState(
         targetValue = if (selected) 1.025f else 1f,
         animationSpec = tween(
@@ -73,7 +72,7 @@ internal fun RowScope.MuseMotionNavItem(
         label = "MuseNavItemScale",
     )
     val contentColor by animateColorAsState(
-        targetValue = if (selected) MuseGreen else MuseMuted,
+        targetValue = if (selected) chrome.primary else MuseMuted,
         animationSpec = tween(145),
         label = "MuseNavColor",
     )
@@ -121,6 +120,7 @@ internal fun MusePlayingPulse(
     playing: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val chrome = LocalMuseChromePalette.current
     val transition = rememberInfiniteTransition(label = "MusePlayingPulse")
     val a by transition.animateFloat(
         initialValue = 0.35f,
@@ -163,9 +163,9 @@ internal fun MusePlayingPulse(
             drawRoundRect(
                 brush = Brush.verticalGradient(
                     listOf(
-                        Color(0xFFD8FF9F),
-                        MuseGreen,
-                        Color(0xFF26B444),
+                        chrome.highlight,
+                        chrome.primary,
+                        chrome.primaryStrong,
                     )
                 ),
                 topLeft = Offset(x, (size.height - h) / 2f),
@@ -182,6 +182,7 @@ internal fun MuseMiniProgress(
     durationMs: Long,
     modifier: Modifier = Modifier,
 ) {
+    val chrome = LocalMuseChromePalette.current
     val target = if (durationMs > 0L) {
         (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else {
@@ -204,9 +205,9 @@ internal fun MuseMiniProgress(
         drawLine(
             brush = Brush.horizontalGradient(
                 listOf(
-                    MuseGlow.copy(alpha = 0.55f),
-                    MuseGreen,
-                    Color(0xFFD5FF8C),
+                    chrome.glow.copy(alpha = 0.55f),
+                    chrome.primary,
+                    chrome.highlight,
                 )
             ),
             start = Offset(0f, y),
@@ -224,6 +225,7 @@ internal fun MuseMotionToggle(
     modifier: Modifier = Modifier,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val chrome = LocalMuseChromePalette.current
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 27.dp else 3.dp,
         animationSpec = spring(
@@ -234,9 +236,9 @@ internal fun MuseMotionToggle(
     )
     val trackColor by animateColorAsState(
         targetValue = if (checked) {
-            Color(0xFF48DE58)
+            chrome.primaryStrong
         } else {
-            Color(0xFF173520)
+            chrome.toggleOff
         },
         animationSpec = tween(160),
         label = "MuseToggleTrack",
@@ -279,7 +281,7 @@ internal fun MuseMotionToggle(
                         brush = Brush.radialGradient(
                             listOf(
                                 Color.White.copy(alpha = 0.10f * halo),
-                                MuseGlow.copy(alpha = 0.13f * halo),
+                                chrome.glow.copy(alpha = 0.13f * halo),
                                 Color.Transparent,
                             )
                         ),
@@ -296,14 +298,14 @@ internal fun MuseMotionToggle(
                     elevation = if (checked) 8.dp else 4.dp,
                     shape = CircleShape,
                     ambientColor = Color.Black.copy(alpha = 0.55f),
-                    spotColor = if (checked) MuseGlow.copy(alpha = 0.42f) else Color.Black,
+                    spotColor = if (checked) chrome.glow.copy(alpha = 0.42f) else Color.Black,
                 )
                 .background(
                     brush = Brush.radialGradient(
                         listOf(
-                            Color(0xFFE9FFD5),
-                            Color(0xFF8DFF71),
-                            Color(0xFF55D84D),
+                            chrome.highlight,
+                            chrome.primary,
+                            chrome.primaryStrong,
                         )
                     ),
                     shape = CircleShape,
@@ -322,6 +324,7 @@ internal fun MuseSlidingTabRow(
     onSelected: (Int) -> Unit,
 ) {
     if (labels.isEmpty()) return
+    val chrome = LocalMuseChromePalette.current
     val safeIndex = selectedIndex.coerceIn(labels.indices)
 
     MuseGlassSurface(
@@ -354,9 +357,9 @@ internal fun MuseSlidingTabRow(
                     .background(
                         brush = Brush.horizontalGradient(
                             listOf(
-                                MuseGlow.copy(alpha = 0.12f),
-                                MuseGreen.copy(alpha = 0.29f),
-                                Color(0xFFB6FF7C).copy(alpha = 0.10f),
+                                chrome.glow.copy(alpha = 0.12f),
+                                chrome.primary.copy(alpha = 0.29f),
+                                chrome.highlight.copy(alpha = 0.10f),
                             )
                         ),
                         shape = RoundedCornerShape(21.dp),
@@ -366,7 +369,7 @@ internal fun MuseSlidingTabRow(
                         brush = Brush.horizontalGradient(
                             listOf(
                                 Color.White.copy(alpha = 0.14f),
-                                MuseGreen.copy(alpha = 0.72f),
+                                chrome.primary.copy(alpha = 0.72f),
                                 Color.White.copy(alpha = 0.08f),
                             )
                         ),
@@ -381,7 +384,7 @@ internal fun MuseSlidingTabRow(
                 labels.forEachIndexed { index, label ->
                     val selected = index == safeIndex
                     val color by animateColorAsState(
-                        targetValue = if (selected) MuseGreen else Color.White.copy(alpha = 0.82f),
+                        targetValue = if (selected) chrome.primary else Color.White.copy(alpha = 0.82f),
                         animationSpec = tween(135),
                         label = "MuseSegmentText",
                     )

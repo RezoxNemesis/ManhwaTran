@@ -338,7 +338,10 @@ fun MuseApp(
         onRouteHandled()
     }
 
-    Box(
+    MuseChromePaletteProvider(
+        profile = resolvedVisualProfile,
+    ) {
+        Box(
         modifier = Modifier
             .fillMaxSize()
             .testTag("MuseRoot")
@@ -593,6 +596,7 @@ fun MuseApp(
             }
         }
     }
+    }
 }
 
 private fun NavHostController.popBackOrHome() {
@@ -631,6 +635,7 @@ private fun MuseBottomNavigation(
     val travel = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val chrome = LocalMuseChromePalette.current
 
     LaunchedEffect(routeIndex) {
         if (routeIndex != visualIndex) {
@@ -704,9 +709,9 @@ private fun MuseBottomNavigation(
                     .background(
                         brush = Brush.horizontalGradient(
                             listOf(
-                                MuseGreen.copy(alpha = 0.12f),
-                                Color(0xFF93FF7B).copy(alpha = 0.35f),
-                                MuseGreen.copy(alpha = 0.15f),
+                                chrome.primary.copy(alpha = 0.12f),
+                                chrome.highlight.copy(alpha = 0.35f),
+                                chrome.primary.copy(alpha = 0.15f),
                             )
                         ),
                         shape = RoundedCornerShape(26.dp),
@@ -716,8 +721,8 @@ private fun MuseBottomNavigation(
                         brush = Brush.horizontalGradient(
                             listOf(
                                 Color.White.copy(alpha = 0.18f),
-                                Color(0xFFB6FF98).copy(alpha = 0.68f),
-                                MuseGreen.copy(alpha = 0.44f),
+                                chrome.rim.copy(alpha = 0.68f),
+                                chrome.primary.copy(alpha = 0.44f),
                             )
                         ),
                         shape = RoundedCornerShape(26.dp),

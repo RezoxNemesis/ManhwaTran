@@ -123,6 +123,96 @@ internal fun resolveMuseVisualProfile(
     }
 }
 
+
+internal data class MuseChromePalette(
+    val primary: Color,
+    val primaryStrong: Color,
+    val glow: Color,
+    val rim: Color,
+    val glassBase: Color,
+    val glassStrong: Color,
+    val glassElevated: Color,
+    val glassSelected: Color,
+    val toggleOff: Color,
+    val highlight: Color,
+)
+
+internal fun MuseVisualProfile.chromePalette(): MuseChromePalette =
+    when (this) {
+        MuseVisualProfile.VerdantRain -> MuseChromePalette(
+            primary = Color(0xFF9BFF8D),
+            primaryStrong = Color(0xFF59F064),
+            glow = Color(0xFF8EFF73),
+            rim = Color(0xFF84FF8B),
+            glassBase = Color(0xFF0B2614),
+            glassStrong = Color(0xFF0D2A18),
+            glassElevated = Color(0xFF11321C),
+            glassSelected = Color(0xFF21592E),
+            toggleOff = Color(0xFF173520),
+            highlight = Color(0xFFD8FF9F),
+        )
+        MuseVisualProfile.AuroraGlass -> MuseChromePalette(
+            primary = Color(0xFF8CF7D4),
+            primaryStrong = Color(0xFF4EDCC7),
+            glow = Color(0xFF79FFE5),
+            rim = Color(0xFF82DCE4),
+            glassBase = Color(0xFF09242A),
+            glassStrong = Color(0xFF0B3036),
+            glassElevated = Color(0xFF103943),
+            glassSelected = Color(0xFF195A61),
+            toggleOff = Color(0xFF16343A),
+            highlight = Color(0xFFDCFFF5),
+        )
+        MuseVisualProfile.MidnightEmber -> MuseChromePalette(
+            primary = Color(0xFFFFB072),
+            primaryStrong = Color(0xFFFF7A48),
+            glow = Color(0xFFFFA45D),
+            rim = Color(0xFFFF8B5E),
+            glassBase = Color(0xFF2A130D),
+            glassStrong = Color(0xFF351711),
+            glassElevated = Color(0xFF432015),
+            glassSelected = Color(0xFF63301D),
+            toggleOff = Color(0xFF34231C),
+            highlight = Color(0xFFFFE4C8),
+        )
+        MuseVisualProfile.MoonlitViolet -> MuseChromePalette(
+            primary = Color(0xFFC5A2FF),
+            primaryStrong = Color(0xFFA572FF),
+            glow = Color(0xFFD1B5FF),
+            rim = Color(0xFFB893FF),
+            glassBase = Color(0xFF1C102D),
+            glassStrong = Color(0xFF25143A),
+            glassElevated = Color(0xFF311B48),
+            glassSelected = Color(0xFF4B2C69),
+            toggleOff = Color(0xFF2A2036),
+            highlight = Color(0xFFF0E8FF),
+        )
+        MuseVisualProfile.OceanPulse -> MuseChromePalette(
+            primary = Color(0xFF58E9F5),
+            primaryStrong = Color(0xFF20BED1),
+            glow = Color(0xFF79F4FF),
+            rim = Color(0xFF5BD8E7),
+            glassBase = Color(0xFF08262D),
+            glassStrong = Color(0xFF0A3139),
+            glassElevated = Color(0xFF0C3C46),
+            glassSelected = Color(0xFF145661),
+            toggleOff = Color(0xFF17343A),
+            highlight = Color(0xFFDCFCFF),
+        )
+        MuseVisualProfile.RoseNoir -> MuseChromePalette(
+            primary = Color(0xFFFF91BA),
+            primaryStrong = Color(0xFFE95791),
+            glow = Color(0xFFFFA3C5),
+            rim = Color(0xFFF17AA8),
+            glassBase = Color(0xFF2A101C),
+            glassStrong = Color(0xFF351421),
+            glassElevated = Color(0xFF42192A),
+            glassSelected = Color(0xFF60243D),
+            toggleOff = Color(0xFF38202B),
+            highlight = Color(0xFFFFE4EE),
+        )
+    }
+
 internal fun MuseVisualProfile.previewColors(): List<Color> =
     when (this) {
         MuseVisualProfile.VerdantRain -> listOf(

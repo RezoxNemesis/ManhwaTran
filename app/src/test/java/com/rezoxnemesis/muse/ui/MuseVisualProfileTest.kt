@@ -1,5 +1,6 @@
 package com.rezoxnemesis.muse.ui
 
+import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -25,6 +26,17 @@ class MuseVisualProfileTest {
                     resolveMuseVisualProfile(mode, "unrelated song metadata"),
                 )
             }
+    }
+
+    @Test
+    fun everyProfileHasDistinctChromeAccent() {
+        val accents = MuseVisualProfile.entries
+            .map { it.chromePalette().primary.value }
+        assertEquals(accents.size, accents.distinct().size)
+        assertEquals(
+            Color(0xFF9BFF8D).value,
+            MuseVisualProfile.VerdantRain.chromePalette().primary.value,
+        )
     }
 
     @Test

@@ -22,8 +22,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +62,24 @@ internal enum class MuseGlassVariant {
     Elevated,
     Selected,
     Destructive,
+}
+
+internal val LocalMuseChromePalette = staticCompositionLocalOf {
+    MuseVisualProfile.VerdantRain.chromePalette()
+}
+
+@Composable
+internal fun MuseChromePaletteProvider(
+    profile: MuseVisualProfile,
+    content: @Composable () -> Unit,
+) {
+    val palette = remember(profile) {
+        profile.chromePalette()
+    }
+    CompositionLocalProvider(
+        LocalMuseChromePalette provides palette,
+        content = content,
+    )
 }
 
 @Composable
@@ -401,27 +421,28 @@ internal fun MuseGlassSurface(
     cornerRadius: Dp = 22.dp,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val chrome = LocalMuseChromePalette.current
     val shape = RoundedCornerShape(cornerRadius)
     val fill = when (variant) {
         MuseGlassVariant.Standard -> listOf(
-            Color(0xA60B2614),
-            Color(0x7806110A),
-            Color(0x9008190E),
+            chrome.glassBase.copy(alpha = 0.65f),
+            chrome.glassBase.copy(alpha = 0.47f),
+            chrome.glassBase.copy(alpha = 0.56f),
         )
         MuseGlassVariant.Strong -> listOf(
-            Color(0xC20D2A18),
-            Color(0xAE07150B),
-            Color(0xB70B2112),
+            chrome.glassStrong.copy(alpha = 0.76f),
+            chrome.glassBase.copy(alpha = 0.68f),
+            chrome.glassStrong.copy(alpha = 0.72f),
         )
         MuseGlassVariant.Elevated -> listOf(
-            Color(0xC511321C),
-            Color(0x9E0B2112),
-            Color(0xA6091A0D),
+            chrome.glassElevated.copy(alpha = 0.77f),
+            chrome.glassBase.copy(alpha = 0.62f),
+            chrome.glassStrong.copy(alpha = 0.65f),
         )
         MuseGlassVariant.Selected -> listOf(
-            Color(0xD021592E),
-            Color(0xB50A2A15),
-            Color(0xB70B1E10),
+            chrome.glassSelected.copy(alpha = 0.82f),
+            chrome.glassStrong.copy(alpha = 0.71f),
+            chrome.glassBase.copy(alpha = 0.72f),
         )
         MuseGlassVariant.Destructive -> listOf(
             Color(0xCB49171A),
@@ -431,9 +452,9 @@ internal fun MuseGlassSurface(
     }
     val rim = when (variant) {
         MuseGlassVariant.Selected -> listOf(
-            MuseGlow.copy(alpha = 0.96f),
-            MuseBorderBright.copy(alpha = 0.72f),
-            MuseGlowSoft.copy(alpha = 0.44f),
+            chrome.glow.copy(alpha = 0.96f),
+            chrome.rim.copy(alpha = 0.72f),
+            chrome.primaryStrong.copy(alpha = 0.44f),
         )
         MuseGlassVariant.Destructive -> listOf(
             Color(0xFFFF7F7F).copy(alpha = 0.86f),
@@ -441,14 +462,14 @@ internal fun MuseGlassSurface(
             Color(0xFFFF6B6B).copy(alpha = 0.30f),
         )
         MuseGlassVariant.Elevated -> listOf(
-            MuseBorderBright.copy(alpha = 0.72f),
-            MuseBorder.copy(alpha = 0.70f),
-            MuseGlowSoft.copy(alpha = 0.28f),
+            chrome.rim.copy(alpha = 0.72f),
+            chrome.primary.copy(alpha = 0.52f),
+            chrome.glow.copy(alpha = 0.28f),
         )
         else -> listOf(
-            MuseBorderBright.copy(alpha = 0.52f),
-            MuseBorder.copy(alpha = 0.64f),
-            Color(0x3355E85E),
+            chrome.rim.copy(alpha = 0.52f),
+            chrome.primary.copy(alpha = 0.46f),
+            chrome.primaryStrong.copy(alpha = 0.20f),
         )
     }
     val elevation = when (variant) {
@@ -466,7 +487,7 @@ internal fun MuseGlassSurface(
                 shape = shape,
                 ambientColor = Color.Black.copy(alpha = 0.72f),
                 spotColor = when (variant) {
-                    MuseGlassVariant.Selected -> MuseGlow.copy(alpha = 0.24f)
+                    MuseGlassVariant.Selected -> chrome.glow.copy(alpha = 0.24f)
                     MuseGlassVariant.Destructive -> Color(0xFFFF5D64).copy(alpha = 0.18f)
                     else -> Color.Black.copy(alpha = 0.80f)
                 },
@@ -508,7 +529,7 @@ internal fun MuseGlassSurface(
                     brush = Brush.radialGradient(
                         colors = listOf(
                             Color.White.copy(alpha = 0.115f),
-                            MuseGlow.copy(alpha = 0.040f),
+                            chrome.glow.copy(alpha = 0.040f),
                             Color.Transparent,
                         ),
                         center = Offset(
@@ -531,7 +552,7 @@ internal fun MuseGlassSurface(
                         colors = listOf(
                             Color.Transparent,
                             Color.White.copy(alpha = 0.38f),
-                            MuseGlow.copy(alpha = 0.26f),
+                            chrome.glow.copy(alpha = 0.26f),
                             Color.Transparent,
                         ),
                     ),
@@ -545,7 +566,7 @@ internal fun MuseGlassSurface(
                         colors = listOf(
                             Color.Transparent,
                             Color.Black.copy(alpha = 0.34f),
-                            Color(0xFF082515).copy(alpha = 0.30f),
+                            chrome.glassBase.copy(alpha = 0.30f),
                             Color.Transparent,
                         ),
                     ),
@@ -562,7 +583,7 @@ internal fun MuseGlassSurface(
                             colors = listOf(
                                 Color.White.copy(alpha = 0.10f),
                                 Color.Transparent,
-                                MuseGlow.copy(alpha = 0.08f),
+                                chrome.glow.copy(alpha = 0.08f),
                             ),
                             start = Offset.Zero,
                             end = Offset(size.width, size.height),
@@ -599,6 +620,7 @@ internal fun MuseGlassAction(
     enabled: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val chrome = LocalMuseChromePalette.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val activePress = pressed && enabled
@@ -643,7 +665,7 @@ internal fun MuseGlassAction(
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.16f * pressGlow),
-                                    MuseGlow.copy(alpha = 0.17f * pressGlow),
+                                    chrome.glow.copy(alpha = 0.17f * pressGlow),
                                     Color.Transparent,
                                 ),
                                 center = Offset(
