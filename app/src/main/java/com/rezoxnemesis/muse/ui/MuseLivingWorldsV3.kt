@@ -88,9 +88,17 @@ internal fun MuseLivingWorldsV3Overlay(
         MuseVisualIntensity.Vivid -> 1.25f
     }
     val activeScale = if (active) 1f else 0.72f
+    // The Rain control now increases each world's own weather language rather
+    // than forcing the same botanical rain curtain over every profile.
+    val weatherScale = when (rainLevel) {
+        MuseRainLevel.Off -> 0.88f
+        MuseRainLevel.Mist -> 0.96f
+        MuseRainLevel.Rain -> 1.04f
+        MuseRainLevel.Downpour -> 1.14f
+    }
 
     Canvas(modifier) {
-        val strength = intensityScale * activeScale
+        val strength = intensityScale * activeScale * weatherScale
         when (style.motionKind) {
             MuseWorldMotionKind.RainWeightedSway -> drawVerdantWorld(
                 phase = phase,
@@ -237,7 +245,7 @@ private fun DrawScope.drawAuroraWorld(
                 yBase + size.height * 0.025f,
             )
         }
-        val shimmer = (0.08f + response.shimmer * 0.18f) * depth * strength
+        val shimmer = (0.13f + response.shimmer * 0.24f) * depth * strength
         drawPath(
             path = path,
             brush = Brush.horizontalGradient(
@@ -250,7 +258,7 @@ private fun DrawScope.drawAuroraWorld(
                 )
             ),
             style = Stroke(
-                width = (14f + ribbon * 7f + response.shimmer * 8f).dp.toPx(),
+                width = (18f + ribbon * 7.5f + response.shimmer * 10f).dp.toPx(),
                 cap = StrokeCap.Round,
             ),
         )
@@ -263,7 +271,7 @@ private fun DrawScope.drawAuroraWorld(
         val radius = (0.7f + index % 3 * 0.45f + response.shimmer * 0.7f).dp.toPx()
         drawCircle(
             color = Color.White.copy(
-                alpha = (0.05f + response.shimmer * 0.15f) * breathe * strength,
+                alpha = (0.075f + response.shimmer * 0.19f) * breathe * strength,
             ),
             center = Offset(x, y),
             radius = radius,
@@ -283,7 +291,7 @@ private fun DrawScope.drawEmberWorld(
         brush = Brush.radialGradient(
             colors = listOf(
                 style.leafHighlight.copy(
-                    alpha = (0.08f + response.particleImpulse * 0.10f) * breathe * strength,
+                    alpha = (0.12f + response.particleImpulse * 0.14f) * breathe * strength,
                 ),
                 style.leafPrimary.copy(alpha = 0.035f * strength),
                 Color.Transparent,
@@ -311,7 +319,7 @@ private fun DrawScope.drawEmberWorld(
                 colors = listOf(
                     Color.White.copy(alpha = 0.66f * strength),
                     style.leafHighlight.copy(
-                        alpha = (0.36f + response.particleImpulse * 0.28f) * strength,
+                        alpha = (0.44f + response.particleImpulse * 0.34f) * strength,
                     ),
                     style.leafPrimary.copy(alpha = 0.16f * strength),
                     Color.Transparent,
@@ -329,7 +337,7 @@ private fun DrawScope.drawEmberWorld(
         val offset = sin(phase * 2f * PI.toFloat() + band) * size.width * 0.025f
         drawLine(
             color = Color.White.copy(
-                alpha = (0.015f + response.particleImpulse * 0.025f) * strength,
+                alpha = (0.026f + response.particleImpulse * 0.038f) * strength,
             ),
             start = Offset(size.width * 0.12f + offset, y),
             end = Offset(size.width * 0.88f + offset, y + size.height * 0.012f),
@@ -350,8 +358,8 @@ private fun DrawScope.drawMoonWorld(
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(
-                Color.White.copy(alpha = 0.16f * strength),
-                style.specularTint.copy(alpha = 0.07f * strength),
+                Color.White.copy(alpha = 0.23f * strength),
+                style.specularTint.copy(alpha = 0.11f * strength),
                 Color.Transparent,
             ),
             center = moon,
@@ -373,7 +381,7 @@ private fun DrawScope.drawMoonWorld(
             brush = Brush.radialGradient(
                 colors = listOf(
                     Color.White.copy(
-                        alpha = (0.025f + style.volumetricMist * 0.040f) *
+                        alpha = (0.040f + style.volumetricMist * 0.060f) *
                             depth * calm * strength,
                     ),
                     style.leafPrimary.copy(alpha = 0.022f * breathe * strength),
@@ -415,7 +423,7 @@ private fun DrawScope.drawOceanWorld(
         drawOval(
             color = Color.White.copy(
                 alpha = (1f - local) *
-                    (0.055f + response.refractionImpulse * 0.11f) *
+                    (0.080f + response.refractionImpulse * 0.15f) *
                     strength,
             ),
             topLeft = Offset(center.x - radiusX, center.y - radiusY),
@@ -445,7 +453,7 @@ private fun DrawScope.drawOceanWorld(
                 listOf(
                     Color.Transparent,
                     style.specularTint.copy(
-                        alpha = (0.035f + response.shimmer * 0.05f) * breathe * strength,
+                        alpha = (0.055f + response.shimmer * 0.075f) * breathe * strength,
                     ),
                     Color.Transparent,
                 )
@@ -488,11 +496,11 @@ private fun DrawScope.drawRoseWorld(
             drawOval(
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.08f * depth * strength),
+                        Color.White.copy(alpha = 0.12f * depth * strength),
                         style.leafHighlight.copy(
-                            alpha = (0.08f + response.shimmer * 0.08f) * depth * strength,
+                            alpha = (0.12f + response.shimmer * 0.11f) * depth * strength,
                         ),
-                        style.leafPrimary.copy(alpha = 0.08f * depth * strength),
+                        style.leafPrimary.copy(alpha = 0.11f * depth * strength),
                     )
                 ),
                 topLeft = Offset(center.x - petalW, center.y - petalH),
@@ -506,7 +514,7 @@ private fun DrawScope.drawRoseWorld(
         brush = Brush.radialGradient(
             colors = listOf(
                 style.specularTint.copy(
-                    alpha = (0.035f + response.shimmer * 0.05f) * breathe * strength,
+                    alpha = (0.060f + response.shimmer * 0.075f) * breathe * strength,
                 ),
                 style.leafPrimary.copy(alpha = 0.018f * strength),
                 Color.Transparent,
