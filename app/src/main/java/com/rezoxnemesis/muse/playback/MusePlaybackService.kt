@@ -141,6 +141,7 @@ class MusePlaybackService : MediaSessionService() {
                 commandsBuilder
                     .add(AudioEffectProtocol.GetStateCommand)
                     .add(AudioEffectProtocol.UpdateCommand)
+                    .add(AudioEffectProtocol.GetVisualEnergyCommand)
                     .add(SleepTimerProtocol.GetStateCommand)
                     .add(SleepTimerProtocol.StartCommand)
                     .add(SleepTimerProtocol.CancelCommand)
@@ -185,6 +186,20 @@ class MusePlaybackService : MediaSessionService() {
                         SessionResult(
                             SessionResult.RESULT_SUCCESS,
                             audioEffects.update(args),
+                        )
+                    )
+                }
+
+                AudioEffectProtocol.ActionGetVisualEnergy -> {
+                    Futures.immediateFuture(
+                        SessionResult(
+                            SessionResult.RESULT_SUCCESS,
+                            Bundle().apply {
+                                putFloat(
+                                    AudioEffectProtocol.KeyVisualEnergy,
+                                    softwareAudioProcessor.currentVisualEnergy(),
+                                )
+                            },
                         )
                     )
                 }
