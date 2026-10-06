@@ -294,6 +294,18 @@ internal fun MuseNativeBotanicalBackdrop(
             )
         }
 
+        MuseAtmosphereV2Overlay(
+            route = route,
+            profile = profile,
+            behavior = atmosphere,
+            active = active,
+            audioEnergy = audioEnergy,
+            rainLevel = rainLevel,
+            intensity = intensity,
+            touchRipple = touchRipple,
+            modifier = Modifier.fillMaxSize(),
+        )
+
         MuseTouchRippleOverlay(
             ripple = touchRipple,
             palette = palette,
@@ -383,11 +395,13 @@ private fun MuseBotanicalMotionOverlay(
         // Foreground foliage lives on the animated layer. The back canopy stays
         // still, so this produces real depth/parallax without moving the UI.
         val swayAmplitude = size.width *
-            (if (active) 0.010f else 0.005f) *
-            behavior.foliageMotion
+            (if (active) 0.012f else 0.0055f) *
+            behavior.foliageMotion *
+            behavior.depthParallax
         val liftAmplitude = size.height *
-            (if (active) 0.0045f else 0.0022f) *
-            behavior.foliageMotion
+            (if (active) 0.0055f else 0.0025f) *
+            behavior.foliageMotion *
+            behavior.depthParallax
 
         nativeLeafLayout(route)
             .filter(LeafSpec::foreground)
