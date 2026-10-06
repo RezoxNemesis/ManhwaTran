@@ -263,6 +263,19 @@ fun MuseApp(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
+    val audioEffects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
+    val visualEnergy by animateFloatAsState(
+        targetValue = if (playback.isPlaying) {
+            audioEffects.visualEnergy
+        } else {
+            0f
+        },
+        animationSpec = spring(
+            dampingRatio = 0.82f,
+            stiffness = 280f,
+        ),
+        label = "MuseAudioEnergy",
+    )
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val visualPreferences = remember(context) {
@@ -371,6 +384,7 @@ fun MuseApp(
             intensity = visualIntensity,
             profile = resolvedVisualProfile,
             rainLevel = rainLevel,
+            audioEnergy = visualEnergy,
             touchRipple = touchRipple,
             modifier = Modifier.fillMaxSize(),
         )
