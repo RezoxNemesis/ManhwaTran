@@ -154,12 +154,13 @@ internal fun MuseNativeBotanicalBackdrop(
     intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
     profile: MuseVisualProfile = MuseVisualProfile.VerdantRain,
     rainLevel: MuseRainLevel = MuseRainLevel.Rain,
-    audioEnergy: Float = 0f,
+    audioSpectrum: MuseAudioSpectrum = MuseAudioSpectrum(),
     touchRipple: MuseTouchRipple? = null,
     modifier: Modifier = Modifier,
 ) {
     val palette = profile.backdropPalette()
     val atmosphere = profile.atmosphereBehavior()
+    val world = profile.livingWorldStyle()
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -248,6 +249,7 @@ internal fun MuseNativeBotanicalBackdrop(
                         spec = spec,
                         strength = strength,
                         pulse = 0.96f,
+                        style = world,
                     )
                 }
 
@@ -270,17 +272,9 @@ internal fun MuseNativeBotanicalBackdrop(
             route = route,
             active = active,
             behavior = atmosphere,
+            style = world,
             strength = strength,
             palette = palette,
-            modifier = Modifier.fillMaxSize(),
-        )
-
-        MuseProfileAtmosphereOverlay(
-            profile = profile,
-            behavior = atmosphere,
-            active = active,
-            audioEnergy = audioEnergy,
-            intensity = intensity,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -294,12 +288,22 @@ internal fun MuseNativeBotanicalBackdrop(
             )
         }
 
+        MuseLivingWorldsV3Overlay(
+            profile = profile,
+            style = world,
+            spectrum = audioSpectrum,
+            active = active,
+            intensity = intensity,
+            rainLevel = rainLevel,
+            modifier = Modifier.fillMaxSize(),
+        )
+
         MuseAtmosphereV2Overlay(
             route = route,
             profile = profile,
             behavior = atmosphere,
             active = active,
-            audioEnergy = audioEnergy,
+            audioEnergy = audioSpectrum.energy,
             rainLevel = rainLevel,
             intensity = intensity,
             touchRipple = touchRipple,
@@ -326,6 +330,7 @@ private fun MuseBotanicalMotionOverlay(
     route: String?,
     active: Boolean,
     behavior: MuseAtmosphereBehavior,
+    style: MuseLivingWorldStyle,
     strength: Float,
     palette: MuseBackdropPalette,
     modifier: Modifier = Modifier,
@@ -418,6 +423,7 @@ private fun MuseBotanicalMotionOverlay(
                     spec = shifted,
                     strength = strength,
                     pulse = 0.90f + pulse * 0.10f,
+                    style = style,
                 )
 
                 // A tiny moving specular bead gives wet leaves a physical shimmer
@@ -611,6 +617,7 @@ private fun DrawScope.drawBotanicalLeaf(
     spec: LeafSpec,
     strength: Float,
     pulse: Float,
+    style: MuseLivingWorldStyle,
 ) {
     val center = Offset(size.width * spec.x, size.height * spec.y)
     val width = size.width * spec.width
