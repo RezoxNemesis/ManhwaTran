@@ -23,9 +23,29 @@ internal enum class MuseWorldMotionKind {
     PetalOrbit,
 }
 
+internal enum class MuseWorldFoliageKind {
+    WetBroadleaf,
+    PrismBlade,
+    CharredShard,
+    MoonLance,
+    TidalFrond,
+    VelvetPetal,
+}
+
+internal enum class MuseWorldChromeKind {
+    DewGlass,
+    PrismFacet,
+    ForgedEmber,
+    LunarHalo,
+    TidalLens,
+    RoseVelvet,
+}
+
 internal data class MuseLivingWorldStyle(
     val materialKind: MuseWorldMaterialKind,
     val motionKind: MuseWorldMotionKind,
+    val foliageKind: MuseWorldFoliageKind,
+    val chromeKind: MuseWorldChromeKind,
     val greyscaleSignature: Float,
     val surfaceRoughness: Float,
     val subsurfaceLight: Float,
@@ -58,6 +78,8 @@ internal fun MuseVisualProfile.livingWorldStyle(): MuseLivingWorldStyle =
         MuseVisualProfile.VerdantRain -> MuseLivingWorldStyle(
             materialKind = MuseWorldMaterialKind.WetRainforest,
             motionKind = MuseWorldMotionKind.RainWeightedSway,
+            foliageKind = MuseWorldFoliageKind.WetBroadleaf,
+            chromeKind = MuseWorldChromeKind.DewGlass,
             greyscaleSignature = 0.93f,
             surfaceRoughness = 0.72f,
             subsurfaceLight = 0.82f,
@@ -79,6 +101,8 @@ internal fun MuseVisualProfile.livingWorldStyle(): MuseLivingWorldStyle =
         MuseVisualProfile.AuroraGlass -> MuseLivingWorldStyle(
             materialKind = MuseWorldMaterialKind.IridescentGlass,
             motionKind = MuseWorldMotionKind.RibbonDrift,
+            foliageKind = MuseWorldFoliageKind.PrismBlade,
+            chromeKind = MuseWorldChromeKind.PrismFacet,
             greyscaleSignature = 0.91f,
             surfaceRoughness = 0.22f,
             subsurfaceLight = 0.94f,
@@ -100,6 +124,8 @@ internal fun MuseVisualProfile.livingWorldStyle(): MuseLivingWorldStyle =
         MuseVisualProfile.MidnightEmber -> MuseLivingWorldStyle(
             materialKind = MuseWorldMaterialKind.CharredCopper,
             motionKind = MuseWorldMotionKind.ThermalLift,
+            foliageKind = MuseWorldFoliageKind.CharredShard,
+            chromeKind = MuseWorldChromeKind.ForgedEmber,
             greyscaleSignature = 0.98f,
             surfaceRoughness = 0.88f,
             subsurfaceLight = 0.34f,
@@ -121,6 +147,8 @@ internal fun MuseVisualProfile.livingWorldStyle(): MuseLivingWorldStyle =
         MuseVisualProfile.MoonlitViolet -> MuseLivingWorldStyle(
             materialKind = MuseWorldMaterialKind.LunarSilver,
             motionKind = MuseWorldMotionKind.LunarFloat,
+            foliageKind = MuseWorldFoliageKind.MoonLance,
+            chromeKind = MuseWorldChromeKind.LunarHalo,
             greyscaleSignature = 0.88f,
             surfaceRoughness = 0.48f,
             subsurfaceLight = 0.70f,
@@ -142,6 +170,8 @@ internal fun MuseVisualProfile.livingWorldStyle(): MuseLivingWorldStyle =
         MuseVisualProfile.OceanPulse -> MuseLivingWorldStyle(
             materialKind = MuseWorldMaterialKind.TidalTeal,
             motionKind = MuseWorldMotionKind.TidalPulse,
+            foliageKind = MuseWorldFoliageKind.TidalFrond,
+            chromeKind = MuseWorldChromeKind.TidalLens,
             greyscaleSignature = 1.00f,
             surfaceRoughness = 0.28f,
             subsurfaceLight = 0.90f,
@@ -163,6 +193,8 @@ internal fun MuseVisualProfile.livingWorldStyle(): MuseLivingWorldStyle =
         MuseVisualProfile.RoseNoir -> MuseLivingWorldStyle(
             materialKind = MuseWorldMaterialKind.VelvetRose,
             motionKind = MuseWorldMotionKind.PetalOrbit,
+            foliageKind = MuseWorldFoliageKind.VelvetPetal,
+            chromeKind = MuseWorldChromeKind.RoseVelvet,
             greyscaleSignature = 0.90f,
             surfaceRoughness = 0.62f,
             subsurfaceLight = 0.58f,
