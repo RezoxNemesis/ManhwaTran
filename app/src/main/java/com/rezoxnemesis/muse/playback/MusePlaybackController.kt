@@ -86,6 +86,10 @@ data class AudioEffectsUiState(
     val spatialWidth: Int = 680,
     val headTrackerAvailable: Boolean = false,
     val visualEnergy: Float = 0f,
+    val visualBass: Float = 0f,
+    val visualMid: Float = 0f,
+    val visualHigh: Float = 0f,
+    val visualTransient: Float = 0f,
 )
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -413,12 +417,28 @@ class MusePlaybackController(
                         if (result.resultCode != SessionResult.RESULT_SUCCESS) {
                             return@onSuccess
                         }
-                        val energy = result.extras.getFloat(
-                            AudioEffectProtocol.KeyVisualEnergy,
-                            0f,
-                        ).coerceIn(0f, 1f)
+                        val extras = result.extras
                         _audioEffects.value = _audioEffects.value.copy(
-                            visualEnergy = energy,
+                            visualEnergy = extras.getFloat(
+                                AudioEffectProtocol.KeyVisualEnergy,
+                                0f,
+                            ).coerceIn(0f, 1f),
+                            visualBass = extras.getFloat(
+                                AudioEffectProtocol.KeyVisualBass,
+                                0f,
+                            ).coerceIn(0f, 1f),
+                            visualMid = extras.getFloat(
+                                AudioEffectProtocol.KeyVisualMid,
+                                0f,
+                            ).coerceIn(0f, 1f),
+                            visualHigh = extras.getFloat(
+                                AudioEffectProtocol.KeyVisualHigh,
+                                0f,
+                            ).coerceIn(0f, 1f),
+                            visualTransient = extras.getFloat(
+                                AudioEffectProtocol.KeyVisualTransient,
+                                0f,
+                            ).coerceIn(0f, 1f),
                         )
                     }
             },
@@ -749,6 +769,10 @@ class MusePlaybackController(
                 AudioEffectProtocol.KeyHeadTrackerAvailable,
             ),
             visualEnergy = _audioEffects.value.visualEnergy,
+            visualBass = _audioEffects.value.visualBass,
+            visualMid = _audioEffects.value.visualMid,
+            visualHigh = _audioEffects.value.visualHigh,
+            visualTransient = _audioEffects.value.visualTransient,
         )
     }
 
