@@ -11,12 +11,11 @@ permissions:
 
 concurrency:
   group: muse-preview-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release-preview]')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 35
 
     steps:
@@ -91,14 +90,20 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Publish GitHub prerelease assets
+      - name: Publish latest Muse preview release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: muse-v0.1.0-preview.1
+          TAG: muse-latest-preview
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG"               dist/Muse-0.1.0-preview-debug.apk               dist/Muse-0.1.0-release-unsigned.apk               dist/SHA256SUMS.txt               --clobber
-          else
-            gh release create "$TAG"               dist/Muse-0.1.0-preview-debug.apk               dist/Muse-0.1.0-release-unsigned.apk               dist/SHA256SUMS.txt               --target "$GITHUB_SHA"               --title "Muse 0.1.0 Preview 1"               --prerelease               --notes "Install Muse-0.1.0-preview-debug.apk for Android testing. This build uses the native coded botanical/glass UI and does not package full-screen reference screenshots. The release-unsigned APK is included only as an optimized/R8 verification output. SHA256SUMS.txt contains integrity hashes."
+            gh release delete "$TAG" --cleanup-tag --yes
           fi
+          gh release create "$TAG" \
+            dist/Muse-0.1.0-preview-debug.apk \
+            dist/Muse-0.1.0-release-unsigned.apk \
+            dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "Muse Latest Preview" \
+            --prerelease \
+            --notes "Install Muse-0.1.0-preview-debug.apk for Android testing. This release is rebuilt from the latest feature/muse-foundation commit after unit tests, lint, instrumentation-test compilation, debug assembly and optimized release assembly pass. The unsigned release APK is verification-only. SHA256SUMS.txt contains integrity hashes."
