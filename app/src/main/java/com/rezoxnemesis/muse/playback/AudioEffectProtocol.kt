@@ -6,14 +6,19 @@ import androidx.media3.session.SessionCommand
 object AudioEffectProtocol {
     const val ActionGetState = "com.rezoxnemesis.muse.audio.GET_STATE"
     const val ActionUpdate = "com.rezoxnemesis.muse.audio.UPDATE"
+    const val ActionGetVisualEnergy =
+        "com.rezoxnemesis.muse.audio.GET_VISUAL_ENERGY"
 
     val GetStateCommand = SessionCommand(ActionGetState, Bundle.EMPTY)
     val UpdateCommand = SessionCommand(ActionUpdate, Bundle.EMPTY)
+    val GetVisualEnergyCommand =
+        SessionCommand(ActionGetVisualEnergy, Bundle.EMPTY)
 
     const val KeySessionReady = "session_ready"
     const val KeyAudioSessionId = "audio_session_id"
     const val KeyMasterEnabled = "master_enabled"
     const val KeyBypass = "bypass"
+    const val KeyVisualEnergy = "visual_energy"
 
     const val KeyEqAvailable = "eq_available"
     const val KeyEqCentersHz = "eq_centers_hz"
