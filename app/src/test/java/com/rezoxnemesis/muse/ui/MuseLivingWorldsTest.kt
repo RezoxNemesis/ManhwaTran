@@ -206,4 +206,37 @@ class MuseLivingWorldsTest {
         assertTrue(rose.squash > prism.squash)
     }
 
+    @Test
+    fun everyMaterialHasItsOwnMicroDetailLanguage() {
+        val details = MuseWorldMaterialKind.entries.map { it.microDetail() }
+
+        assertEquals(
+            MuseWorldMaterialKind.entries.size,
+            details.map {
+                listOf(
+                    it.dewBeads,
+                    it.facetLines,
+                    it.crackLines,
+                    it.hazeSpecks,
+                    it.causticBands,
+                    it.velvetGrain,
+                )
+            }.distinct().size,
+        )
+
+        val wet = MuseWorldMaterialKind.WetRainforest.microDetail()
+        val prism = MuseWorldMaterialKind.IridescentGlass.microDetail()
+        val ember = MuseWorldMaterialKind.CharredCopper.microDetail()
+        val lunar = MuseWorldMaterialKind.LunarSilver.microDetail()
+        val tidal = MuseWorldMaterialKind.TidalTeal.microDetail()
+        val rose = MuseWorldMaterialKind.VelvetRose.microDetail()
+
+        assertTrue(wet.dewBeads > ember.dewBeads)
+        assertTrue(prism.facetLines > lunar.facetLines)
+        assertTrue(ember.crackLines > rose.crackLines)
+        assertTrue(lunar.hazeSpecks > ember.hazeSpecks)
+        assertTrue(tidal.causticBands > wet.causticBands)
+        assertTrue(rose.velvetGrain > prism.velvetGrain)
+    }
+
 }
