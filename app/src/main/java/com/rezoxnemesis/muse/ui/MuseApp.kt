@@ -670,6 +670,8 @@ private fun MuseBottomNavigation(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val chrome = LocalMuseChromePalette.current
+    val world = LocalMuseLivingWorldStyle.current
+    val navMotion = world.chromeKind.navMotion()
 
     LaunchedEffect(routeIndex) {
         if (routeIndex != visualIndex) {
@@ -679,8 +681,8 @@ private fun MuseBottomNavigation(
             travel.animateTo(
                 targetValue = 1f,
                 animationSpec = spring(
-                    dampingRatio = 0.76f,
-                    stiffness = 430f,
+                    dampingRatio = navMotion.dampingRatio,
+                    stiffness = navMotion.stiffness,
                 ),
             )
         }
@@ -718,15 +720,19 @@ private fun MuseBottomNavigation(
             // Translation/stretch are GPU transforms, so the bottom bar no
             // longer remeasures every animation frame and therefore does not
             // "jump" when navigation content is doing work at the same time.
+            val distanceBoost = (distance - 1f).coerceAtLeast(0f)
             val stretch = 1f +
                 stretchPhase *
-                (0.40f + 0.10f * distance.coerceAtMost(3f))
-            val squashY = 1f - stretchPhase * 0.050f
+                (navMotion.stretch + 0.045f * distanceBoost.coerceAtMost(2f))
+            val squashY = 1f - stretchPhase * navMotion.squash
             val leadingPullPx =
                 direction *
                     itemWidthPx *
                     stretchPhase *
-                    (0.035f + 0.012f * distance.coerceAtMost(3f))
+                    (
+                        navMotion.leadingPull +
+                            0.008f * distanceBoost.coerceAtMost(2f)
+                    )
 
             Box(
                 modifier = Modifier
@@ -741,10 +747,10 @@ private fun MuseBottomNavigation(
                         scaleY = squashY
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
                             pivotFractionX = when {
-                                direction > 0f -> 0.18f
-                                direction < 0f -> 0.82f
+                                direction > 0f -> 0.5f - navMotion.pivotBias
+                                direction < 0f -> 0.5f + navMotion.pivotBias
                                 else -> 0.5f
-                            },
+                            }.coerceIn(0.06f, 0.94f),
                             pivotFractionY = 0.5f,
                         )
                     }
@@ -795,8 +801,8 @@ private fun MuseBottomNavigation(
                                 travel.animateTo(
                                     targetValue = 1f,
                                     animationSpec = spring(
-                                        dampingRatio = 0.76f,
-                                        stiffness = 430f,
+                                        dampingRatio = navMotion.dampingRatio,
+                                        stiffness = navMotion.stiffness,
                                     ),
                                 )
                             }
