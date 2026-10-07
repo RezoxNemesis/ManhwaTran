@@ -239,4 +239,40 @@ class MuseLivingWorldsTest {
         assertTrue(rose.velvetGrain > prism.velvetGrain)
     }
 
+    @Test
+    fun worldsHaveDistinctLightingCompositions() {
+        val fields = MuseVisualProfile.entries.map { it.worldLightField() }
+
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            fields.map {
+                listOf(
+                    it.keyX,
+                    it.keyY,
+                    it.keyRadius,
+                    it.skyWeight,
+                    it.floorWeight,
+                    it.sideBias,
+                    it.bokehDensity,
+                    it.shaftStrength,
+                    it.centerVeil,
+                )
+            }.distinct().size,
+        )
+
+        val verdant = MuseVisualProfile.VerdantRain.worldLightField()
+        val aurora = MuseVisualProfile.AuroraGlass.worldLightField()
+        val ember = MuseVisualProfile.MidnightEmber.worldLightField()
+        val moon = MuseVisualProfile.MoonlitViolet.worldLightField()
+        val ocean = MuseVisualProfile.OceanPulse.worldLightField()
+        val rose = MuseVisualProfile.RoseNoir.worldLightField()
+
+        assertTrue(ember.keyY > verdant.keyY)
+        assertTrue(ember.floorWeight > moon.floorWeight)
+        assertTrue(moon.keyRadius > ember.keyRadius)
+        assertTrue(ocean.shaftStrength > verdant.shaftStrength)
+        assertTrue(aurora.bokehDensity < verdant.bokehDensity)
+        assertTrue(rose.sideBias != moon.sideBias)
+    }
+
 }
