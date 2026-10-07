@@ -469,8 +469,6 @@ fun MuseApp(
             rainLevel = rainLevel,
             audioSpectrum = visualSpectrum,
             touchRipple = touchRipple,
-            focusState = livingFocus,
-            gestureMomentum = gestureMomentum,
             qualityBudget = visualQualityBudget,
             modifier = Modifier.fillMaxSize(),
         )
@@ -507,9 +505,6 @@ fun MuseApp(
                         MuseBottomNavigation(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
-                                livingFocus = focusMuseRegion(
-                                    MuseFocusRegion.Navigation
-                                )
                                 navController.navigate(route) {
                                     popUpTo("home") { saveState = true }
                                     launchSingleTop = true
