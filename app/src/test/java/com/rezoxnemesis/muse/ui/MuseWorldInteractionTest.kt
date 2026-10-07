@@ -92,6 +92,41 @@ class MuseWorldInteractionTest {
         assertTrue(playing.tempoScale > quiet.tempoScale)
     }
 
+
+    @Test
+    fun routeFocusMappingAndInteractionFrameCarryFocusAndGestureEnergyIntoV4() {
+        assertEquals(MuseFocusRegion.Home, museFocusRegionForRoute("home"))
+        assertEquals(MuseFocusRegion.Explore, museFocusRegionForRoute("explore"))
+        assertEquals(MuseFocusRegion.Library, museFocusRegionForRoute("library"))
+        assertEquals(MuseFocusRegion.Equalizer, museFocusRegionForRoute("equalizer"))
+        assertEquals(MuseFocusRegion.MuseLab, museFocusRegionForRoute("tools"))
+        assertEquals(MuseFocusRegion.NowPlaying, museFocusRegionForRoute("nowPlaying"))
+
+        val frame = resolveMuseV4InteractionFrame(
+            focus = focusMuseRegion(MuseFocusRegion.Equalizer),
+            momentum = MuseGestureMomentum(
+                x = 0.82f,
+                y = -0.46f,
+                magnitude = 0.82f,
+            ),
+        )
+
+        assertEquals(MuseFocusRegion.Equalizer, frame.focusRegion)
+        assertEquals(1f, frame.focusStrength, 0.0001f)
+        assertEquals(0.82f, frame.momentumX, 0.0001f)
+        assertEquals(-0.46f, frame.momentumY, 0.0001f)
+        assertEquals(0.82f, frame.momentumStrength, 0.0001f)
+
+        val clamped = resolveMuseV4InteractionFrame(
+            focus = MuseLivingFocusState(MuseFocusRegion.Home, 4f),
+            momentum = MuseGestureMomentum(3f, -4f, 7f),
+        )
+        assertEquals(1f, clamped.focusStrength, 0.0001f)
+        assertEquals(1f, clamped.momentumX, 0.0001f)
+        assertEquals(-1f, clamped.momentumY, 0.0001f)
+        assertEquals(1f, clamped.momentumStrength, 0.0001f)
+    }
+
     @Test
     fun focusAndGestureMomentumAreBoundedAndDecayDeterministically() {
         val focused = focusMuseRegion(MuseFocusRegion.Equalizer)
