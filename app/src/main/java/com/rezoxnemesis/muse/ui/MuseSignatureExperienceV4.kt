@@ -183,6 +183,10 @@ internal fun MuseSignatureExperienceV4Overlay(
         isForeground = true,
     )
     val interaction = experience.interactionLanguage()
+    val interactionFrame = resolveMuseV4InteractionFrame(
+        focus = focusState,
+        momentum = gestureMomentum,
+    )
     val breathing = resolveMuseWorldBreathing(
         experience = experience,
         isPlaying = active,
@@ -240,6 +244,28 @@ internal fun MuseSignatureExperienceV4Overlay(
         }
     }
 
+    val focusStrength = remember { Animatable(0f) }
+    LaunchedEffect(touchRipple?.id, focusState.region, focusState.strength) {
+        if (policy.interactionEnabled && interactionFrame.focusRegion != null) {
+            focusStrength.snapTo(interactionFrame.focusStrength)
+            focusStrength.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 1_450),
+            )
+        }
+    }
+
+    val momentumStrength = remember { Animatable(0f) }
+    LaunchedEffect(touchRipple?.id, gestureMomentum) {
+        if (policy.interactionEnabled && interactionFrame.momentumStrength > 0.015f) {
+            momentumStrength.snapTo(interactionFrame.momentumStrength)
+            momentumStrength.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 920),
+            )
+        }
+    }
+
     Canvas(modifier = modifier) {
         if (policy.morphEnabled) {
             drawMuseV4MorphField(
@@ -278,6 +304,25 @@ internal fun MuseSignatureExperienceV4Overlay(
                 progress = echoProgress.value,
                 profile = profile,
                 densityScale = policy.secondaryParticleScale,
+            )
+        }
+
+        if (focusStrength.value > 0.01f && interactionFrame.focusRegion != null) {
+            drawMuseV4LivingFocus(
+                region = interactionFrame.focusRegion,
+                strength = focusStrength.value,
+                profile = profile,
+                chromeKind = experience.style.chromeKind,
+            )
+        }
+
+        if (momentumStrength.value > 0.01f) {
+            drawMuseV4GestureMomentum(
+                x = interactionFrame.momentumX,
+                y = interactionFrame.momentumY,
+                strength = momentumStrength.value,
+                profile = profile,
+                echoKind = policy.echoKind,
             )
         }
     }
@@ -668,6 +713,218 @@ private fun DrawScope.drawMuseV4WorldEcho(
                 rotate(petal * 72f + progress * 50f, c) {
                     drawOval(
                         color = chrome.primary.copy(alpha = alpha * 0.13f),
+                        topLeft = Offset(c.x - 6.dp.toPx(), c.y - 11.dp.toPx()),
+                        size = Size(12.dp.toPx(), 22.dp.toPx()),
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+private fun DrawScope.drawMuseV4LivingFocus(
+    region: MuseFocusRegion,
+    strength: Float,
+    profile: MuseVisualProfile,
+    chromeKind: MuseWorldChromeKind,
+) {
+    val chrome = profile.chromePalette()
+    val center = when (region) {
+        MuseFocusRegion.Home -> Offset(size.width * 0.50f, size.height * 0.24f)
+        MuseFocusRegion.Explore -> Offset(size.width * 0.50f, size.height * 0.30f)
+        MuseFocusRegion.Library -> Offset(size.width * 0.50f, size.height * 0.36f)
+        MuseFocusRegion.Equalizer -> Offset(size.width * 0.50f, size.height * 0.48f)
+        MuseFocusRegion.MuseLab -> Offset(size.width * 0.50f, size.height * 0.42f)
+        MuseFocusRegion.Navigation -> Offset(size.width * 0.50f, size.height * 0.90f)
+        MuseFocusRegion.NowPlaying -> Offset(size.width * 0.50f, size.height * 0.34f)
+    }
+    val alpha = strength.coerceIn(0f, 1f)
+
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                chrome.highlight.copy(alpha = 0.10f * alpha),
+                chrome.glow.copy(alpha = 0.050f * alpha),
+                Color.Transparent,
+            ),
+            center = center,
+            radius = size.minDimension * 0.34f,
+        ),
+        center = center,
+        radius = size.minDimension * 0.34f,
+    )
+
+    when (chromeKind) {
+        MuseWorldChromeKind.DewGlass -> {
+            repeat(3) { index ->
+                drawCircle(
+                    color = chrome.highlight.copy(alpha = 0.13f * alpha),
+                    center = Offset(
+                        center.x + size.width * (index - 1) * 0.055f,
+                        center.y + size.height * 0.018f * index,
+                    ),
+                    radius = size.minDimension * (0.006f + index * 0.002f),
+                    style = Stroke(width = 1.dp.toPx()),
+                )
+            }
+        }
+        MuseWorldChromeKind.PrismFacet -> {
+            repeat(3) { lane ->
+                drawLine(
+                    color = chrome.highlight.copy(alpha = (0.12f - lane * 0.022f) * alpha),
+                    start = Offset(center.x - size.width * 0.16f, center.y + lane * 11.dp.toPx()),
+                    end = Offset(center.x + size.width * 0.16f, center.y - lane * 9.dp.toPx()),
+                    strokeWidth = (1.2f + lane * 0.5f).dp.toPx(),
+                )
+            }
+        }
+        MuseWorldChromeKind.ForgedEmber -> {
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        chrome.primary.copy(alpha = 0.16f * alpha),
+                        Color.Transparent,
+                    ),
+                    center = Offset(center.x, center.y + size.height * 0.08f),
+                    radius = size.width * 0.30f,
+                ),
+                topLeft = Offset(center.x - size.width * 0.30f, center.y),
+                size = Size(size.width * 0.60f, size.height * 0.18f),
+            )
+        }
+        MuseWorldChromeKind.LunarHalo -> {
+            drawOval(
+                color = chrome.highlight.copy(alpha = 0.10f * alpha),
+                topLeft = Offset(center.x - size.width * 0.28f, center.y - size.height * 0.075f),
+                size = Size(size.width * 0.56f, size.height * 0.15f),
+                style = Stroke(width = 1.2.dp.toPx()),
+            )
+        }
+        MuseWorldChromeKind.TidalLens -> {
+            repeat(2) { ring ->
+                drawOval(
+                    color = chrome.highlight.copy(alpha = (0.11f - ring * 0.035f) * alpha),
+                    topLeft = Offset(
+                        center.x - size.width * (0.17f + ring * 0.06f),
+                        center.y - size.height * (0.055f + ring * 0.022f),
+                    ),
+                    size = Size(
+                        size.width * (0.34f + ring * 0.12f),
+                        size.height * (0.11f + ring * 0.044f),
+                    ),
+                    style = Stroke(width = 1.dp.toPx()),
+                )
+            }
+        }
+        MuseWorldChromeKind.RoseVelvet -> {
+            repeat(3) { petal ->
+                rotate(petal * 60f - 60f, center) {
+                    drawOval(
+                        color = chrome.primary.copy(alpha = 0.075f * alpha),
+                        topLeft = Offset(center.x - 9.dp.toPx(), center.y - 25.dp.toPx()),
+                        size = Size(18.dp.toPx(), 50.dp.toPx()),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun DrawScope.drawMuseV4GestureMomentum(
+    x: Float,
+    y: Float,
+    strength: Float,
+    profile: MuseVisualProfile,
+    echoKind: MuseWorldEchoKind,
+) {
+    val chrome = profile.chromePalette()
+    val dx = x.coerceIn(-1f, 1f)
+    val dy = y.coerceIn(-1f, 1f)
+    val power = strength.coerceIn(0f, 1f)
+    val center = Offset(size.width * 0.50f, size.height * 0.54f)
+    val travel = Offset(
+        x = dx * size.width * 0.26f,
+        y = dy * size.height * 0.18f,
+    )
+    val start = Offset(center.x - travel.x * 0.55f, center.y - travel.y * 0.55f)
+    val end = Offset(center.x + travel.x, center.y + travel.y)
+
+    when (echoKind) {
+        MuseWorldEchoKind.WetFoliageTrail -> {
+            drawLine(
+                color = chrome.highlight.copy(alpha = 0.10f * power),
+                start = start,
+                end = end,
+                strokeWidth = 1.4.dp.toPx(),
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            )
+            repeat(3) { index ->
+                val t = (index + 1) / 4f
+                drawCircle(
+                    color = chrome.highlight.copy(alpha = 0.13f * power * (1f - t * 0.45f)),
+                    center = Offset(
+                        start.x + (end.x - start.x) * t,
+                        start.y + (end.y - start.y) * t,
+                    ),
+                    radius = size.minDimension * (0.004f + index * 0.0015f),
+                )
+            }
+        }
+        MuseWorldEchoKind.PrismRibbon -> {
+            repeat(3) { lane ->
+                val offset = (lane - 1) * 8.dp.toPx()
+                drawLine(
+                    color = chrome.highlight.copy(alpha = (0.12f - lane * 0.02f) * power),
+                    start = Offset(start.x, start.y + offset),
+                    end = Offset(end.x, end.y + offset),
+                    strokeWidth = (1.3f + lane * 0.4f).dp.toPx(),
+                )
+            }
+        }
+        MuseWorldEchoKind.EmberTrace -> {
+            repeat(5) { spark ->
+                val t = (spark + 1) / 6f
+                val c = Offset(
+                    start.x + (end.x - start.x) * t,
+                    start.y + (end.y - start.y) * t - spark * 3.dp.toPx(),
+                )
+                drawCircle(
+                    color = chrome.primary.copy(alpha = 0.15f * power * (1f - t * 0.35f)),
+                    center = c,
+                    radius = (1.5f + spark * 0.35f).dp.toPx(),
+                )
+            }
+        }
+        MuseWorldEchoKind.MistDisplacement -> {
+            drawLine(
+                color = chrome.highlight.copy(alpha = 0.055f * power),
+                start = start,
+                end = end,
+                strokeWidth = 18.dp.toPx(),
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            )
+        }
+        MuseWorldEchoKind.TidalRipple -> {
+            repeat(2) { ring ->
+                drawCircle(
+                    color = chrome.highlight.copy(alpha = (0.11f - ring * 0.03f) * power),
+                    center = end,
+                    radius = size.minDimension * (0.035f + ring * 0.035f + power * 0.035f),
+                    style = Stroke(width = 1.dp.toPx()),
+                )
+            }
+        }
+        MuseWorldEchoKind.PetalDisplacement -> {
+            repeat(4) { petal ->
+                val t = (petal + 1) / 5f
+                val c = Offset(
+                    start.x + (end.x - start.x) * t,
+                    start.y + (end.y - start.y) * t,
+                )
+                rotate(petal * 31f + dx * 22f, c) {
+                    drawOval(
+                        color = chrome.primary.copy(alpha = 0.085f * power),
                         topLeft = Offset(c.x - 6.dp.toPx(), c.y - 11.dp.toPx()),
                         size = Size(12.dp.toPx(), 22.dp.toPx()),
                     )
