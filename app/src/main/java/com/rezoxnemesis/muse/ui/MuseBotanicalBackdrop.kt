@@ -185,6 +185,7 @@ internal fun MuseNativeBotanicalBackdrop(
     val atmosphere = profile.atmosphereBehavior()
     val world = profile.livingWorldStyle()
     val scene = profile.worldSceneGeometry()
+    val light = profile.worldLightField()
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -207,29 +208,104 @@ internal fun MuseNativeBotanicalBackdrop(
 
             val sunCenter = Offset(
                 x = size.width * (
-                    0.79f +
-                        scene.edgePull * 0.55f +
-                        scene.rotationBias / 360f
+                    light.keyX +
+                        scene.edgePull * 0.18f +
+                        light.sideBias * 0.035f
                 ),
                 y = size.height * (
-                    0.055f +
-                        scene.verticalBias * 0.65f
+                    light.keyY +
+                        scene.verticalBias * 0.24f
                 ),
             )
+            val keyRadius = size.minDimension * light.keyRadius
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        palette.keyLight.copy(alpha = 0.24f * strength),
-                        palette.secondaryLight.copy(alpha = 0.13f * strength),
-                        palette.secondaryLight.copy(alpha = 0.038f * strength),
+                        palette.keyLight.copy(
+                            alpha = 0.25f * light.skyWeight * strength,
+                        ),
+                        palette.secondaryLight.copy(
+                            alpha = 0.14f * light.skyWeight * strength,
+                        ),
+                        palette.secondaryLight.copy(
+                            alpha = 0.040f * light.skyWeight * strength,
+                        ),
                         Color.Transparent,
                     ),
                     center = sunCenter,
-                    radius = size.minDimension * 0.72f,
+                    radius = keyRadius,
                 ),
                 center = sunCenter,
-                radius = size.minDimension * 0.72f,
+                radius = keyRadius,
             )
+
+            if (light.floorWeight > 0.05f) {
+                val floorCenter = Offset(
+                    x = size.width * (0.50f + light.sideBias * 0.22f),
+                    y = size.height * 0.96f,
+                )
+                drawOval(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            palette.keyLight.copy(
+                                alpha = 0.13f * light.floorWeight * strength,
+                            ),
+                            palette.secondaryLight.copy(
+                                alpha = 0.055f * light.floorWeight * strength,
+                            ),
+                            Color.Transparent,
+                        ),
+                        center = floorCenter,
+                        radius = size.width * 0.68f,
+                    ),
+                    topLeft = Offset(
+                        floorCenter.x - size.width * 0.62f,
+                        floorCenter.y - size.height * 0.15f,
+                    ),
+                    size = Size(size.width * 1.24f, size.height * 0.30f),
+                )
+            }
+
+            if (light.shaftStrength > 0.10f) {
+                repeat(3) { index ->
+                    val lane = index - 1
+                    val startX = size.width * (
+                        light.keyX +
+                            lane * 0.16f +
+                            light.sideBias * 0.10f
+                    )
+                    val endX = startX +
+                        size.width * (light.sideBias * 0.36f - lane * 0.04f)
+                    drawLine(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                palette.keyLight.copy(
+                                    alpha = 0.050f *
+                                        light.shaftStrength *
+                                        strength,
+                                ),
+                                palette.secondaryLight.copy(
+                                    alpha = 0.024f *
+                                        light.shaftStrength *
+                                        strength,
+                                ),
+                                Color.Transparent,
+                            ),
+                            start = Offset(startX, -size.height * 0.05f),
+                            end = Offset(endX, size.height * 0.86f),
+                        ),
+                        start = Offset(startX, -size.height * 0.04f),
+                        end = Offset(endX, size.height * 0.86f),
+                        strokeWidth = (
+                            9f +
+                                index * 5f +
+                                light.shaftStrength * 8f
+                            ).dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
 
             val bokeh = listOf(
                 floatArrayOf(0.10f, 0.10f, 0.060f, 0.10f),
@@ -247,20 +323,28 @@ internal fun MuseNativeBotanicalBackdrop(
                 floatArrayOf(0.80f, 0.72f, 0.064f, 0.08f),
                 floatArrayOf(0.61f, 0.91f, 0.044f, 0.08f),
             )
-            bokeh.forEachIndexed { index, dot ->
+            val visibleBokeh = (
+                5 + light.bokehDensity * (bokeh.size - 5)
+                ).toInt().coerceIn(5, bokeh.size)
+            bokeh.take(visibleBokeh).forEachIndexed { index, dot ->
                 val center = Offset(
-                    size.width * dot[0],
+                    size.width * (
+                        dot[0] + light.sideBias * 0.025f
+                    ),
                     size.height * dot[1],
                 )
                 val radius = size.minDimension * dot[2]
+                val bokehAlpha = dot[3] *
+                    (0.55f + light.bokehDensity * 0.55f) *
+                    strength
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
                             if (index % 3 == 0) {
-                                palette.keyLight.copy(alpha = dot[3] * strength)
+                                palette.keyLight.copy(alpha = bokehAlpha)
                             } else {
                                 palette.secondaryLight.copy(
-                                    alpha = dot[3] * 0.62f * strength,
+                                    alpha = bokehAlpha * 0.62f,
                                 )
                             },
                             Color.Transparent,
@@ -289,9 +373,15 @@ internal fun MuseNativeBotanicalBackdrop(
             drawRect(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.Black.copy(alpha = 0.04f),
-                        Color.Black.copy(alpha = 0.10f),
-                        Color.Black.copy(alpha = 0.50f),
+                        Color.Black.copy(
+                            alpha = 0.025f + light.centerVeil * 0.030f,
+                        ),
+                        Color.Black.copy(
+                            alpha = 0.060f + light.centerVeil * 0.080f,
+                        ),
+                        Color.Black.copy(
+                            alpha = 0.32f + light.centerVeil * 0.28f,
+                        ),
                     ),
                     center = Offset(size.width * 0.52f, size.height * 0.47f),
                     radius = size.maxDimension * 0.80f,
