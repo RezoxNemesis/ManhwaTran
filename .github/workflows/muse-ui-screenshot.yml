@@ -7,6 +7,7 @@ on:
       - feature/muse-native-reference-ui
       - feature/muse-living-atmosphere
       - feature/muse-living-worlds-v3
+      - feature/muse-signature-experience-v4
   workflow_dispatch:
 
 permissions:
