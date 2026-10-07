@@ -14,6 +14,68 @@ internal enum class MuseWorldMaterialKind {
     VelvetRose,
 }
 
+
+internal data class MuseMaterialMicroDetail(
+    val dewBeads: Float,
+    val facetLines: Float,
+    val crackLines: Float,
+    val hazeSpecks: Float,
+    val causticBands: Float,
+    val velvetGrain: Float,
+)
+
+internal fun MuseWorldMaterialKind.microDetail(): MuseMaterialMicroDetail =
+    when (this) {
+        MuseWorldMaterialKind.WetRainforest -> MuseMaterialMicroDetail(
+            dewBeads = 1.00f,
+            facetLines = 0.10f,
+            crackLines = 0.08f,
+            hazeSpecks = 0.24f,
+            causticBands = 0.12f,
+            velvetGrain = 0.16f,
+        )
+        MuseWorldMaterialKind.IridescentGlass -> MuseMaterialMicroDetail(
+            dewBeads = 0.22f,
+            facetLines = 1.00f,
+            crackLines = 0.12f,
+            hazeSpecks = 0.34f,
+            causticBands = 0.26f,
+            velvetGrain = 0.06f,
+        )
+        MuseWorldMaterialKind.CharredCopper -> MuseMaterialMicroDetail(
+            dewBeads = 0.05f,
+            facetLines = 0.14f,
+            crackLines = 1.00f,
+            hazeSpecks = 0.18f,
+            causticBands = 0.04f,
+            velvetGrain = 0.28f,
+        )
+        MuseWorldMaterialKind.LunarSilver -> MuseMaterialMicroDetail(
+            dewBeads = 0.18f,
+            facetLines = 0.22f,
+            crackLines = 0.06f,
+            hazeSpecks = 1.00f,
+            causticBands = 0.16f,
+            velvetGrain = 0.20f,
+        )
+        MuseWorldMaterialKind.TidalTeal -> MuseMaterialMicroDetail(
+            dewBeads = 0.34f,
+            facetLines = 0.28f,
+            crackLines = 0.04f,
+            hazeSpecks = 0.38f,
+            causticBands = 1.00f,
+            velvetGrain = 0.10f,
+        )
+        MuseWorldMaterialKind.VelvetRose -> MuseMaterialMicroDetail(
+            dewBeads = 0.16f,
+            facetLines = 0.08f,
+            crackLines = 0.10f,
+            hazeSpecks = 0.30f,
+            causticBands = 0.06f,
+            velvetGrain = 1.00f,
+        )
+    }
+
 internal enum class MuseWorldMotionKind {
     RainWeightedSway,
     RibbonDrift,
