@@ -629,6 +629,13 @@ fun MuseApp(
                 }
             }
         }
+
+        // The arrival gesture sits above the live UI but remains purely visual,
+        // so profile changes feel physical without blocking touch or navigation.
+        MuseWorldArrivalOverlay(
+            profile = resolvedVisualProfile,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
     }
 }
