@@ -214,3 +214,36 @@ internal fun resolveMuseGestureMomentum(
         magnitude = max(abs(x), abs(y)).coerceIn(0f, 1f),
     )
 }
+
+
+internal data class MuseV4InteractionFrame(
+    val focusRegion: MuseFocusRegion?,
+    val focusStrength: Float,
+    val momentumX: Float,
+    val momentumY: Float,
+    val momentumStrength: Float,
+)
+
+internal fun museFocusRegionForRoute(
+    route: String?,
+): MuseFocusRegion =
+    when (route) {
+        "explore" -> MuseFocusRegion.Explore
+        "library" -> MuseFocusRegion.Library
+        "equalizer" -> MuseFocusRegion.Equalizer
+        "tools" -> MuseFocusRegion.MuseLab
+        "nowPlaying", "lyrics" -> MuseFocusRegion.NowPlaying
+        else -> MuseFocusRegion.Home
+    }
+
+internal fun resolveMuseV4InteractionFrame(
+    focus: MuseLivingFocusState,
+    momentum: MuseGestureMomentum,
+): MuseV4InteractionFrame =
+    MuseV4InteractionFrame(
+        focusRegion = focus.region,
+        focusStrength = focus.strength.coerceIn(0f, 1f),
+        momentumX = momentum.x.coerceIn(-1f, 1f),
+        momentumY = momentum.y.coerceIn(-1f, 1f),
+        momentumStrength = momentum.magnitude.coerceIn(0f, 1f),
+    )
