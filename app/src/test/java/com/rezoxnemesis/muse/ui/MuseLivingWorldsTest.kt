@@ -173,4 +173,37 @@ class MuseLivingWorldsTest {
         assertTrue(aurora.alphaScale < verdant.alphaScale)
     }
 
+    @Test
+    fun eachWorldUsesItsOwnNavigationMotionLanguage() {
+        val motions = MuseVisualProfile.entries.map {
+            it.livingWorldStyle().chromeKind.navMotion()
+        }
+
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            motions.map {
+                listOf(
+                    it.dampingRatio,
+                    it.stiffness,
+                    it.stretch,
+                    it.squash,
+                    it.leadingPull,
+                    it.pivotBias,
+                )
+            }.distinct().size,
+        )
+
+        val dew = MuseWorldChromeKind.DewGlass.navMotion()
+        val prism = MuseWorldChromeKind.PrismFacet.navMotion()
+        val ember = MuseWorldChromeKind.ForgedEmber.navMotion()
+        val lunar = MuseWorldChromeKind.LunarHalo.navMotion()
+        val tidal = MuseWorldChromeKind.TidalLens.navMotion()
+        val rose = MuseWorldChromeKind.RoseVelvet.navMotion()
+
+        assertTrue(ember.stiffness > lunar.stiffness)
+        assertTrue(tidal.stretch > lunar.stretch)
+        assertTrue(prism.leadingPull > dew.leadingPull)
+        assertTrue(rose.squash > prism.squash)
+    }
+
 }
