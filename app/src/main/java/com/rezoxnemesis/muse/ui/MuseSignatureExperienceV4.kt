@@ -183,10 +183,6 @@ internal fun MuseSignatureExperienceV4Overlay(
         isForeground = true,
     )
     val interaction = experience.interactionLanguage()
-    val interactionFrame = resolveMuseV4InteractionFrame(
-        focus = focusState,
-        momentum = gestureMomentum,
-    )
     val breathing = resolveMuseWorldBreathing(
         experience = experience,
         isPlaying = active,
@@ -245,7 +241,11 @@ internal fun MuseSignatureExperienceV4Overlay(
     }
 
     val focusStrength = remember { Animatable(0f) }
-    LaunchedEffect(touchRipple?.id, focusState.region, focusState.strength) {
+    LaunchedEffect(
+        touchRipple?.id,
+        interactionFrame.focusRegion,
+        interactionFrame.focusStrength,
+    ) {
         if (policy.interactionEnabled && interactionFrame.focusRegion != null) {
             focusStrength.snapTo(interactionFrame.focusStrength)
             focusStrength.animateTo(
@@ -256,7 +256,12 @@ internal fun MuseSignatureExperienceV4Overlay(
     }
 
     val momentumStrength = remember { Animatable(0f) }
-    LaunchedEffect(touchRipple?.id, gestureMomentum) {
+    LaunchedEffect(
+        touchRipple?.id,
+        interactionFrame.momentumX,
+        interactionFrame.momentumY,
+        interactionFrame.momentumStrength,
+    ) {
         if (policy.interactionEnabled && interactionFrame.momentumStrength > 0.015f) {
             momentumStrength.snapTo(interactionFrame.momentumStrength)
             momentumStrength.animateTo(
@@ -272,14 +277,6 @@ internal fun MuseSignatureExperienceV4Overlay(
                 blend = blend,
                 phase = phase,
                 secondaryScale = policy.secondaryShimmerScale,
-            )
-        }
-
-        if (policy.interactionEnabled) {
-            drawMuseV4LivingFocusAndMomentum(
-                frame = interactionFrame,
-                profile = profile,
-                phase = phase,
             )
         }
 
@@ -328,64 +325,6 @@ internal fun MuseSignatureExperienceV4Overlay(
     }
 }
 
-
-private fun DrawScope.drawMuseV4LivingFocusAndMomentum(
-    frame: MuseV4InteractionFrame,
-    profile: MuseVisualProfile,
-    phase: Float,
-) {
-    val chrome = profile.chromePalette()
-    val focusCenter = when (frame.focusRegion) {
-        MuseFocusRegion.Home -> Offset(size.width * 0.50f, size.height * 0.24f)
-        MuseFocusRegion.Explore -> Offset(size.width * 0.42f, size.height * 0.34f)
-        MuseFocusRegion.Library -> Offset(size.width * 0.56f, size.height * 0.42f)
-        MuseFocusRegion.Equalizer -> Offset(size.width * 0.50f, size.height * 0.53f)
-        MuseFocusRegion.MuseLab -> Offset(size.width * 0.56f, size.height * 0.48f)
-        MuseFocusRegion.Navigation -> Offset(size.width * 0.50f, size.height * 0.88f)
-        MuseFocusRegion.NowPlaying -> Offset(size.width * 0.50f, size.height * 0.40f)
-        null -> Offset(size.width * 0.50f, size.height * 0.45f)
-    }
-
-    if (frame.focusStrength > 0.01f) {
-        val pulse = 0.88f + sin(phase * 2f * PI.toFloat()) * 0.12f
-        val radius = size.minDimension * (0.22f + frame.focusStrength * 0.12f)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    chrome.highlight.copy(alpha = 0.052f * frame.focusStrength * pulse),
-                    chrome.glow.copy(alpha = 0.026f * frame.focusStrength),
-                    Color.Transparent,
-                ),
-                center = focusCenter,
-                radius = radius,
-            ),
-            center = focusCenter,
-            radius = radius,
-        )
-    }
-
-    if (frame.momentumStrength > 0.02f) {
-        val travel = size.minDimension * (0.06f + frame.momentumStrength * 0.12f)
-        val end = Offset(
-            x = focusCenter.x + frame.momentumX * travel,
-            y = focusCenter.y + frame.momentumY * travel,
-        )
-        drawLine(
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    chrome.highlight.copy(alpha = 0.16f * frame.momentumStrength),
-                    Color.Transparent,
-                ),
-                start = focusCenter,
-                end = end,
-            ),
-            start = focusCenter,
-            end = end,
-            strokeWidth = (1.6f + frame.momentumStrength * 2.4f).dp.toPx(),
-        )
-    }
-}
 
 private fun DrawScope.drawMuseV4MorphField(
     blend: MuseWorldBlend,
