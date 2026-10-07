@@ -61,6 +61,68 @@ internal data class MuseChromeGeometry(
     val rimPulse: Float,
 )
 
+
+internal data class MuseWorldSceneGeometry(
+    val widthScale: Float,
+    val heightScale: Float,
+    val verticalBias: Float,
+    val rotationBias: Float,
+    val edgePull: Float,
+    val alphaScale: Float,
+)
+
+internal fun MuseVisualProfile.worldSceneGeometry(): MuseWorldSceneGeometry =
+    when (this) {
+        MuseVisualProfile.VerdantRain -> MuseWorldSceneGeometry(
+            widthScale = 1.10f,
+            heightScale = 1.00f,
+            verticalBias = 0.00f,
+            rotationBias = 2.0f,
+            edgePull = 0.035f,
+            alphaScale = 1.00f,
+        )
+        MuseVisualProfile.AuroraGlass -> MuseWorldSceneGeometry(
+            widthScale = 0.76f,
+            heightScale = 1.12f,
+            verticalBias = -0.028f,
+            rotationBias = -9.0f,
+            edgePull = 0.070f,
+            alphaScale = 0.74f,
+        )
+        MuseVisualProfile.MidnightEmber -> MuseWorldSceneGeometry(
+            widthScale = 0.92f,
+            heightScale = 0.82f,
+            verticalBias = 0.055f,
+            rotationBias = 13.0f,
+            edgePull = 0.088f,
+            alphaScale = 0.88f,
+        )
+        MuseVisualProfile.MoonlitViolet -> MuseWorldSceneGeometry(
+            widthScale = 0.68f,
+            heightScale = 1.18f,
+            verticalBias = -0.010f,
+            rotationBias = -3.0f,
+            edgePull = 0.025f,
+            alphaScale = 0.70f,
+        )
+        MuseVisualProfile.OceanPulse -> MuseWorldSceneGeometry(
+            widthScale = 0.82f,
+            heightScale = 1.30f,
+            verticalBias = 0.020f,
+            rotationBias = 8.0f,
+            edgePull = 0.050f,
+            alphaScale = 0.80f,
+        )
+        MuseVisualProfile.RoseNoir -> MuseWorldSceneGeometry(
+            widthScale = 1.02f,
+            heightScale = 0.88f,
+            verticalBias = 0.032f,
+            rotationBias = -15.0f,
+            edgePull = 0.062f,
+            alphaScale = 0.84f,
+        )
+    }
+
 internal fun MuseWorldFoliageKind.geometry(): MuseFoliageGeometry =
     when (this) {
         MuseWorldFoliageKind.WetBroadleaf -> MuseFoliageGeometry(
