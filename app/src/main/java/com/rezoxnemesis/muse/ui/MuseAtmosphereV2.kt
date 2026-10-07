@@ -28,6 +28,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * Atmosphere V2 keeps the UI native while giving the backdrop a physical model.
@@ -42,6 +43,73 @@ internal data class MuseLeafWaterMotion(
     val edgeFall: Float,
     val impactPulse: Float,
 )
+
+internal data class MuseDropletCoalescence(
+    val shouldMerge: Boolean,
+    val progress: Float,
+    val lateral: Float,
+    val radiusScale: Float,
+    val releaseBoost: Float,
+)
+
+internal fun resolveMuseDropletCoalescence(
+    progressA: Float,
+    lateralA: Float,
+    radiusA: Float,
+    progressB: Float,
+    lateralB: Float,
+    radiusB: Float,
+    adhesion: Float,
+): MuseDropletCoalescence {
+    val aRadius = radiusA.coerceAtLeast(0.01f)
+    val bRadius = radiusB.coerceAtLeast(0.01f)
+    val wetAdhesion = adhesion.coerceIn(0f, 1f)
+    val progressDistance = abs(progressA - progressB)
+    val lateralDistance = abs(lateralA - lateralB)
+    val progressThreshold = 0.052f + wetAdhesion * 0.052f
+    val lateralThreshold = 0.070f + wetAdhesion * 0.090f
+    val shouldMerge =
+        progressDistance <= progressThreshold &&
+            lateralDistance <= lateralThreshold
+
+    if (!shouldMerge) {
+        return MuseDropletCoalescence(
+            shouldMerge = false,
+            progress = progressA.coerceIn(0f, 1f),
+            lateral = lateralA.coerceIn(-1f, 1f),
+            radiusScale = aRadius,
+            releaseBoost = 0f,
+        )
+    }
+
+    // Use 2D projected area as the visual mass. The resulting radius grows
+    // naturally instead of simply adding two radii together.
+    val massA = aRadius * aRadius
+    val massB = bRadius * bRadius
+    val totalMass = (massA + massB).coerceAtLeast(0.001f)
+    val mergedRadius = sqrt(totalMass)
+    val progress = (
+        progressA * massA +
+            progressB * massB
+        ) / totalMass
+    val lateral = (
+        lateralA * massA +
+            lateralB * massB
+        ) / totalMass
+    val radiusGain = (
+        mergedRadius / maxOf(aRadius, bRadius) - 1f
+        ).coerceAtLeast(0f)
+
+    return MuseDropletCoalescence(
+        shouldMerge = true,
+        progress = progress.coerceIn(0f, 1f),
+        lateral = lateral.coerceIn(-1f, 1f),
+        radiusScale = mergedRadius,
+        releaseBoost = (
+            radiusGain * (0.72f + wetAdhesion * 0.68f)
+            ).coerceIn(0f, 0.75f),
+    )
+}
 
 internal fun resolveMuseLeafWaterMotion(
     seed: Int,
@@ -190,13 +258,6 @@ internal fun MuseAtmosphereV2Overlay(
             phase = phase,
             energy = energy,
             strength = intensityScale,
-        )
-        drawProfileSignatureV2(
-            chrome = chrome,
-            behavior = behavior,
-            phase = phase,
-            microPhase = microPhase,
-            strength = signatureStrength,
         )
         drawLeafBoundWater(
             route = route,
@@ -562,7 +623,13 @@ private fun DrawScope.drawLeafBoundWater(
             cap = StrokeCap.Round,
         )
 
-        repeat(4) { dropletIndex ->
+        data class SurfaceBead(
+            val motion: MuseLeafWaterMotion,
+            val lateral: Float,
+            val radiusDp: Float,
+        )
+
+        val beads = (0 until 4).map { dropletIndex ->
             val seed = anchorIndex * 11 + dropletIndex * 3 + 1
             val motion = resolveMuseLeafWaterMotion(
                 seed = seed,
@@ -570,57 +637,108 @@ private fun DrawScope.drawLeafBoundWater(
                 mobility = behavior.dropletMobility,
                 rainLevel = rainLevel,
             )
-            val lateral = (
-                motion.lateral * (0.18f + dropletIndex * 0.07f)
-                ).coerceIn(-0.62f, 0.62f)
+            SurfaceBead(
+                motion = motion,
+                lateral = (
+                    motion.lateral * (0.18f + dropletIndex * 0.07f)
+                    ).coerceIn(-0.62f, 0.62f),
+                radiusDp = 1.15f +
+                    dropletIndex * 0.24f +
+                    anchor.depth * 0.75f,
+            )
+        }
+
+        fun drawSurfaceBead(
+            progress: Float,
+            lateral: Float,
+            radiusDp: Float,
+            impactPulse: Float,
+            releaseBoost: Float,
+        ) {
+            val releaseProgress = (
+                progress + releaseBoost * 0.085f
+                ).coerceIn(0.08f, 0.96f)
             val center = leafPoint(
                 anchor = anchor,
-                progress = motion.surfaceProgress,
+                progress = releaseProgress,
                 lateral = lateral,
             )
             val trailStart = leafPoint(
                 anchor = anchor,
-                progress = (motion.surfaceProgress - 0.07f).coerceAtLeast(0.08f),
+                progress = (
+                    releaseProgress -
+                        0.07f -
+                        releaseBoost * 0.045f
+                    ).coerceAtLeast(0.08f),
                 lateral = lateral * 0.92f,
             )
-            val radius = (
-                1.15f +
-                    dropletIndex * 0.24f +
-                    anchor.depth * 0.75f
-                ).dp.toPx()
+            val radius = radiusDp.dp.toPx()
+            val stretch = 1f + releaseBoost * 0.70f
 
             drawLine(
                 color = chrome.highlight.copy(
-                    alpha = 0.055f * wetness * strength,
+                    alpha = (
+                        0.055f +
+                            releaseBoost * 0.045f
+                        ) * wetness * strength,
                 ),
                 start = trailStart,
                 end = center,
-                strokeWidth = (0.65f + anchor.depth * 0.35f).dp.toPx(),
+                strokeWidth = (
+                    0.65f +
+                        anchor.depth * 0.35f +
+                        releaseBoost * 0.28f
+                    ).dp.toPx(),
                 cap = StrokeCap.Round,
             )
 
             drawOval(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.46f * wetness * strength),
+                        Color.White.copy(
+                            alpha = (
+                                0.46f +
+                                    releaseBoost * 0.10f
+                                ).coerceAtMost(0.62f) *
+                                wetness *
+                                strength,
+                        ),
                         chrome.highlight.copy(alpha = 0.20f * wetness * strength),
                         chrome.glow.copy(alpha = 0.065f * wetness * strength),
                         Color.Transparent,
                     ),
-                    center = Offset(center.x - radius * 0.28f, center.y - radius * 0.35f),
+                    center = Offset(
+                        center.x - radius * 0.28f,
+                        center.y - radius * 0.35f,
+                    ),
                     radius = radius * 2.2f,
                 ),
-                topLeft = Offset(center.x - radius, center.y - radius * 1.25f),
-                size = Size(radius * 2f, radius * 2.5f),
+                topLeft = Offset(
+                    center.x - radius,
+                    center.y - radius * 1.25f * stretch,
+                ),
+                size = Size(
+                    radius * 2f,
+                    radius * 2.5f * stretch,
+                ),
             )
             drawCircle(
                 color = Color.White.copy(alpha = 0.42f * wetness * strength),
-                center = Offset(center.x - radius * 0.24f, center.y - radius * 0.38f),
+                center = Offset(
+                    center.x - radius * 0.24f,
+                    center.y - radius * 0.38f * stretch,
+                ),
                 radius = radius * 0.20f,
             )
 
-            if (rainLevel == MuseRainLevel.Rain || rainLevel == MuseRainLevel.Downpour) {
-                val impact = motion.impactPulse * behavior.rainImpactResponse
+            if (
+                rainLevel == MuseRainLevel.Rain ||
+                rainLevel == MuseRainLevel.Downpour
+            ) {
+                val impact = (
+                    impactPulse * behavior.rainImpactResponse +
+                        releaseBoost * 0.22f
+                    ).coerceIn(0f, 1f)
                 if (impact > 0.06f) {
                     drawCircle(
                         color = chrome.highlight.copy(
@@ -633,6 +751,48 @@ private fun DrawScope.drawLeafBoundWater(
                         ),
                     )
                 }
+            }
+        }
+
+        listOf(0 to 1, 2 to 3).forEach { (firstIndex, secondIndex) ->
+            val first = beads[firstIndex]
+            val second = beads[secondIndex]
+            val merge = resolveMuseDropletCoalescence(
+                progressA = first.motion.surfaceProgress,
+                lateralA = first.lateral,
+                radiusA = first.radiusDp,
+                progressB = second.motion.surfaceProgress,
+                lateralB = second.lateral,
+                radiusB = second.radiusDp,
+                adhesion = behavior.leafWetness,
+            )
+
+            if (merge.shouldMerge) {
+                drawSurfaceBead(
+                    progress = merge.progress,
+                    lateral = merge.lateral,
+                    radiusDp = merge.radiusScale,
+                    impactPulse = maxOf(
+                        first.motion.impactPulse,
+                        second.motion.impactPulse,
+                    ),
+                    releaseBoost = merge.releaseBoost,
+                )
+            } else {
+                drawSurfaceBead(
+                    progress = first.motion.surfaceProgress,
+                    lateral = first.lateral,
+                    radiusDp = first.radiusDp,
+                    impactPulse = first.motion.impactPulse,
+                    releaseBoost = 0f,
+                )
+                drawSurfaceBead(
+                    progress = second.motion.surfaceProgress,
+                    lateral = second.lateral,
+                    radiusDp = second.radiusDp,
+                    impactPulse = second.motion.impactPulse,
+                    releaseBoost = 0f,
+                )
             }
         }
 

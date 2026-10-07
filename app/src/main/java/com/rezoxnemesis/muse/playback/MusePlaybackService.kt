@@ -195,9 +195,18 @@ class MusePlaybackService : MediaSessionService() {
                         SessionResult(
                             SessionResult.RESULT_SUCCESS,
                             Bundle().apply {
+                                val spectrum =
+                                    softwareAudioProcessor.currentVisualSpectrum()
                                 putFloat(
                                     AudioEffectProtocol.KeyVisualEnergy,
-                                    softwareAudioProcessor.currentVisualEnergy(),
+                                    spectrum.energy,
+                                )
+                                putFloat(AudioEffectProtocol.KeyVisualBass, spectrum.bass)
+                                putFloat(AudioEffectProtocol.KeyVisualMid, spectrum.mid)
+                                putFloat(AudioEffectProtocol.KeyVisualHigh, spectrum.high)
+                                putFloat(
+                                    AudioEffectProtocol.KeyVisualTransient,
+                                    spectrum.transient,
                                 )
                             },
                         )

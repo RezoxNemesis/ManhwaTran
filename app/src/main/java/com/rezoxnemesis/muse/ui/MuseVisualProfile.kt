@@ -49,6 +49,10 @@ internal enum class MuseAtmosphereKind {
     RoseBloom,
 }
 
+internal fun MuseVisualProfile.usesBotanicalRainLayer(): Boolean =
+    this == MuseVisualProfile.VerdantRain
+
+
 internal data class MuseAtmosphereBehavior(
     val kind: MuseAtmosphereKind,
     val foliageMotion: Float,

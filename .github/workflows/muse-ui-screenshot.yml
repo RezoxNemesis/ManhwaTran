@@ -6,6 +6,7 @@ on:
       - feature/muse-foundation
       - feature/muse-native-reference-ui
       - feature/muse-living-atmosphere
+      - feature/muse-living-worlds-v3
   workflow_dispatch:
 
 permissions:

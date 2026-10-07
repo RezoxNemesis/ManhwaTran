@@ -147,6 +147,29 @@ private data class LeafSpec(
     val mirror: Boolean = false,
 )
 
+private fun LeafSpec.applySceneGeometry(
+    scene: MuseWorldSceneGeometry,
+    index: Int,
+): LeafSpec {
+    val side = if (x < 0.5f) -1f else 1f
+    val depthScale = if (foreground) 1f else 0.88f
+    val stagger = if (index % 2 == 0) -1f else 1f
+    return copy(
+        x = (x + side * scene.edgePull * depthScale)
+            .coerceIn(-0.10f, 1.10f),
+        y = (y + scene.verticalBias + stagger * scene.verticalBias * 0.16f)
+            .coerceIn(-0.08f, 1.08f),
+        width = width * scene.widthScale *
+            (if (foreground) 1f else 0.92f),
+        height = height * scene.heightScale *
+            (if (foreground) 1f else 0.94f),
+        angle = angle + scene.rotationBias * side +
+            stagger * scene.rotationBias * 0.12f,
+        alpha = (alpha * scene.alphaScale *
+            (if (foreground) 1f else 0.90f)).coerceIn(0.28f, 1f),
+    )
+}
+
 @Composable
 internal fun MuseNativeBotanicalBackdrop(
     route: String?,
@@ -154,12 +177,15 @@ internal fun MuseNativeBotanicalBackdrop(
     intensity: MuseVisualIntensity = MuseVisualIntensity.Balanced,
     profile: MuseVisualProfile = MuseVisualProfile.VerdantRain,
     rainLevel: MuseRainLevel = MuseRainLevel.Rain,
-    audioEnergy: Float = 0f,
+    audioSpectrum: MuseAudioSpectrum = MuseAudioSpectrum(),
     touchRipple: MuseTouchRipple? = null,
     modifier: Modifier = Modifier,
 ) {
     val palette = profile.backdropPalette()
     val atmosphere = profile.atmosphereBehavior()
+    val world = profile.livingWorldStyle()
+    val scene = profile.worldSceneGeometry()
+    val light = profile.worldLightField()
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -181,23 +207,105 @@ internal fun MuseNativeBotanicalBackdrop(
             )
 
             val sunCenter = Offset(
-                x = size.width * 0.79f,
-                y = size.height * 0.055f,
+                x = size.width * (
+                    light.keyX +
+                        scene.edgePull * 0.18f +
+                        light.sideBias * 0.035f
+                ),
+                y = size.height * (
+                    light.keyY +
+                        scene.verticalBias * 0.24f
+                ),
             )
+            val keyRadius = size.minDimension * light.keyRadius
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        palette.keyLight.copy(alpha = 0.24f * strength),
-                        palette.secondaryLight.copy(alpha = 0.13f * strength),
-                        palette.secondaryLight.copy(alpha = 0.038f * strength),
+                        palette.keyLight.copy(
+                            alpha = 0.25f * light.skyWeight * strength,
+                        ),
+                        palette.secondaryLight.copy(
+                            alpha = 0.14f * light.skyWeight * strength,
+                        ),
+                        palette.secondaryLight.copy(
+                            alpha = 0.040f * light.skyWeight * strength,
+                        ),
                         Color.Transparent,
                     ),
                     center = sunCenter,
-                    radius = size.minDimension * 0.72f,
+                    radius = keyRadius,
                 ),
                 center = sunCenter,
-                radius = size.minDimension * 0.72f,
+                radius = keyRadius,
             )
+
+            if (light.floorWeight > 0.05f) {
+                val floorCenter = Offset(
+                    x = size.width * (0.50f + light.sideBias * 0.22f),
+                    y = size.height * 0.96f,
+                )
+                drawOval(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            palette.keyLight.copy(
+                                alpha = 0.13f * light.floorWeight * strength,
+                            ),
+                            palette.secondaryLight.copy(
+                                alpha = 0.055f * light.floorWeight * strength,
+                            ),
+                            Color.Transparent,
+                        ),
+                        center = floorCenter,
+                        radius = size.width * 0.68f,
+                    ),
+                    topLeft = Offset(
+                        floorCenter.x - size.width * 0.62f,
+                        floorCenter.y - size.height * 0.15f,
+                    ),
+                    size = Size(size.width * 1.24f, size.height * 0.30f),
+                )
+            }
+
+            if (light.shaftStrength > 0.10f) {
+                repeat(3) { index ->
+                    val lane = index - 1
+                    val startX = size.width * (
+                        light.keyX +
+                            lane * 0.16f +
+                            light.sideBias * 0.10f
+                    )
+                    val endX = startX +
+                        size.width * (light.sideBias * 0.36f - lane * 0.04f)
+                    drawLine(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                palette.keyLight.copy(
+                                    alpha = 0.050f *
+                                        light.shaftStrength *
+                                        strength,
+                                ),
+                                palette.secondaryLight.copy(
+                                    alpha = 0.024f *
+                                        light.shaftStrength *
+                                        strength,
+                                ),
+                                Color.Transparent,
+                            ),
+                            start = Offset(startX, -size.height * 0.05f),
+                            end = Offset(endX, size.height * 0.86f),
+                        ),
+                        start = Offset(startX, -size.height * 0.04f),
+                        end = Offset(endX, size.height * 0.86f),
+                        strokeWidth = (
+                            9f +
+                                index * 5f +
+                                light.shaftStrength * 8f
+                            ).dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
 
             val bokeh = listOf(
                 floatArrayOf(0.10f, 0.10f, 0.060f, 0.10f),
@@ -215,20 +323,28 @@ internal fun MuseNativeBotanicalBackdrop(
                 floatArrayOf(0.80f, 0.72f, 0.064f, 0.08f),
                 floatArrayOf(0.61f, 0.91f, 0.044f, 0.08f),
             )
-            bokeh.forEachIndexed { index, dot ->
+            val visibleBokeh = (
+                5 + light.bokehDensity * (bokeh.size - 5)
+                ).toInt().coerceIn(5, bokeh.size)
+            bokeh.take(visibleBokeh).forEachIndexed { index, dot ->
                 val center = Offset(
-                    size.width * dot[0],
+                    size.width * (
+                        dot[0] + light.sideBias * 0.025f
+                    ),
                     size.height * dot[1],
                 )
                 val radius = size.minDimension * dot[2]
+                val bokehAlpha = dot[3] *
+                    (0.55f + light.bokehDensity * 0.55f) *
+                    strength
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
                             if (index % 3 == 0) {
-                                palette.keyLight.copy(alpha = dot[3] * strength)
+                                palette.keyLight.copy(alpha = bokehAlpha)
                             } else {
                                 palette.secondaryLight.copy(
-                                    alpha = dot[3] * 0.62f * strength,
+                                    alpha = bokehAlpha * 0.62f,
                                 )
                             },
                             Color.Transparent,
@@ -243,11 +359,12 @@ internal fun MuseNativeBotanicalBackdrop(
 
             nativeLeafLayout(route)
                 .filterNot(LeafSpec::foreground)
-                .forEach { spec ->
+                .forEachIndexed { index, spec ->
                     drawBotanicalLeaf(
-                        spec = spec,
+                        spec = spec.applySceneGeometry(scene, index),
                         strength = strength,
                         pulse = 0.96f,
+                        style = world,
                     )
                 }
 
@@ -256,9 +373,15 @@ internal fun MuseNativeBotanicalBackdrop(
             drawRect(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.Black.copy(alpha = 0.04f),
-                        Color.Black.copy(alpha = 0.10f),
-                        Color.Black.copy(alpha = 0.50f),
+                        Color.Black.copy(
+                            alpha = 0.025f + light.centerVeil * 0.030f,
+                        ),
+                        Color.Black.copy(
+                            alpha = 0.060f + light.centerVeil * 0.080f,
+                        ),
+                        Color.Black.copy(
+                            alpha = 0.32f + light.centerVeil * 0.28f,
+                        ),
                     ),
                     center = Offset(size.width * 0.52f, size.height * 0.47f),
                     radius = size.maxDimension * 0.80f,
@@ -270,21 +393,17 @@ internal fun MuseNativeBotanicalBackdrop(
             route = route,
             active = active,
             behavior = atmosphere,
+            style = world,
+            scene = scene,
             strength = strength,
             palette = palette,
             modifier = Modifier.fillMaxSize(),
         )
 
-        MuseProfileAtmosphereOverlay(
-            profile = profile,
-            behavior = atmosphere,
-            active = active,
-            audioEnergy = audioEnergy,
-            intensity = intensity,
-            modifier = Modifier.fillMaxSize(),
-        )
-
-        if (rainLevel != MuseRainLevel.Off) {
+        if (
+            rainLevel != MuseRainLevel.Off &&
+            profile.usesBotanicalRainLayer()
+        ) {
             MuseLivingRainOverlay(
                 level = rainLevel,
                 profile = profile,
@@ -294,12 +413,22 @@ internal fun MuseNativeBotanicalBackdrop(
             )
         }
 
+        MuseLivingWorldsV3Overlay(
+            profile = profile,
+            style = world,
+            spectrum = audioSpectrum,
+            active = active,
+            intensity = intensity,
+            rainLevel = rainLevel,
+            modifier = Modifier.fillMaxSize(),
+        )
+
         MuseAtmosphereV2Overlay(
             route = route,
             profile = profile,
             behavior = atmosphere,
             active = active,
-            audioEnergy = audioEnergy,
+            audioEnergy = audioSpectrum.energy,
             rainLevel = rainLevel,
             intensity = intensity,
             touchRipple = touchRipple,
@@ -326,6 +455,8 @@ private fun MuseBotanicalMotionOverlay(
     route: String?,
     active: Boolean,
     behavior: MuseAtmosphereBehavior,
+    style: MuseLivingWorldStyle,
+    scene: MuseWorldSceneGeometry,
     strength: Float,
     palette: MuseBackdropPalette,
     modifier: Modifier = Modifier,
@@ -405,19 +536,52 @@ private fun MuseBotanicalMotionOverlay(
 
         nativeLeafLayout(route)
             .filter(LeafSpec::foreground)
-            .forEachIndexed { index, spec ->
+            .forEachIndexed { index, rawSpec ->
+                val spec = rawSpec.applySceneGeometry(scene, index)
                 val direction = if (index % 2 == 0) 1f else -1f
                 val localPhase = drift * direction
+                val worldMotion = when (style.motionKind) {
+                    MuseWorldMotionKind.RainWeightedSway -> Triple(
+                        localPhase * 0.30f,
+                        localPhase * 0.08f + (1f - pulse) * 0.005f,
+                        localPhase * 24f,
+                    )
+                    MuseWorldMotionKind.RibbonDrift -> Triple(
+                        localPhase * 0.18f,
+                        (pulse - 0.86f) * 0.010f,
+                        localPhase * 11f,
+                    )
+                    MuseWorldMotionKind.ThermalLift -> Triple(
+                        localPhase * 0.08f,
+                        -(pulse - 0.72f) * 0.016f,
+                        localPhase * 7f,
+                    )
+                    MuseWorldMotionKind.LunarFloat -> Triple(
+                        localPhase * 0.10f,
+                        (pulse - 0.84f) * 0.006f,
+                        localPhase * 8f,
+                    )
+                    MuseWorldMotionKind.TidalPulse -> Triple(
+                        localPhase * 0.22f,
+                        (pulse - 0.82f) * 0.014f,
+                        localPhase * 15f,
+                    )
+                    MuseWorldMotionKind.PetalOrbit -> Triple(
+                        localPhase * 0.16f,
+                        direction * (pulse - 0.84f) * 0.010f,
+                        localPhase * 18f,
+                    )
+                }
                 val shifted = spec.copy(
-                    x = spec.x + (localPhase * 0.22f * behavior.foliageMotion),
-                    y = spec.y + (localPhase * 0.07f * behavior.foliageMotion),
-                    angle = spec.angle +
-                        localPhase * 18f * behavior.foliageMotion,
+                    x = spec.x + worldMotion.first * behavior.foliageMotion,
+                    y = spec.y + worldMotion.second * behavior.foliageMotion,
+                    angle = spec.angle + worldMotion.third * behavior.foliageMotion,
                 )
                 drawBotanicalLeaf(
                     spec = shifted,
                     strength = strength,
                     pulse = 0.90f + pulse * 0.10f,
+                    style = style,
                 )
 
                 // A tiny moving specular bead gives wet leaves a physical shimmer
@@ -611,37 +775,170 @@ private fun DrawScope.drawBotanicalLeaf(
     spec: LeafSpec,
     strength: Float,
     pulse: Float,
+    style: MuseLivingWorldStyle,
 ) {
     val center = Offset(size.width * spec.x, size.height * spec.y)
     val width = size.width * spec.width
     val height = size.height * spec.height
     val alpha = (spec.alpha * strength).coerceIn(0f, 1f)
     val mirror = if (spec.mirror) -1f else 1f
+    val geometry = style.foliageKind.geometry()
+    val micro = style.materialKind.microDetail()
 
     rotate(spec.angle, center) {
         val tip = Offset(center.x, center.y - height * 0.50f)
         val base = Offset(center.x, center.y + height * 0.50f)
         val half = width * 0.50f
 
+        val shoulder = half * geometry.shoulderWidth
+        val waist = half * geometry.waistWidth
+        val wave = height * geometry.waveAmount
+        val asymmetry = height * geometry.asymmetry
+
         val leaf = Path().apply {
-            moveTo(tip.x, tip.y)
-            cubicTo(
-                center.x + half * 0.95f * mirror,
-                center.y - height * 0.37f,
-                center.x + half * 1.06f * mirror,
-                center.y + height * 0.18f,
-                base.x,
-                base.y,
-            )
-            cubicTo(
-                center.x - half * 0.98f * mirror,
-                center.y + height * 0.27f,
-                center.x - half * 0.88f * mirror,
-                center.y - height * 0.31f,
-                tip.x,
-                tip.y,
-            )
-            close()
+            when (style.foliageKind) {
+                MuseWorldFoliageKind.WetBroadleaf -> {
+                    // Broad rain leaf with irregular, lightly serrated shoulders.
+                    moveTo(tip.x, tip.y)
+                    lineTo(center.x + shoulder * 0.48f * mirror, center.y - height * 0.41f)
+                    lineTo(center.x + shoulder * 0.74f * mirror, center.y - height * 0.33f)
+                    lineTo(center.x + shoulder * 0.66f * mirror, center.y - height * 0.27f)
+                    lineTo(center.x + shoulder * 1.02f * mirror, center.y - height * 0.12f)
+                    lineTo(center.x + shoulder * 0.82f * mirror, center.y - height * 0.03f)
+                    lineTo(center.x + shoulder * 0.96f * mirror, center.y + height * 0.15f)
+                    lineTo(center.x + waist * 0.66f * mirror, center.y + height * 0.31f)
+                    lineTo(base.x, base.y)
+                    lineTo(center.x - waist * 0.61f * mirror, center.y + height * 0.29f + asymmetry * 0.18f)
+                    lineTo(center.x - shoulder * 0.92f * mirror, center.y + height * 0.12f)
+                    lineTo(center.x - shoulder * 0.77f * mirror, center.y - height * 0.02f)
+                    lineTo(center.x - shoulder * 0.96f * mirror, center.y - height * 0.17f)
+                    lineTo(center.x - shoulder * 0.62f * mirror, center.y - height * 0.30f)
+                    lineTo(center.x - shoulder * 0.46f * mirror, center.y - height * 0.41f)
+                    close()
+                }
+                MuseWorldFoliageKind.PrismBlade -> {
+                    // Aurora foliage reads as a translucent faceted blade.
+                    moveTo(tip.x, tip.y)
+                    lineTo(center.x + shoulder * 0.82f * mirror, center.y - height * 0.19f)
+                    lineTo(center.x + waist * 0.72f * mirror, center.y + height * 0.17f)
+                    lineTo(base.x, base.y)
+                    lineTo(center.x - waist * 0.64f * mirror, center.y + height * 0.13f)
+                    lineTo(center.x - shoulder * 0.72f * mirror, center.y - height * 0.23f)
+                    close()
+                }
+                MuseWorldFoliageKind.CharredShard -> {
+                    // Ember foliage is intentionally broken and asymmetric.
+                    moveTo(tip.x, tip.y)
+                    lineTo(center.x + shoulder * 0.42f * mirror, center.y - height * 0.39f)
+                    lineTo(center.x + shoulder * 0.88f * mirror, center.y - height * 0.28f)
+                    lineTo(center.x + shoulder * 0.62f * mirror, center.y - height * 0.16f)
+                    lineTo(center.x + shoulder * 1.04f * mirror, center.y - height * 0.01f)
+                    lineTo(center.x + waist * 0.58f * mirror, center.y + height * 0.13f)
+                    lineTo(center.x + waist * 0.84f * mirror, center.y + height * 0.29f)
+                    lineTo(base.x, base.y)
+                    lineTo(center.x - waist * 0.44f * mirror, center.y + height * 0.33f + asymmetry * 0.24f)
+                    lineTo(center.x - shoulder * 0.82f * mirror, center.y + height * 0.19f)
+                    lineTo(center.x - shoulder * 0.52f * mirror, center.y + height * 0.04f)
+                    lineTo(center.x - shoulder * 0.91f * mirror, center.y - height * 0.13f)
+                    lineTo(center.x - shoulder * 0.53f * mirror, center.y - height * 0.29f - asymmetry * 0.20f)
+                    close()
+                }
+                MuseWorldFoliageKind.MoonLance -> {
+                    // Moonlit leaves are long, quiet silver lances.
+                    moveTo(tip.x, tip.y)
+                    cubicTo(
+                        center.x + shoulder * 0.70f * mirror,
+                        center.y - height * 0.34f,
+                        center.x + waist * 0.78f * mirror,
+                        center.y + height * 0.18f,
+                        base.x,
+                        base.y,
+                    )
+                    cubicTo(
+                        center.x - waist * 0.70f * mirror,
+                        center.y + height * 0.16f,
+                        center.x - shoulder * 0.62f * mirror,
+                        center.y - height * 0.36f,
+                        tip.x,
+                        tip.y,
+                    )
+                    close()
+                }
+                MuseWorldFoliageKind.TidalFrond -> {
+                    // Ocean foliage bends in an S-curve instead of behaving like a leaf.
+                    moveTo(tip.x, tip.y)
+                    cubicTo(
+                        center.x + shoulder * 0.42f * mirror,
+                        center.y - height * 0.38f,
+                        center.x + shoulder * 1.02f * mirror,
+                        center.y - height * 0.15f + wave * 0.25f,
+                        center.x + waist * 0.70f * mirror,
+                        center.y + wave * 0.10f,
+                    )
+                    cubicTo(
+                        center.x + waist * 0.32f * mirror,
+                        center.y + height * 0.24f,
+                        center.x + waist * 0.48f * mirror,
+                        center.y + height * 0.38f,
+                        base.x,
+                        base.y,
+                    )
+                    cubicTo(
+                        center.x - waist * 0.62f * mirror,
+                        center.y + height * 0.34f,
+                        center.x - shoulder * 0.92f * mirror,
+                        center.y + height * 0.08f - wave * 0.20f,
+                        center.x - waist * 0.58f * mirror,
+                        center.y - height * 0.10f,
+                    )
+                    cubicTo(
+                        center.x - shoulder * 0.28f * mirror,
+                        center.y - height * 0.31f,
+                        center.x - shoulder * 0.18f * mirror,
+                        center.y - height * 0.43f,
+                        tip.x,
+                        tip.y,
+                    )
+                    close()
+                }
+                MuseWorldFoliageKind.VelvetPetal -> {
+                    // Rose Noir uses full petal lobes rather than botanical blades.
+                    moveTo(tip.x, tip.y)
+                    cubicTo(
+                        center.x + shoulder * 0.88f * mirror,
+                        center.y - height * 0.39f,
+                        center.x + shoulder * 1.08f * mirror,
+                        center.y - height * 0.03f,
+                        center.x + waist * 0.66f * mirror,
+                        center.y + height * 0.19f,
+                    )
+                    cubicTo(
+                        center.x + waist * 0.34f * mirror,
+                        center.y + height * 0.33f,
+                        center.x + waist * 0.14f * mirror,
+                        center.y + height * 0.43f,
+                        base.x,
+                        base.y,
+                    )
+                    cubicTo(
+                        center.x - waist * 0.22f * mirror,
+                        center.y + height * 0.40f,
+                        center.x - waist * 0.48f * mirror,
+                        center.y + height * 0.28f,
+                        center.x - waist * 0.72f * mirror,
+                        center.y + height * 0.11f,
+                    )
+                    cubicTo(
+                        center.x - shoulder * 1.02f * mirror,
+                        center.y - height * 0.09f,
+                        center.x - shoulder * 0.78f * mirror,
+                        center.y - height * 0.40f,
+                        tip.x,
+                        tip.y,
+                    )
+                    close()
+                }
+            }
         }
 
         // A dark offset silhouette gives each leaf real separation from the forest.
@@ -654,17 +951,17 @@ private fun DrawScope.drawBotanicalLeaf(
             brush = Brush.linearGradient(
                 colors = if (spec.foreground) {
                     listOf(
-                        Color(0xFFC8FF82).copy(alpha = alpha),
-                        Color(0xFF72DF4F).copy(alpha = alpha),
-                        Color(0xFF258238).copy(alpha = alpha),
-                        Color(0xFF082813).copy(alpha = alpha),
-                        Color(0xFF020E07).copy(alpha = alpha),
+                        style.leafHighlight.copy(alpha = alpha),
+                        style.leafPrimary.copy(alpha = alpha),
+                        style.leafSecondary.copy(alpha = alpha),
+                        style.leafShadow.copy(alpha = alpha),
+                        Color.Black.copy(alpha = alpha * 0.92f),
                     )
                 } else {
                     listOf(
-                        Color(0xFF7ED95A).copy(alpha = alpha * 0.80f),
-                        Color(0xFF2E7C35).copy(alpha = alpha * 0.84f),
-                        Color(0xFF07190D).copy(alpha = alpha),
+                        style.leafPrimary.copy(alpha = alpha * 0.72f),
+                        style.leafSecondary.copy(alpha = alpha * 0.82f),
+                        style.leafShadow.copy(alpha = alpha),
                     )
                 },
                 start = Offset(center.x - half * 0.78f, tip.y),
@@ -673,39 +970,251 @@ private fun DrawScope.drawBotanicalLeaf(
         )
 
         if (spec.foreground) {
-            // Subtle chlorophyll mottling and wet-surface sparkle. Deterministic
-            // positions keep the renderer cheap and stable across frames.
-            val texture = listOf(
-                floatArrayOf(-0.23f, -0.27f, 0.020f, 0.15f),
-                floatArrayOf(0.18f, -0.31f, 0.014f, 0.18f),
-                floatArrayOf(-0.31f, -0.08f, 0.018f, 0.12f),
-                floatArrayOf(0.28f, 0.02f, 0.022f, 0.13f),
-                floatArrayOf(-0.16f, 0.16f, 0.016f, 0.14f),
-                floatArrayOf(0.17f, 0.28f, 0.013f, 0.16f),
-            )
-            texture.forEachIndexed { index, spot ->
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            if (index % 2 == 0) {
-                                Color(0xFFE9FFC4).copy(alpha = alpha * spot[3])
-                            } else {
-                                Color(0xFF174D26).copy(alpha = alpha * spot[3] * 0.90f)
-                            },
-                            Color.Transparent,
-                        ),
-                        center = Offset(
+            when (style.materialKind) {
+                MuseWorldMaterialKind.WetRainforest -> {
+                    // Uneven chlorophyll, pores and tiny water beads break the
+                    // synthetic smoothness without adding bitmap assets.
+                    val texture = listOf(
+                        floatArrayOf(-0.23f, -0.27f, 0.020f, 0.15f),
+                        floatArrayOf(0.18f, -0.31f, 0.014f, 0.18f),
+                        floatArrayOf(-0.31f, -0.08f, 0.018f, 0.12f),
+                        floatArrayOf(0.28f, 0.02f, 0.022f, 0.13f),
+                        floatArrayOf(-0.16f, 0.16f, 0.016f, 0.14f),
+                        floatArrayOf(0.17f, 0.28f, 0.013f, 0.16f),
+                        floatArrayOf(0.03f, -0.11f, 0.010f, 0.13f),
+                        floatArrayOf(-0.08f, 0.31f, 0.008f, 0.11f),
+                    )
+                    texture.forEachIndexed { index, spot ->
+                        val point = Offset(
                             center.x + width * spot[0] * mirror,
                             center.y + height * spot[1],
-                        ),
-                        radius = width * spot[2] * 3.0f,
-                    ),
-                    center = Offset(
-                        center.x + width * spot[0] * mirror,
-                        center.y + height * spot[1],
-                    ),
-                    radius = width * spot[2] * 3.0f,
-                )
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    if (index % 2 == 0) {
+                                        style.subsurfaceTint.copy(
+                                            alpha = alpha *
+                                                spot[3] *
+                                                style.subsurfaceLight,
+                                        )
+                                    } else {
+                                        style.leafShadow.copy(
+                                            alpha = alpha *
+                                                spot[3] *
+                                                style.surfaceRoughness,
+                                        )
+                                    },
+                                    Color.Transparent,
+                                ),
+                                center = point,
+                                radius = width * spot[2] * 3.0f,
+                            ),
+                            center = point,
+                            radius = width * spot[2] * 3.0f,
+                        )
+                    }
+                    repeat((2 + micro.dewBeads * 5f).toInt()) { index ->
+                        val x = ((index * 37 + 19) % 83) / 82f - 0.5f
+                        val y = ((index * 29 + 7) % 73) / 72f - 0.5f
+                        val point = Offset(
+                            center.x + width * x * 0.55f * mirror,
+                            center.y + height * y * 0.66f,
+                        )
+                        val r = width * (0.006f + index % 3 * 0.0025f)
+                        drawCircle(
+                            color = Color.White.copy(
+                                alpha = alpha * (0.10f + micro.dewBeads * 0.12f),
+                            ),
+                            center = point,
+                            radius = r,
+                        )
+                    }
+                }
+
+                MuseWorldMaterialKind.IridescentGlass -> {
+                    val facetCount = (3 + micro.facetLines * 5f).toInt()
+                    repeat(facetCount) { index ->
+                        val y = center.y +
+                            height * (-0.34f + index * 0.68f / facetCount)
+                        val shift = if (index % 2 == 0) 0.16f else -0.12f
+                        drawLine(
+                            brush = Brush.horizontalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    style.specularTint.copy(
+                                        alpha = alpha * 0.18f * micro.facetLines,
+                                    ),
+                                    style.subsurfaceTint.copy(
+                                        alpha = alpha * 0.10f * micro.facetLines,
+                                    ),
+                                    Color.Transparent,
+                                )
+                            ),
+                            start = Offset(
+                                center.x - half * 0.58f * mirror,
+                                y,
+                            ),
+                            end = Offset(
+                                center.x + half * (0.42f + shift) * mirror,
+                                y - height * 0.09f,
+                            ),
+                            strokeWidth = (0.55f + index % 2 * 0.25f).dp.toPx(),
+                        )
+                    }
+                    drawLine(
+                        color = Color.White.copy(alpha = alpha * 0.24f),
+                        start = Offset(center.x - half * 0.28f * mirror, tip.y + height * 0.12f),
+                        end = Offset(center.x + half * 0.34f * mirror, base.y - height * 0.16f),
+                        strokeWidth = 0.8.dp.toPx(),
+                    )
+                }
+
+                MuseWorldMaterialKind.CharredCopper -> {
+                    val crackCount = (3 + micro.crackLines * 5f).toInt()
+                    repeat(crackCount) { index ->
+                        val seed = index * 0.17f
+                        val y = center.y + height * (-0.31f + index * 0.62f / crackCount)
+                        val path = Path().apply {
+                            moveTo(
+                                center.x - half * (0.18f + seed) * mirror,
+                                y,
+                            )
+                            lineTo(
+                                center.x + half * (0.02f + seed * 0.35f) * mirror,
+                                y + height * 0.045f,
+                            )
+                            lineTo(
+                                center.x + half * (0.22f + seed * 0.18f) * mirror,
+                                y - height * 0.015f,
+                            )
+                        }
+                        drawPath(
+                            path = path,
+                            color = style.leafShadow.copy(
+                                alpha = alpha * 0.52f * micro.crackLines,
+                            ),
+                            style = Stroke(
+                                width = (0.72f + index % 2 * 0.25f).dp.toPx(),
+                                cap = StrokeCap.Round,
+                            ),
+                        )
+                        if (index % 2 == 0) {
+                            drawCircle(
+                                color = style.leafHighlight.copy(
+                                    alpha = alpha * 0.16f,
+                                ),
+                                center = Offset(
+                                    center.x + half * (0.20f - seed * 0.30f) * mirror,
+                                    y - height * 0.04f,
+                                ),
+                                radius = 1.05.dp.toPx(),
+                            )
+                        }
+                    }
+                }
+
+                MuseWorldMaterialKind.LunarSilver -> {
+                    repeat((7 + micro.hazeSpecks * 9f).toInt()) { index ->
+                        val x = ((index * 31 + 11) % 89) / 88f - 0.5f
+                        val y = ((index * 43 + 17) % 97) / 96f - 0.5f
+                        val point = Offset(
+                            center.x + width * x * 0.52f * mirror,
+                            center.y + height * y * 0.72f,
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(
+                                    style.specularTint.copy(
+                                        alpha = alpha *
+                                            (0.045f + index % 3 * 0.015f) *
+                                            micro.hazeSpecks,
+                                    ),
+                                    Color.Transparent,
+                                ),
+                                center = point,
+                                radius = width * 0.028f,
+                            ),
+                            center = point,
+                            radius = width * 0.028f,
+                        )
+                    }
+                }
+
+                MuseWorldMaterialKind.TidalTeal -> {
+                    val bandCount = (3 + micro.causticBands * 4f).toInt()
+                    repeat(bandCount) { index ->
+                        val fraction = -0.30f + index * 0.60f / bandCount
+                        val path = Path().apply {
+                            moveTo(
+                                center.x - half * 0.52f * mirror,
+                                center.y + height * fraction,
+                            )
+                            cubicTo(
+                                center.x - half * 0.16f * mirror,
+                                center.y + height * (fraction - 0.06f),
+                                center.x + half * 0.12f * mirror,
+                                center.y + height * (fraction + 0.07f),
+                                center.x + half * 0.50f * mirror,
+                                center.y + height * (fraction - 0.01f),
+                            )
+                        }
+                        drawPath(
+                            path = path,
+                            brush = Brush.horizontalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    style.specularTint.copy(
+                                        alpha = alpha *
+                                            0.13f *
+                                            micro.causticBands,
+                                    ),
+                                    Color.White.copy(
+                                        alpha = alpha *
+                                            0.07f *
+                                            micro.causticBands,
+                                    ),
+                                    Color.Transparent,
+                                )
+                            ),
+                            style = Stroke(
+                                width = (1.0f + index % 2 * 0.6f).dp.toPx(),
+                                cap = StrokeCap.Round,
+                            ),
+                        )
+                    }
+                }
+
+                MuseWorldMaterialKind.VelvetRose -> {
+                    repeat((12 + micro.velvetGrain * 14f).toInt()) { index ->
+                        val x = ((index * 47 + 5) % 101) / 100f - 0.5f
+                        val y = ((index * 23 + 13) % 89) / 88f - 0.5f
+                        val point = Offset(
+                            center.x + width * x * 0.52f * mirror,
+                            center.y + height * y * 0.68f,
+                        )
+                        val length = width * (0.010f + index % 3 * 0.003f)
+                        drawLine(
+                            color = if (index % 3 == 0) {
+                                style.specularTint.copy(
+                                    alpha = alpha *
+                                        0.075f *
+                                        micro.velvetGrain,
+                                )
+                            } else {
+                                style.leafShadow.copy(
+                                    alpha = alpha *
+                                        0.10f *
+                                        micro.velvetGrain,
+                                )
+                            },
+                            start = Offset(point.x - length, point.y - length * 0.25f),
+                            end = Offset(point.x + length, point.y + length * 0.25f),
+                            strokeWidth = 0.45.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                    }
+                }
             }
         }
 
@@ -724,8 +1233,14 @@ private fun DrawScope.drawBotanicalLeaf(
             path = gloss,
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = alpha * 0.42f * pulse),
-                    Color(0xFFCBFF8F).copy(alpha = alpha * 0.12f),
+                    style.specularTint.copy(
+                        alpha = alpha *
+                            (0.22f + (1f - style.surfaceRoughness) * 0.34f) *
+                            pulse,
+                    ),
+                    style.subsurfaceTint.copy(
+                        alpha = alpha * 0.14f * style.subsurfaceLight,
+                    ),
                     Color.Transparent,
                 ),
                 startY = tip.y,
@@ -736,12 +1251,14 @@ private fun DrawScope.drawBotanicalLeaf(
 
         drawPath(
             path = leaf,
-            color = Color(0xFFD7FF9A).copy(alpha = alpha * 0.50f),
+            color = style.leafHighlight.copy(
+                alpha = alpha * (0.22f + style.subsurfaceLight * 0.28f),
+            ),
             style = Stroke(width = 1.05.dp.toPx()),
         )
 
         drawLine(
-            color = Color(0xFF173D20).copy(alpha = alpha * 0.80f),
+            color = style.leafShadow.copy(alpha = alpha * 0.88f),
             start = base,
             end = Offset(
                 center.x + width * 0.055f * mirror,
@@ -754,9 +1271,9 @@ private fun DrawScope.drawBotanicalLeaf(
         drawLine(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color(0xFFF2FFD3).copy(alpha = alpha * 0.86f),
-                    Color(0xFF8DFF62).copy(alpha = alpha * 0.52f),
-                    Color(0xFF1B7C36).copy(alpha = alpha * 0.26f),
+                    style.specularTint.copy(alpha = alpha * 0.72f),
+                    style.vein.copy(alpha = alpha * 0.58f),
+                    style.leafSecondary.copy(alpha = alpha * 0.30f),
                 ),
                 startY = tip.y,
                 endY = base.y,
@@ -767,21 +1284,38 @@ private fun DrawScope.drawBotanicalLeaf(
             cap = StrokeCap.Round,
         )
 
-        val veins = listOf(-0.30f, -0.18f, -0.05f, 0.09f, 0.23f, 0.35f)
+        val veins = when (style.foliageKind) {
+            MuseWorldFoliageKind.WetBroadleaf ->
+                listOf(-0.33f, -0.23f, -0.12f, 0.00f, 0.12f, 0.24f, 0.35f)
+            MuseWorldFoliageKind.PrismBlade ->
+                listOf(-0.24f, 0.02f, 0.27f)
+            MuseWorldFoliageKind.CharredShard ->
+                listOf(-0.31f, -0.17f, -0.03f, 0.14f, 0.30f)
+            MuseWorldFoliageKind.MoonLance ->
+                listOf(-0.24f, 0.03f, 0.29f)
+            MuseWorldFoliageKind.TidalFrond ->
+                listOf(-0.28f, -0.08f, 0.13f, 0.31f)
+            MuseWorldFoliageKind.VelvetPetal ->
+                listOf(-0.24f, -0.06f, 0.13f, 0.28f)
+        }
         veins.forEachIndexed { index, fraction ->
             val y = center.y + height * fraction
             val taper = 0.41f - index * 0.035f
             val span = half * taper
             val rise = height * (0.105f - index * 0.005f)
             drawLine(
-                color = Color(0xFFD8FFAB).copy(alpha = alpha * 0.28f),
+                color = style.vein.copy(
+                    alpha = alpha * (0.18f + style.subsurfaceLight * 0.18f),
+                ),
                 start = Offset(center.x, y),
                 end = Offset(center.x + span * mirror, y - rise),
                 strokeWidth = 0.72.dp.toPx(),
                 cap = StrokeCap.Round,
             )
             drawLine(
-                color = Color(0xFF8EF067).copy(alpha = alpha * 0.20f),
+                color = style.subsurfaceTint.copy(
+                    alpha = alpha * (0.10f + style.subsurfaceLight * 0.14f),
+                ),
                 start = Offset(center.x, y),
                 end = Offset(center.x - span * 0.88f * mirror, y - rise * 0.86f),
                 strokeWidth = 0.64.dp.toPx(),
@@ -789,13 +1323,15 @@ private fun DrawScope.drawBotanicalLeaf(
             )
         }
 
-        if (spec.foreground) {
+        if (spec.foreground && micro.dewBeads > 0.10f) {
             val dew = listOf(
                 Triple(0.20f, -0.20f, 0.034f),
                 Triple(-0.18f, -0.05f, 0.026f),
                 Triple(0.28f, 0.11f, 0.021f),
                 Triple(-0.11f, 0.24f, 0.017f),
-            )
+            ).take((1 + micro.dewBeads * 3f).toInt().coerceIn(1, 4))
+            val dewIdentity = (0.22f + micro.dewBeads * 0.78f)
+                .coerceIn(0f, 1f)
             dew.forEachIndexed { index, drop ->
                 val point = Offset(
                     center.x + width * drop.first * mirror,
@@ -805,9 +1341,13 @@ private fun DrawScope.drawBotanicalLeaf(
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.90f * alpha),
-                            Color(0xFFD7FFCE).copy(alpha = 0.34f * alpha),
-                            Color(0xFF285B34).copy(alpha = 0.18f * alpha),
+                            Color.White.copy(
+                                alpha = 0.72f * alpha * style.waterAdhesion * dewIdentity,
+                            ),
+                            style.specularTint.copy(
+                                alpha = 0.36f * alpha * style.waterAdhesion * dewIdentity,
+                            ),
+                            style.leafShadow.copy(alpha = 0.16f * alpha),
                             Color.Transparent,
                         ),
                         center = Offset(point.x - radius * 0.24f, point.y - radius * 0.28f),
@@ -817,7 +1357,11 @@ private fun DrawScope.drawBotanicalLeaf(
                     radius = radius * 1.45f,
                 )
                 drawCircle(
-                    color = Color.White.copy(alpha = (0.80f - index * 0.08f) * alpha),
+                    color = Color.White.copy(
+                        alpha = (0.72f - index * 0.07f) *
+                            alpha *
+                            style.waterAdhesion * dewIdentity,
+                    ),
                     center = Offset(point.x - radius * 0.34f, point.y - radius * 0.38f),
                     radius = radius * 0.22f,
                 )
@@ -830,8 +1374,12 @@ private fun DrawScope.drawBotanicalLeaf(
             drawOval(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = alpha * 0.86f),
-                        MuseGlow.copy(alpha = alpha * 0.28f),
+                        Color.White.copy(
+                            alpha = alpha * 0.76f * style.waterAdhesion * dewIdentity,
+                        ),
+                        style.specularTint.copy(
+                            alpha = alpha * 0.32f * style.waterAdhesion * dewIdentity,
+                        ),
                         Color.Transparent,
                     ),
                     center = Offset(dropCenter.x - width * 0.006f, dropCenter.y - height * 0.006f),

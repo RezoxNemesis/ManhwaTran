@@ -265,16 +265,36 @@ fun MuseApp(
     val playback by viewModel.playback.state.collectAsStateWithLifecycle()
     val audioEffects by viewModel.playback.audioEffects.collectAsStateWithLifecycle()
     val visualEnergy by animateFloatAsState(
-        targetValue = if (playback.isPlaying) {
-            audioEffects.visualEnergy
-        } else {
-            0f
-        },
-        animationSpec = spring(
-            dampingRatio = 0.82f,
-            stiffness = 280f,
-        ),
+        targetValue = if (playback.isPlaying) audioEffects.visualEnergy else 0f,
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = 280f),
         label = "MuseAudioEnergy",
+    )
+    val visualBass by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualBass else 0f,
+        animationSpec = spring(dampingRatio = 0.74f, stiffness = 360f),
+        label = "MuseAudioBass",
+    )
+    val visualMid by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualMid else 0f,
+        animationSpec = spring(dampingRatio = 0.80f, stiffness = 315f),
+        label = "MuseAudioMid",
+    )
+    val visualHigh by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualHigh else 0f,
+        animationSpec = spring(dampingRatio = 0.70f, stiffness = 410f),
+        label = "MuseAudioHigh",
+    )
+    val visualTransient by animateFloatAsState(
+        targetValue = if (playback.isPlaying) audioEffects.visualTransient else 0f,
+        animationSpec = spring(dampingRatio = 0.62f, stiffness = 520f),
+        label = "MuseAudioTransient",
+    )
+    val visualSpectrum = MuseAudioSpectrum(
+        energy = visualEnergy,
+        bass = visualBass,
+        mid = visualMid,
+        high = visualHigh,
+        transient = visualTransient,
     )
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -384,7 +404,7 @@ fun MuseApp(
             intensity = visualIntensity,
             profile = resolvedVisualProfile,
             rainLevel = rainLevel,
-            audioEnergy = visualEnergy,
+            audioSpectrum = visualSpectrum,
             touchRipple = touchRipple,
             modifier = Modifier.fillMaxSize(),
         )
@@ -609,6 +629,13 @@ fun MuseApp(
                 }
             }
         }
+
+        // The arrival gesture sits above the live UI but remains purely visual,
+        // so profile changes feel physical without blocking touch or navigation.
+        MuseWorldArrivalOverlay(
+            profile = resolvedVisualProfile,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
     }
 }
@@ -650,6 +677,8 @@ private fun MuseBottomNavigation(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val chrome = LocalMuseChromePalette.current
+    val world = LocalMuseLivingWorldStyle.current
+    val navMotion = world.chromeKind.navMotion()
 
     LaunchedEffect(routeIndex) {
         if (routeIndex != visualIndex) {
@@ -659,8 +688,8 @@ private fun MuseBottomNavigation(
             travel.animateTo(
                 targetValue = 1f,
                 animationSpec = spring(
-                    dampingRatio = 0.76f,
-                    stiffness = 430f,
+                    dampingRatio = navMotion.dampingRatio,
+                    stiffness = navMotion.stiffness,
                 ),
             )
         }
@@ -698,15 +727,19 @@ private fun MuseBottomNavigation(
             // Translation/stretch are GPU transforms, so the bottom bar no
             // longer remeasures every animation frame and therefore does not
             // "jump" when navigation content is doing work at the same time.
+            val distanceBoost = (distance - 1f).coerceAtLeast(0f)
             val stretch = 1f +
                 stretchPhase *
-                (0.40f + 0.10f * distance.coerceAtMost(3f))
-            val squashY = 1f - stretchPhase * 0.050f
+                (navMotion.stretch + 0.045f * distanceBoost.coerceAtMost(2f))
+            val squashY = 1f - stretchPhase * navMotion.squash
             val leadingPullPx =
                 direction *
                     itemWidthPx *
                     stretchPhase *
-                    (0.035f + 0.012f * distance.coerceAtMost(3f))
+                    (
+                        navMotion.leadingPull +
+                            0.008f * distanceBoost.coerceAtMost(2f)
+                    )
 
             Box(
                 modifier = Modifier
@@ -721,10 +754,10 @@ private fun MuseBottomNavigation(
                         scaleY = squashY
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
                             pivotFractionX = when {
-                                direction > 0f -> 0.18f
-                                direction < 0f -> 0.82f
+                                direction > 0f -> 0.5f - navMotion.pivotBias
+                                direction < 0f -> 0.5f + navMotion.pivotBias
                                 else -> 0.5f
-                            },
+                            }.coerceIn(0.06f, 0.94f),
                             pivotFractionY = 0.5f,
                         )
                     }
@@ -775,8 +808,8 @@ private fun MuseBottomNavigation(
                                 travel.animateTo(
                                     targetValue = 1f,
                                     animationSpec = spring(
-                                        dampingRatio = 0.76f,
-                                        stiffness = 430f,
+                                        dampingRatio = navMotion.dampingRatio,
+                                        stiffness = navMotion.stiffness,
                                     ),
                                 )
                             }

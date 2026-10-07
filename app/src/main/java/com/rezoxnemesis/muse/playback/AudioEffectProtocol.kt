@@ -19,6 +19,10 @@ object AudioEffectProtocol {
     const val KeyMasterEnabled = "master_enabled"
     const val KeyBypass = "bypass"
     const val KeyVisualEnergy = "visual_energy"
+    const val KeyVisualBass = "visual_bass"
+    const val KeyVisualMid = "visual_mid"
+    const val KeyVisualHigh = "visual_high"
+    const val KeyVisualTransient = "visual_transient"
 
     const val KeyEqAvailable = "eq_available"
     const val KeyEqCentersHz = "eq_centers_hz"

@@ -65,6 +65,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
     private val bassLeft = Biquad()
     private val bassRight = Biquad()
     private val visualEnergyMeter = MuseAudioEnergyMeter()
+    private val visualSpectrumMeter = MuseAudioSpectrumMeter()
 
     fun setProcessingEnabled(
         enabled: Boolean,
@@ -98,7 +99,9 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
 
     fun currentLevels(): IntArray = levelsMb.copyOf()
 
-    fun currentVisualEnergy(): Float = visualEnergyMeter.value()
+    fun currentVisualEnergy(): Float = visualSpectrumMeter.value().energy
+
+    internal fun currentVisualSpectrum(): MuseAudioSpectrum = visualSpectrumMeter.value()
 
     fun setBassEnabled(enabled: Boolean) {
         bassEnabled = enabled
@@ -157,6 +160,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
 
         sampleRateHz = inputAudioFormat.sampleRate
         channelCount = inputAudioFormat.channelCount
+        visualSpectrumMeter.updateSampleRate(sampleRateHz)
         appliedRevision = Long.MIN_VALUE
         resetFilterMemory()
         return inputAudioFormat
@@ -165,6 +169,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
     override fun onFlush() {
         resetFilterMemory()
         visualEnergyMeter.reset()
+        visualSpectrumMeter.reset()
         appliedRevision = Long.MIN_VALUE
     }
 
@@ -202,6 +207,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
 
         var blockEnergySum = 0f
         var blockFrameCount = 0
+        visualSpectrumMeter.beginBlock()
 
         while (inputBuffer.remaining() >= StereoFrameBytes) {
             var left = inputBuffer.short.toFloat()
@@ -238,6 +244,10 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
                 abs(left) + abs(right)
                 ) * 0.5f / Short.MAX_VALUE.toFloat()
             blockFrameCount += 1
+            visualSpectrumMeter.observeSample(
+                ((left + right) * 0.5f / Short.MAX_VALUE.toFloat())
+                    .coerceIn(-1f, 1f),
+            )
 
             output.putShort(left.toPcm16())
             output.putShort(right.toPcm16())
@@ -247,6 +257,7 @@ class MuseSoftwareAudioProcessor : BaseAudioProcessor() {
             visualEnergyMeter.observeBlock(
                 blockEnergySum / blockFrameCount,
             )
+            visualSpectrumMeter.endBlock()
         }
 
         // Defensive passthrough for an incomplete trailing frame.
