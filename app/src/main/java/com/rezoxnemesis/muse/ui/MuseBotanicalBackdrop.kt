@@ -147,6 +147,29 @@ private data class LeafSpec(
     val mirror: Boolean = false,
 )
 
+private fun LeafSpec.applySceneGeometry(
+    scene: MuseWorldSceneGeometry,
+    index: Int,
+): LeafSpec {
+    val side = if (x < 0.5f) -1f else 1f
+    val depthScale = if (foreground) 1f else 0.88f
+    val stagger = if (index % 2 == 0) -1f else 1f
+    return copy(
+        x = (x + side * scene.edgePull * depthScale)
+            .coerceIn(-0.10f, 1.10f),
+        y = (y + scene.verticalBias + stagger * scene.verticalBias * 0.16f)
+            .coerceIn(-0.08f, 1.08f),
+        width = width * scene.widthScale *
+            (if (foreground) 1f else 0.92f),
+        height = height * scene.heightScale *
+            (if (foreground) 1f else 0.94f),
+        angle = angle + scene.rotationBias * side +
+            stagger * scene.rotationBias * 0.12f,
+        alpha = (alpha * scene.alphaScale *
+            (if (foreground) 1f else 0.90f)).coerceIn(0.28f, 1f),
+    )
+}
+
 @Composable
 internal fun MuseNativeBotanicalBackdrop(
     route: String?,
@@ -161,6 +184,7 @@ internal fun MuseNativeBotanicalBackdrop(
     val palette = profile.backdropPalette()
     val atmosphere = profile.atmosphereBehavior()
     val world = profile.livingWorldStyle()
+    val scene = profile.worldSceneGeometry()
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -182,8 +206,15 @@ internal fun MuseNativeBotanicalBackdrop(
             )
 
             val sunCenter = Offset(
-                x = size.width * 0.79f,
-                y = size.height * 0.055f,
+                x = size.width * (
+                    0.79f +
+                        scene.edgePull * 0.55f +
+                        scene.rotationBias / 360f
+                ),
+                y = size.height * (
+                    0.055f +
+                        scene.verticalBias * 0.65f
+                ),
             )
             drawCircle(
                 brush = Brush.radialGradient(
@@ -244,9 +275,9 @@ internal fun MuseNativeBotanicalBackdrop(
 
             nativeLeafLayout(route)
                 .filterNot(LeafSpec::foreground)
-                .forEach { spec ->
+                .forEachIndexed { index, spec ->
                     drawBotanicalLeaf(
-                        spec = spec,
+                        spec = spec.applySceneGeometry(scene, index),
                         strength = strength,
                         pulse = 0.96f,
                         style = world,
@@ -273,6 +304,7 @@ internal fun MuseNativeBotanicalBackdrop(
             active = active,
             behavior = atmosphere,
             style = world,
+            scene = scene,
             strength = strength,
             palette = palette,
             modifier = Modifier.fillMaxSize(),
@@ -334,6 +366,7 @@ private fun MuseBotanicalMotionOverlay(
     active: Boolean,
     behavior: MuseAtmosphereBehavior,
     style: MuseLivingWorldStyle,
+    scene: MuseWorldSceneGeometry,
     strength: Float,
     palette: MuseBackdropPalette,
     modifier: Modifier = Modifier,
@@ -413,7 +446,8 @@ private fun MuseBotanicalMotionOverlay(
 
         nativeLeafLayout(route)
             .filter(LeafSpec::foreground)
-            .forEachIndexed { index, spec ->
+            .forEachIndexed { index, rawSpec ->
+                val spec = rawSpec.applySceneGeometry(scene, index)
                 val direction = if (index % 2 == 0) 1f else -1f
                 val localPhase = drift * direction
                 val worldMotion = when (style.motionKind) {
