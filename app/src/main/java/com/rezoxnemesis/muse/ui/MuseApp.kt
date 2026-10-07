@@ -388,6 +388,16 @@ fun MuseApp(
     var touchRipple by remember {
         mutableStateOf<MuseTouchRipple?>(null)
     }
+    var gestureMomentum by remember {
+        mutableStateOf(MuseGestureMomentum(0f, 0f, 0f))
+    }
+    val routeFocus = museFocusRegionForRoute(currentRoute)
+        ?.let(::focusMuseRegion)
+        ?: MuseLivingFocusState(region = null, strength = 0f)
+    val interactionFrame = resolveMuseV4InteractionFrame(
+        focus = routeFocus,
+        momentum = gestureMomentum,
+    )
     val showPrimaryNav = currentRoute in PrimaryRoutes
 
     LaunchedEffect(requestedRoute) {
@@ -423,6 +433,30 @@ fun MuseApp(
                             .coerceIn(0f, 1f),
                         yFraction = (down.position.y / height)
                             .coerceIn(0f, 1f),
+                    )
+
+                    var lastPosition = down.position
+                    var pointerDown = true
+                    while (pointerDown) {
+                        val event = awaitPointerEvent()
+                        val tracked = event.changes.firstOrNull {
+                            it.id == down.id
+                        } ?: event.changes.firstOrNull()
+                        if (tracked == null) {
+                            pointerDown = false
+                        } else {
+                            lastPosition = tracked.position
+                            pointerDown = tracked.pressed
+                        }
+                    }
+
+                    val deltaX = lastPosition.x - down.position.x
+                    val deltaY = lastPosition.y - down.position.y
+                    gestureMomentum = resolveMuseGestureMomentum(
+                        deltaX = deltaX,
+                        deltaY = deltaY,
+                        velocityX = 0f,
+                        velocityY = 0f,
                     )
                 }
             },
@@ -668,6 +702,7 @@ fun MuseApp(
             spectrum = visualSpectrum,
             active = playback.isPlaying,
             touchRipple = touchRipple,
+            interactionFrame = interactionFrame,
             qualityBudget = visualQualityBudget,
             modifier = Modifier.fillMaxSize(),
         )
