@@ -71,6 +71,68 @@ internal data class MuseWorldSceneGeometry(
     val alphaScale: Float,
 )
 
+
+internal data class MuseWorldNavMotion(
+    val dampingRatio: Float,
+    val stiffness: Float,
+    val stretch: Float,
+    val squash: Float,
+    val leadingPull: Float,
+    val pivotBias: Float,
+)
+
+internal fun MuseWorldChromeKind.navMotion(): MuseWorldNavMotion =
+    when (this) {
+        MuseWorldChromeKind.DewGlass -> MuseWorldNavMotion(
+            dampingRatio = 0.74f,
+            stiffness = 410f,
+            stretch = 0.38f,
+            squash = 0.050f,
+            leadingPull = 0.034f,
+            pivotBias = 0.30f,
+        )
+        MuseWorldChromeKind.PrismFacet -> MuseWorldNavMotion(
+            dampingRatio = 0.66f,
+            stiffness = 520f,
+            stretch = 0.46f,
+            squash = 0.036f,
+            leadingPull = 0.058f,
+            pivotBias = 0.36f,
+        )
+        MuseWorldChromeKind.ForgedEmber -> MuseWorldNavMotion(
+            dampingRatio = 0.82f,
+            stiffness = 680f,
+            stretch = 0.28f,
+            squash = 0.072f,
+            leadingPull = 0.026f,
+            pivotBias = 0.24f,
+        )
+        MuseWorldChromeKind.LunarHalo -> MuseWorldNavMotion(
+            dampingRatio = 0.92f,
+            stiffness = 260f,
+            stretch = 0.20f,
+            squash = 0.024f,
+            leadingPull = 0.018f,
+            pivotBias = 0.16f,
+        )
+        MuseWorldChromeKind.TidalLens -> MuseWorldNavMotion(
+            dampingRatio = 0.58f,
+            stiffness = 460f,
+            stretch = 0.56f,
+            squash = 0.062f,
+            leadingPull = 0.050f,
+            pivotBias = 0.40f,
+        )
+        MuseWorldChromeKind.RoseVelvet -> MuseWorldNavMotion(
+            dampingRatio = 0.70f,
+            stiffness = 350f,
+            stretch = 0.34f,
+            squash = 0.084f,
+            leadingPull = 0.041f,
+            pivotBias = 0.28f,
+        )
+    }
+
 internal fun MuseVisualProfile.worldSceneGeometry(): MuseWorldSceneGeometry =
     when (this) {
         MuseVisualProfile.VerdantRain -> MuseWorldSceneGeometry(
