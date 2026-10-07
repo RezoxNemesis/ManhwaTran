@@ -275,4 +275,38 @@ class MuseLivingWorldsTest {
         assertTrue(rose.sideBias != moon.sideBias)
     }
 
+    @Test
+    fun eachWorldHasAUniqueArrivalTransitionSignature() {
+        val signatures = MuseVisualProfile.entries.map { it.transitionSignature() }
+
+        assertEquals(
+            MuseVisualProfile.entries.size,
+            signatures.map {
+                listOf(
+                    it.durationMillis.toFloat(),
+                    it.sweep,
+                    it.ignition,
+                    it.mistBloom,
+                    it.refraction,
+                    it.petalBurst,
+                    it.dewPulse,
+                )
+            }.distinct().size,
+        )
+
+        val verdant = MuseVisualProfile.VerdantRain.transitionSignature()
+        val aurora = MuseVisualProfile.AuroraGlass.transitionSignature()
+        val ember = MuseVisualProfile.MidnightEmber.transitionSignature()
+        val moon = MuseVisualProfile.MoonlitViolet.transitionSignature()
+        val ocean = MuseVisualProfile.OceanPulse.transitionSignature()
+        val rose = MuseVisualProfile.RoseNoir.transitionSignature()
+
+        assertTrue(verdant.dewPulse > verdant.ignition)
+        assertTrue(aurora.sweep > ember.sweep)
+        assertTrue(ember.ignition > moon.ignition)
+        assertTrue(moon.mistBloom > ocean.mistBloom)
+        assertTrue(ocean.refraction > verdant.refraction)
+        assertTrue(rose.petalBurst > aurora.petalBurst)
+    }
+
 }
