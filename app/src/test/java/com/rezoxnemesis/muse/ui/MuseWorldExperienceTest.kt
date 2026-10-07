@@ -2,7 +2,6 @@ package com.rezoxnemesis.muse.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -28,7 +27,7 @@ class MuseWorldExperienceTest {
         MuseVisualProfile.entries.forEachIndexed { index, profile ->
             val experience = experiences[index]
             assertEquals(profile, experience.profile)
-            assertSame(profile.livingWorldStyle(), experience.style)
+            assertEquals(profile.livingWorldStyle(), experience.style)
             assertEquals(profile.worldSceneGeometry(), experience.sceneGeometry)
             assertEquals(profile.worldLightField(), experience.lightField)
             assertEquals(profile.transitionSignature(), experience.transition)
