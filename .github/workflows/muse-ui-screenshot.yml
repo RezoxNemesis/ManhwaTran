@@ -104,6 +104,7 @@ jobs:
           path: |
             ui-captures/*.png
             ui-captures/muse-motion-demo.mp4
+            ui-captures/muse-world-morph-v4.mp4
           if-no-files-found: error
           retention-days: 7
 
