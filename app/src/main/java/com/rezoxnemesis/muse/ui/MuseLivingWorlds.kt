@@ -134,6 +134,157 @@ internal data class MuseWorldSceneGeometry(
 )
 
 
+internal data class MuseWorldLightField(
+    val keyX: Float,
+    val keyY: Float,
+    val keyRadius: Float,
+    val skyWeight: Float,
+    val floorWeight: Float,
+    val sideBias: Float,
+    val bokehDensity: Float,
+    val shaftStrength: Float,
+    val centerVeil: Float,
+)
+
+internal data class MuseWorldTransitionSignature(
+    val durationMillis: Int,
+    val sweep: Float,
+    val ignition: Float,
+    val mistBloom: Float,
+    val refraction: Float,
+    val petalBurst: Float,
+    val dewPulse: Float,
+)
+
+internal fun MuseVisualProfile.worldLightField(): MuseWorldLightField =
+    when (this) {
+        MuseVisualProfile.VerdantRain -> MuseWorldLightField(
+            keyX = 0.78f,
+            keyY = 0.08f,
+            keyRadius = 0.72f,
+            skyWeight = 0.72f,
+            floorWeight = 0.25f,
+            sideBias = 0.12f,
+            bokehDensity = 1.00f,
+            shaftStrength = 0.36f,
+            centerVeil = 0.50f,
+        )
+        MuseVisualProfile.AuroraGlass -> MuseWorldLightField(
+            keyX = 0.48f,
+            keyY = 0.06f,
+            keyRadius = 0.90f,
+            skyWeight = 0.90f,
+            floorWeight = 0.12f,
+            sideBias = -0.08f,
+            bokehDensity = 0.55f,
+            shaftStrength = 0.72f,
+            centerVeil = 0.36f,
+        )
+        MuseVisualProfile.MidnightEmber -> MuseWorldLightField(
+            keyX = 0.56f,
+            keyY = 0.78f,
+            keyRadius = 0.46f,
+            skyWeight = 0.18f,
+            floorWeight = 1.00f,
+            sideBias = 0.16f,
+            bokehDensity = 0.42f,
+            shaftStrength = 0.18f,
+            centerVeil = 0.62f,
+        )
+        MuseVisualProfile.MoonlitViolet -> MuseWorldLightField(
+            keyX = 0.76f,
+            keyY = 0.12f,
+            keyRadius = 1.08f,
+            skyWeight = 0.78f,
+            floorWeight = 0.08f,
+            sideBias = -0.18f,
+            bokehDensity = 0.68f,
+            shaftStrength = 0.28f,
+            centerVeil = 0.70f,
+        )
+        MuseVisualProfile.OceanPulse -> MuseWorldLightField(
+            keyX = 0.50f,
+            keyY = 0.28f,
+            keyRadius = 0.82f,
+            skyWeight = 0.46f,
+            floorWeight = 0.34f,
+            sideBias = 0.05f,
+            bokehDensity = 0.62f,
+            shaftStrength = 1.00f,
+            centerVeil = 0.44f,
+        )
+        MuseVisualProfile.RoseNoir -> MuseWorldLightField(
+            keyX = 0.20f,
+            keyY = 0.30f,
+            keyRadius = 0.70f,
+            skyWeight = 0.38f,
+            floorWeight = 0.18f,
+            sideBias = 0.28f,
+            bokehDensity = 0.75f,
+            shaftStrength = 0.22f,
+            centerVeil = 0.58f,
+        )
+    }
+
+internal fun MuseVisualProfile.transitionSignature(): MuseWorldTransitionSignature =
+    when (this) {
+        MuseVisualProfile.VerdantRain -> MuseWorldTransitionSignature(
+            durationMillis = 780,
+            sweep = 0.25f,
+            ignition = 0.05f,
+            mistBloom = 0.25f,
+            refraction = 0.20f,
+            petalBurst = 0.05f,
+            dewPulse = 1.00f,
+        )
+        MuseVisualProfile.AuroraGlass -> MuseWorldTransitionSignature(
+            durationMillis = 920,
+            sweep = 1.00f,
+            ignition = 0.08f,
+            mistBloom = 0.28f,
+            refraction = 0.46f,
+            petalBurst = 0.06f,
+            dewPulse = 0.18f,
+        )
+        MuseVisualProfile.MidnightEmber -> MuseWorldTransitionSignature(
+            durationMillis = 620,
+            sweep = 0.18f,
+            ignition = 1.00f,
+            mistBloom = 0.08f,
+            refraction = 0.06f,
+            petalBurst = 0.04f,
+            dewPulse = 0.02f,
+        )
+        MuseVisualProfile.MoonlitViolet -> MuseWorldTransitionSignature(
+            durationMillis = 1100,
+            sweep = 0.18f,
+            ignition = 0.04f,
+            mistBloom = 1.00f,
+            refraction = 0.18f,
+            petalBurst = 0.08f,
+            dewPulse = 0.12f,
+        )
+        MuseVisualProfile.OceanPulse -> MuseWorldTransitionSignature(
+            durationMillis = 860,
+            sweep = 0.38f,
+            ignition = 0.05f,
+            mistBloom = 0.30f,
+            refraction = 1.00f,
+            petalBurst = 0.05f,
+            dewPulse = 0.28f,
+        )
+        MuseVisualProfile.RoseNoir -> MuseWorldTransitionSignature(
+            durationMillis = 980,
+            sweep = 0.22f,
+            ignition = 0.06f,
+            mistBloom = 0.38f,
+            refraction = 0.12f,
+            petalBurst = 1.00f,
+            dewPulse = 0.10f,
+        )
+    }
+
+
 internal data class MuseWorldNavMotion(
     val dampingRatio: Float,
     val stiffness: Float,
