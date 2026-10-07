@@ -188,6 +188,7 @@ internal fun MuseAtmosphereV2Overlay(
     rainLevel: MuseRainLevel,
     intensity: MuseVisualIntensity,
     touchRipple: MuseTouchRipple?,
+    renderPolicy: MuseV4RenderPolicy,
     modifier: Modifier = Modifier,
 ) {
     val chrome = profile.chromePalette()
@@ -257,24 +258,32 @@ internal fun MuseAtmosphereV2Overlay(
             behavior = behavior,
             phase = phase,
             energy = energy,
-            strength = intensityScale,
-        )
-        drawLeafBoundWater(
-            route = route,
-            chrome = chrome,
-            behavior = behavior,
-            phase = phase,
-            rainLevel = rainLevel,
-            strength = intensityScale,
+            strength = intensityScale * renderPolicy.bokehScale,
         )
 
-        if (touchRipple != null) {
+        if (renderPolicy.physicalDropletScale > 0f) {
+            drawLeafBoundWater(
+                route = route,
+                chrome = chrome,
+                behavior = behavior,
+                phase = phase,
+                rainLevel = rainLevel,
+                strength = intensityScale * renderPolicy.physicalDropletScale,
+            )
+        }
+
+        val touchMaterialScale = maxOf(
+            renderPolicy.physicalDropletScale,
+            renderPolicy.waterRefractionScale,
+            renderPolicy.condensationHazeScale * 0.55f,
+        )
+        if (touchRipple != null && touchMaterialScale > 0f) {
             drawTouchWaterImpactV2(
                 ripple = touchRipple,
                 progress = touchProgress.value,
                 chrome = chrome,
                 behavior = behavior,
-                strength = intensityScale,
+                strength = intensityScale * touchMaterialScale,
             )
         }
     }
