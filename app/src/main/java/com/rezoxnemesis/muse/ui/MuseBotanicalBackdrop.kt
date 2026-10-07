@@ -179,13 +179,21 @@ internal fun MuseNativeBotanicalBackdrop(
     rainLevel: MuseRainLevel = MuseRainLevel.Rain,
     audioSpectrum: MuseAudioSpectrum = MuseAudioSpectrum(),
     touchRipple: MuseTouchRipple? = null,
+    qualityBudget: MuseVisualQualityBudget =
+        initialMuseVisualPerformanceGovernor().qualityBudget(),
     modifier: Modifier = Modifier,
 ) {
     val palette = profile.backdropPalette()
     val atmosphere = profile.atmosphereBehavior()
-    val world = profile.livingWorldStyle()
-    val scene = profile.worldSceneGeometry()
-    val light = profile.worldLightField()
+    val experience = profile.worldExperience()
+    val world = experience.style
+    val scene = experience.sceneGeometry
+    val light = experience.lightField
+    val renderPolicy = resolveMuseV4RenderPolicy(
+        experience = experience,
+        budget = qualityBudget,
+        isForeground = true,
+    )
     val strength = when (intensity) {
         MuseVisualIntensity.Calm -> 0.76f
         MuseVisualIntensity.Balanced -> 1.0f
@@ -432,6 +440,7 @@ internal fun MuseNativeBotanicalBackdrop(
             rainLevel = rainLevel,
             intensity = intensity,
             touchRipple = touchRipple,
+            renderPolicy = renderPolicy,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -441,12 +450,14 @@ internal fun MuseNativeBotanicalBackdrop(
             modifier = Modifier.fillMaxSize(),
         )
 
-        MuseReactiveDropletOverlay(
-            ripple = touchRipple,
-            profile = profile,
-            behavior = atmosphere,
-            modifier = Modifier.fillMaxSize(),
-        )
+        if (renderPolicy.physicalDropletScale >= 0.50f) {
+            MuseReactiveDropletOverlay(
+                ripple = touchRipple,
+                profile = profile,
+                behavior = atmosphere,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
