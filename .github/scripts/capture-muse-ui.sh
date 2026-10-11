@@ -28,11 +28,9 @@ adb shell settings put secure user_setup_complete 1 || true
 
 adb shell pm grant com.rezoxnemesis.muse android.permission.READ_MEDIA_AUDIO || true
 
-# The headless Pixel launcher can ANR under SwiftShader and obscure motion captures.
-# Muse is started explicitly, so disable the launcher for this CI-only emulator.
-adb shell am force-stop com.google.android.apps.nexuslauncher || true
-adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
-adb shell input keyevent KEYCODE_BACK || true
+# Do not disable the system launcher. Older capture runs killed the launcher
+# and then suffered binder/service instability before Muse's Home could render.
+# Muse is launched explicitly below, so keeping Android HOME active is safe.
 
 adb shell mkdir -p /sdcard/Music
 adb push Muse_Runtime_Demo.wav /sdcard/Music/Muse_Runtime_Demo.wav
@@ -201,6 +199,27 @@ capture_route() {
 }
 
 capture_route home muse-home-runtime.png
+
+# Batch 2 first proves a small live route interaction before expensive,
+# multi-screen choreography. The full capture remains the default for V4.
+if [[ "${MUSE_CAPTURE_SMOKE_ONLY:-0}" == "1" ]]; then
+  capture_route tools muse-lab-runtime.png
+  dump_ui_to /tmp/muse-lab-smoke.xml
+  if ! grep -Fq "Atmosphere Studio" /tmp/muse-lab-smoke.xml ||
+     ! grep -Fq "Adaptive" /tmp/muse-lab-smoke.xml; then
+    echo "Muse Lab live previews were not reachable" >&2
+    cat /tmp/muse-lab-smoke.xml >&2 || true
+    exit 1
+  fi
+  timeout 17s adb shell screenrecord --size 540x1140 --bit-rate 2000000 \
+    --time-limit 6 /sdcard/muse-lab-live-previews.mp4
+  timeout 15s adb pull /sdcard/muse-lab-live-previews.mp4 \
+    ui-captures/muse-lab-live-previews.mp4
+  test -s ui-captures/muse-lab-live-previews.mp4
+  echo "Batch 2 smoke passed: Home, Muse Lab and live preview footage captured"
+  exit 0
+fi
+
 capture_route explore muse-explore-runtime.png
 capture_route library muse-library-runtime.png
 

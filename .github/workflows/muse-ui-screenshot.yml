@@ -93,13 +93,18 @@ jobs:
           profile: pixel_4
           target: google_apis
           disk-size: 2048M
-          ram-size: 2048M
+          ram-size: 3072M
           disable-animations: false
           pre-emulator-launch-script: |
             mkdir -p ~/.android
             printf 'Vulkan = off\nGLDirectMem = on\n' > ~/.android/advancedFeatures.ini
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: bash .github/scripts/capture-muse-ui.sh
+          script: |
+            if [[ "${GITHUB_REF_NAME}" == "feature/muse-batch2-live-atmosphere-previews" ]]; then
+              MUSE_CAPTURE_SMOKE_ONLY=1 bash .github/scripts/capture-muse-ui.sh
+            else
+              bash .github/scripts/capture-muse-ui.sh
+            fi
       - name: Upload genuine runtime screenshots
         if: always()
         continue-on-error: true
