@@ -1402,3 +1402,37 @@ private fun DrawScope.drawBotanicalLeaf(
         }
     }
 }
+
+
+/**
+ * Reuse the *actual* V4 physical leaf/material renderer in Muse Lab's
+ * miniature world previews. Droplets, veins, fractures and petal geometry
+ * therefore remain bound to the selected world's real material rules.
+ */
+internal fun DrawScope.drawMuseWorldPreviewFoliage(
+    style: MuseLivingWorldStyle,
+    phase: Float,
+    motionScale: Float,
+) {
+    val sway = kotlin.math.sin(phase * 2f * kotlin.math.PI.toFloat()) *
+        motionScale * 6.0f
+    drawBotanicalLeaf(
+        spec = LeafSpec(
+            x = 0.24f, y = 0.25f, width = 0.52f, height = 0.95f,
+            angle = -29f + sway, alpha = 0.90f, foreground = true,
+        ),
+        strength = 0.90f,
+        pulse = 0.94f,
+        style = style,
+    )
+    drawBotanicalLeaf(
+        spec = LeafSpec(
+            x = 0.84f, y = 0.35f, width = 0.44f, height = 0.83f,
+            angle = 43f - sway * 0.70f, alpha = 0.76f, foreground = true,
+            mirror = true,
+        ),
+        strength = 0.84f,
+        pulse = 0.88f,
+        style = style,
+    )
+}
