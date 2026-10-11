@@ -328,6 +328,17 @@ fun MuseApp(
             )
         )
     }
+    // Adaptive remembers the last manually selected world across restarts.
+    var adaptiveProfile by remember {
+        mutableStateOf(
+            MuseVisualProfile.entries.firstOrNull { profile ->
+                profile.storedValue == visualPreferences.getString(
+                    "adaptive_profile",
+                    null,
+                )
+            } ?: visualMode.fixedProfile ?: MuseVisualProfile.VerdantRain
+        )
+    }
     var rainLevel by remember {
         mutableStateOf(
             MuseRainLevel.fromStored(
@@ -354,10 +365,12 @@ fun MuseApp(
     val resolvedVisualProfile = remember(
         visualMode,
         visualDescriptor,
+        adaptiveProfile,
     ) {
         resolveMuseVisualProfile(
             mode = visualMode,
             descriptor = visualDescriptor,
+            adaptiveProfile = adaptiveProfile,
         )
     }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -615,9 +628,16 @@ fun MuseApp(
                         visualIntensity = visualIntensity,
                         onVisualModeChange = { next ->
                             visualMode = next
-                            visualPreferences.edit()
+                            val editor = visualPreferences.edit()
                                 .putString("visual_mode", next.storedValue)
-                                .apply()
+                            next.fixedProfile?.let { selectedWorld ->
+                                adaptiveProfile = selectedWorld
+                                editor.putString(
+                                    "adaptive_profile",
+                                    selectedWorld.storedValue,
+                                )
+                            }
+                            editor.apply()
                         },
                         onRainLevelChange = { next ->
                             rainLevel = next
@@ -7077,10 +7097,12 @@ private fun MuseLabScreen(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                if (visualMode == MuseVisualMode.Auto) {
-                                    "Auto is using ${resolvedVisualProfile.label} for the current local track."
-                                } else {
-                                    resolvedVisualProfile.description
+                                when (visualMode) {
+                                    MuseVisualMode.Auto ->
+                                        "Auto chose ${resolvedVisualProfile.label} from local song metadata."
+                                    MuseVisualMode.Adaptive ->
+                                        "Adaptive keeps ${resolvedVisualProfile.label}; light and motion respond to playback. Select a world, then return to Adaptive to change it."
+                                    else -> resolvedVisualProfile.description
                                 },
                                 color = MuseMuted,
                                 style = MaterialTheme.typography.bodySmall,
@@ -7336,10 +7358,10 @@ private fun MuseVisualSceneCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    if (mode == MuseVisualMode.Auto) {
-                        "Follows local song mood"
-                    } else {
-                        profile.description
+                    when (mode) {
+                        MuseVisualMode.Auto -> "Based on local track metadata"
+                        MuseVisualMode.Adaptive -> "Keep your world, animate with music"
+                        else -> profile.description
                     },
                     color = Color.White.copy(alpha = 0.78f),
                     style = MaterialTheme.typography.labelSmall,

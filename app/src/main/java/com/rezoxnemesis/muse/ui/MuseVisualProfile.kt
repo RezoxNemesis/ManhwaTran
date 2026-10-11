@@ -165,6 +165,7 @@ internal enum class MuseVisualMode(
     val fixedProfile: MuseVisualProfile?,
 ) {
     Auto("auto", "Auto", null),
+    Adaptive("adaptive", "Adaptive", null),
     VerdantRain(
         MuseVisualProfile.VerdantRain.storedValue,
         MuseVisualProfile.VerdantRain.label,
@@ -222,8 +223,10 @@ internal enum class MuseRainLevel(
 internal fun resolveMuseVisualProfile(
     mode: MuseVisualMode,
     descriptor: String,
+    adaptiveProfile: MuseVisualProfile = MuseVisualProfile.VerdantRain,
 ): MuseVisualProfile {
     mode.fixedProfile?.let { return it }
+    if (mode == MuseVisualMode.Adaptive) return adaptiveProfile
 
     val text = descriptor.lowercase()
     fun containsAny(vararg words: String): Boolean = words.any(text::contains)
