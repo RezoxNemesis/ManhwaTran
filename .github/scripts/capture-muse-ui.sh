@@ -33,6 +33,22 @@ adb shell am broadcast \
 
 mkdir -p ui-captures
 
+ensure_adb_transport() {
+  if ! timeout 12s adb get-state 2>/dev/null | grep -Fq "device"; then
+    echo "Android emulator/ADB transport became unavailable; this is not evidence of a Muse app crash." >&2
+    exit 2
+  fi
+}
+
+ensure_muse_process() {
+  ensure_adb_transport
+  if ! timeout 12s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+    echo "Muse process exited while the Android transport is still healthy." >&2
+    adb logcat -d -v threadtime | tail -n 500 >&2 || true
+    exit 1
+  fi
+}
+
 dump_ui_to() {
   local output="$1"
 
@@ -103,7 +119,11 @@ capture_route() {
     --es com.rezoxnemesis.muse.extra.OPEN_ROUTE "$route"
   sleep 6
 
-  if ! adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+  if ! timeout 12s adb get-state 2>/dev/null | grep -Fq "device"; then
+    echo "Android emulator/ADB transport failed while opening route: $route" >&2
+    exit 2
+  fi
+  if ! timeout 12s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
     echo "Muse process exited while opening route: $route" >&2
     adb logcat -d -v threadtime | tail -n 500 >&2 || true
     exit 1
@@ -311,6 +331,68 @@ capture_living_world "Moonlit Violet" "moonlit_violet"
 capture_living_world "Ocean Pulse" "ocean_pulse"
 capture_living_world "Rose Noir" "rose_noir"
 
+# V4 acceptance requires proof of the actual world-to-world morphs, not only
+# screenshots captured after each transition has already settled.
+select_world_in_live_lab() {
+  local label="$1"
+  local slug="$2"
+  local dump="/tmp/muse-live-${slug}.xml"
+  local found=0
+
+  ensure_muse_process
+  for attempt in 1 2 3 4 5; do
+    dump_ui_to "$dump"
+    if grep -Fq "$label" "$dump"; then
+      found=1
+      break
+    fi
+    adb shell input swipe 540 1660 540 720 500
+    sleep 0.7
+  done
+
+  if [[ "$found" -ne 1 ]]; then
+    echo "V4 live morph control not reachable: $label" >&2
+    cat "$dump" >&2 || true
+    exit 1
+  fi
+
+  tap_text_from_dump "$dump" "$label"
+  sleep 1.35
+  ensure_muse_process
+
+  visual_prefs="$(adb shell run-as com.rezoxnemesis.muse \
+    cat shared_prefs/muse_visual_preferences.xml 2>/dev/null | tr -d '\r' || true)"
+  if ! grep -Fq "$slug" <<<"$visual_prefs"; then
+    echo "V4 live morph selection did not persist: $label / $slug" >&2
+    printf '%s\n' "$visual_prefs" >&2
+    exit 1
+  fi
+}
+
+adb shell settings put system font_scale 1.0
+adb shell am force-stop com.rezoxnemesis.muse
+adb shell am start -W \
+  -n com.rezoxnemesis.muse/.MainActivity \
+  --es com.rezoxnemesis.muse.extra.OPEN_ROUTE tools
+sleep 4
+select_world_in_live_lab "Verdant Rain" "verdant_rain"
+
+adb shell screenrecord --size 540x1140 --bit-rate 3000000 --time-limit 20 \
+  /sdcard/muse-world-morph-v4.mp4 &
+morph_record_pid=$!
+sleep 0.8
+
+select_world_in_live_lab "Aurora Glass" "aurora_glass"
+select_world_in_live_lab "Midnight Ember" "midnight_ember"
+select_world_in_live_lab "Moonlit Violet" "moonlit_violet"
+select_world_in_live_lab "Ocean Pulse" "ocean_pulse"
+select_world_in_live_lab "Rose Noir" "rose_noir"
+
+wait "$morph_record_pid" || true
+ensure_adb_transport
+adb pull /sdcard/muse-world-morph-v4.mp4 ui-captures/muse-world-morph-v4.mp4
+test -s ui-captures/muse-world-morph-v4.mp4
+
 capture_route settings muse-settings-runtime.png
 capture_route sleep muse-sleep-runtime.png
 capture_route settings muse-settings-font130-runtime.png 1.3
@@ -397,5 +479,5 @@ wait "$record_pid" || true
 adb pull /sdcard/muse-motion-demo.mp4 ui-captures/muse-motion-demo.mp4
 test -s ui-captures/muse-motion-demo.mp4
 
-file ui-captures/*.png ui-captures/muse-motion-demo.mp4
-sha256sum ui-captures/*.png ui-captures/muse-motion-demo.mp4
+file ui-captures/*.png ui-captures/muse-motion-demo.mp4 ui-captures/muse-world-morph-v4.mp4
+sha256sum ui-captures/*.png ui-captures/muse-motion-demo.mp4 ui-captures/muse-world-morph-v4.mp4

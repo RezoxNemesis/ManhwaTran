@@ -121,6 +121,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -150,6 +151,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -324,6 +328,17 @@ fun MuseApp(
             )
         )
     }
+    // Adaptive remembers the last manually selected world across restarts.
+    var adaptiveProfile by remember {
+        mutableStateOf(
+            MuseVisualProfile.entries.firstOrNull { profile ->
+                profile.storedValue == visualPreferences.getString(
+                    "adaptive_profile",
+                    null,
+                )
+            } ?: visualMode.fixedProfile ?: MuseVisualProfile.VerdantRain
+        )
+    }
     var rainLevel by remember {
         mutableStateOf(
             MuseRainLevel.fromStored(
@@ -350,15 +365,52 @@ fun MuseApp(
     val resolvedVisualProfile = remember(
         visualMode,
         visualDescriptor,
+        adaptiveProfile,
     ) {
         resolveMuseVisualProfile(
             mode = visualMode,
             descriptor = visualDescriptor,
+            adaptiveProfile = adaptiveProfile,
         )
     }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var visualsForeground by remember(lifecycleOwner) {
+        mutableStateOf(
+            lifecycleOwner.lifecycle.currentState.isAtLeast(
+                Lifecycle.State.STARTED,
+            )
+        )
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, _ ->
+            visualsForeground =
+                lifecycleOwner.lifecycle.currentState.isAtLeast(
+                    Lifecycle.State.STARTED,
+                )
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    val visualQualityBudget = rememberMuseVisualQualityBudget(
+        isForeground = visualsForeground,
+        expensiveLayersVisible = visualsForeground,
+    )
+    val worldBlend = rememberMuseWorldBlend(resolvedVisualProfile)
     var touchRipple by remember {
         mutableStateOf<MuseTouchRipple?>(null)
     }
+    var gestureMomentum by remember {
+        mutableStateOf(MuseGestureMomentum(0f, 0f, 0f))
+    }
+    val routeFocus = museFocusRegionForRoute(currentRoute)
+        ?.let(::focusMuseRegion)
+        ?: MuseLivingFocusState(region = null, strength = 0f)
+    val interactionFrame = resolveMuseV4InteractionFrame(
+        focus = routeFocus,
+        momentum = gestureMomentum,
+    )
     val showPrimaryNav = currentRoute in PrimaryRoutes
 
     LaunchedEffect(requestedRoute) {
@@ -395,6 +447,30 @@ fun MuseApp(
                         yFraction = (down.position.y / height)
                             .coerceIn(0f, 1f),
                     )
+
+                    var lastPosition = down.position
+                    var pointerDown = true
+                    while (pointerDown) {
+                        val event = awaitPointerEvent()
+                        val tracked = event.changes.firstOrNull {
+                            it.id == down.id
+                        } ?: event.changes.firstOrNull()
+                        if (tracked == null) {
+                            pointerDown = false
+                        } else {
+                            lastPosition = tracked.position
+                            pointerDown = tracked.pressed
+                        }
+                    }
+
+                    val deltaX = lastPosition.x - down.position.x
+                    val deltaY = lastPosition.y - down.position.y
+                    gestureMomentum = resolveMuseGestureMomentum(
+                        deltaX = deltaX,
+                        deltaY = deltaY,
+                        velocityX = 0f,
+                        velocityY = 0f,
+                    )
                 }
             },
     ) {
@@ -406,6 +482,7 @@ fun MuseApp(
             rainLevel = rainLevel,
             audioSpectrum = visualSpectrum,
             touchRipple = touchRipple,
+            qualityBudget = visualQualityBudget,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -551,9 +628,16 @@ fun MuseApp(
                         visualIntensity = visualIntensity,
                         onVisualModeChange = { next ->
                             visualMode = next
-                            visualPreferences.edit()
+                            val editor = visualPreferences.edit()
                                 .putString("visual_mode", next.storedValue)
-                                .apply()
+                            next.fixedProfile?.let { selectedWorld ->
+                                adaptiveProfile = selectedWorld
+                                editor.putString(
+                                    "adaptive_profile",
+                                    selectedWorld.storedValue,
+                                )
+                            }
+                            editor.apply()
                         },
                         onRainLevelChange = { next ->
                             rainLevel = next
@@ -630,10 +714,16 @@ fun MuseApp(
             }
         }
 
-        // The arrival gesture sits above the live UI but remains purely visual,
-        // so profile changes feel physical without blocking touch or navigation.
-        MuseWorldArrivalOverlay(
+        // V4 keeps the transition layer alive as part of the world rather than
+        // treating a profile change as a one-shot entrance animation.
+        MuseSignatureExperienceV4Overlay(
             profile = resolvedVisualProfile,
+            blend = worldBlend,
+            spectrum = visualSpectrum,
+            active = playback.isPlaying,
+            touchRipple = touchRipple,
+            interactionFrame = interactionFrame,
+            qualityBudget = visualQualityBudget,
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -7007,10 +7097,12 @@ private fun MuseLabScreen(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                if (visualMode == MuseVisualMode.Auto) {
-                                    "Auto is using ${resolvedVisualProfile.label} for the current local track."
-                                } else {
-                                    resolvedVisualProfile.description
+                                when (visualMode) {
+                                    MuseVisualMode.Auto ->
+                                        "Auto chose ${resolvedVisualProfile.label} from local song metadata."
+                                    MuseVisualMode.Adaptive ->
+                                        "Adaptive keeps ${resolvedVisualProfile.label}; light and motion respond to playback. Select a world, then return to Adaptive to change it."
+                                    else -> resolvedVisualProfile.description
                                 },
                                 color = MuseMuted,
                                 style = MaterialTheme.typography.bodySmall,
@@ -7266,10 +7358,10 @@ private fun MuseVisualSceneCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    if (mode == MuseVisualMode.Auto) {
-                        "Follows local song mood"
-                    } else {
-                        profile.description
+                    when (mode) {
+                        MuseVisualMode.Auto -> "Based on local track metadata"
+                        MuseVisualMode.Adaptive -> "Keep your world, animate with music"
+                        else -> profile.description
                     },
                     color = Color.White.copy(alpha = 0.78f),
                     style = MaterialTheme.typography.labelSmall,

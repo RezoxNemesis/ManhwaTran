@@ -30,6 +30,59 @@ class MuseVisualProfileTest {
     }
 
     @Test
+    fun adaptiveModeKeepsTheChosenWorldAcrossDifferentSongs() {
+        val pinned = MuseVisualProfile.MidnightEmber
+        assertEquals(
+            pinned,
+            resolveMuseVisualProfile(
+                MuseVisualMode.Adaptive,
+                "romantic ballad",
+                adaptiveProfile = pinned,
+            ),
+        )
+        assertEquals(
+            pinned,
+            resolveMuseVisualProfile(
+                MuseVisualMode.Adaptive,
+                "chill electronic dance music",
+                adaptiveProfile = pinned,
+            ),
+        )
+    }
+
+    @Test
+    fun autoModeStillFollowsMetadataEvenWithAnAdaptivePreference() {
+        assertEquals(
+            MuseVisualProfile.RoseNoir,
+            resolveMuseVisualProfile(
+                MuseVisualMode.Auto,
+                "romantic soul ballad",
+                adaptiveProfile = MuseVisualProfile.MidnightEmber,
+            ),
+        )
+    }
+
+    @Test
+    fun adaptiveModeHasSafeVerdantFallback() {
+        assertEquals(
+            MuseVisualProfile.VerdantRain,
+            resolveMuseVisualProfile(MuseVisualMode.Adaptive, "anything"),
+        )
+    }
+
+    @Test
+    fun fixedWorldWinsOverRememberedAdaptivePreference() {
+        assertEquals(
+            MuseVisualProfile.MoonlitViolet,
+            resolveMuseVisualProfile(
+                MuseVisualMode.MoonlitViolet,
+                "rock workout",
+                adaptiveProfile = MuseVisualProfile.MidnightEmber,
+            ),
+        )
+    }
+
+    @Test
     fun everyProfileHasDistinctChromeAccent() {
         val accents = MuseVisualProfile.entries
             .map { it.chromePalette().primary.value }
