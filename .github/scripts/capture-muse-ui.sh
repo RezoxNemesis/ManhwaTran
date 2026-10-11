@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-adb wait-for-device
-until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do
+timeout 75s adb wait-for-device
+boot_ready=0
+for attempt in $(seq 1 45); do
+  if [[ "$(timeout 8s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+    boot_ready=1
+    break
+  fi
   sleep 2
 done
+if [[ "$boot_ready" != 1 ]]; then
+  echo "Emulator boot timed out before Muse was launched" >&2
+  exit 2
+fi
 adb shell input keyevent KEYCODE_WAKEUP || true
 adb shell wm dismiss-keyguard || true
 sleep 5
@@ -33,6 +42,29 @@ adb shell am broadcast \
 
 mkdir -p ui-captures
 
+# The prior UI capture was cancelled after Muse disappeared and adb logcat
+# waited indefinitely for an offline emulator. Continuously record only error
+# diagnostics, and never run an unbounded ADB command in failure paths.
+MUSE_DIAGNOSTICS_PID=""
+muse_capture_cleanup() {
+  local result="$?"
+  if [[ "$result" -ne 0 ]]; then
+    {
+      echo "Capture exited: $result"
+      timeout 8s adb get-state || true
+      timeout 8s adb shell pidof com.rezoxnemesis.muse || true
+    } > ui-captures/muse-runtime-status.txt 2>&1
+    (timeout 8s adb exec-out screencap -p       > ui-captures/muse-last-frame.png) 2>/dev/null || true
+  fi
+  if [[ -n "${MUSE_DIAGNOSTICS_PID}" ]]; then
+    kill "${MUSE_DIAGNOSTICS_PID}" >/dev/null 2>&1 || true
+  fi
+}
+trap muse_capture_cleanup EXIT
+
+(timeout 880s adb logcat -v threadtime -b main -b system -b crash   -s AndroidRuntime:E ActivityManager:W ActivityTaskManager:W libc:F DEBUG:E   > ui-captures/muse-runtime-diagnostics.log 2>&1) &
+MUSE_DIAGNOSTICS_PID=$!
+
 ensure_adb_transport() {
   if ! timeout 12s adb get-state 2>/dev/null | grep -Fq "device"; then
     echo "Android emulator/ADB transport became unavailable; this is not evidence of a Muse app crash." >&2
@@ -43,8 +75,9 @@ ensure_adb_transport() {
 ensure_muse_process() {
   ensure_adb_transport
   if ! timeout 12s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+    ensure_adb_transport
     echo "Muse process exited while the Android transport is still healthy." >&2
-    adb logcat -d -v threadtime | tail -n 500 >&2 || true
+    timeout 8s adb logcat -d -v threadtime | tail -n 500 >&2 || true
     exit 1
   fi
 }
@@ -55,8 +88,8 @@ dump_ui_to() {
   for attempt in 1 2 3 4 5; do
     rm -f "$output"
     adb shell rm -f /sdcard/muse-window.xml >/dev/null 2>&1 || true
-    adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
-    adb pull /sdcard/muse-window.xml "$output" >/dev/null 2>&1 || true
+    timeout 15s adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+    timeout 12s adb pull /sdcard/muse-window.xml "$output" >/dev/null 2>&1 || true
     if [[ -s "$output" ]]; then
       return 0
     fi
@@ -64,7 +97,7 @@ dump_ui_to() {
   done
 
   echo "UiAutomator did not produce a window dump: $output" >&2
-  adb logcat -d -v threadtime | tail -n 250 >&2 || true
+  timeout 8s adb logcat -d -v threadtime | tail -n 250 >&2 || true
   return 1
 }
 
@@ -114,7 +147,7 @@ capture_route() {
 
   adb shell settings put system font_scale "$font_scale"
   adb shell am force-stop com.rezoxnemesis.muse
-  adb shell am start -W \
+  timeout 30s adb shell am start -W \
     -n com.rezoxnemesis.muse/.MainActivity \
     --es com.rezoxnemesis.muse.extra.OPEN_ROUTE "$route"
   sleep 6
@@ -124,8 +157,9 @@ capture_route() {
     exit 2
   fi
   if ! timeout 12s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+    ensure_adb_transport
     echo "Muse process exited while opening route: $route" >&2
-    adb logcat -d -v threadtime | tail -n 500 >&2 || true
+    timeout 8s adb logcat -d -v threadtime | tail -n 500 >&2 || true
     exit 1
   fi
 
@@ -244,6 +278,13 @@ if grep -Fq "Equalizer unavailable" /tmp/muse-equalizer.xml; then
 fi
 
 capture_route tools muse-lab-runtime.png
+
+# Real-time evidence: record the scene cards while the UI is motionless.
+# A static screenshot cannot prove the miniature leaves and world accents move.
+timeout 20s adb shell screenrecord --size 540x1140 --bit-rate 2200000   --time-limit 8 /sdcard/muse-lab-live-previews.mp4
+timeout 15s adb pull /sdcard/muse-lab-live-previews.mp4   ui-captures/muse-lab-live-previews.mp4
+test -s ui-captures/muse-lab-live-previews.mp4
+
 dump_ui_to /tmp/muse-lab.xml
 if ! grep -Fq "Atmosphere Studio" /tmp/muse-lab.xml; then
   echo "Muse Lab did not expose the live Atmosphere Studio" >&2
@@ -406,7 +447,7 @@ adb shell am start -W   -n com.rezoxnemesis.muse/.MainActivity   --es com.rezoxn
 sleep 4
 adb shell input keyevent KEYCODE_BACK
 sleep 2
-adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+timeout 15s adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
 adb pull /sdcard/muse-window.xml /tmp/muse-back-window.xml >/dev/null 2>&1 || true
 if ! grep -Fq "Home" /tmp/muse-back-window.xml; then
   echo "Now Playing Back did not return to Home" >&2
@@ -420,7 +461,7 @@ fi
 adb shell am force-stop com.rezoxnemesis.muse
 adb shell am start -W   -a android.intent.action.MAIN   -c android.intent.category.LAUNCHER   -n com.rezoxnemesis.muse/.MainActivity
 sleep 4
-adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
+timeout 15s adb shell uiautomator dump /sdcard/muse-window.xml >/dev/null 2>&1 || true
 adb pull /sdcard/muse-window.xml /tmp/muse-relaunch-window.xml >/dev/null 2>&1 || true
 if ! grep -Fq "Home" /tmp/muse-relaunch-window.xml; then
   echo "Launcher relaunch did not land on Home" >&2
