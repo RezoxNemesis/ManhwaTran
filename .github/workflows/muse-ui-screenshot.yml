@@ -97,13 +97,30 @@ jobs:
           profile: pixel_4
           target: default
           disk-size: 2048M
-          ram-size: 3072M
+          ram-size: 2048M
           disable-animations: false
           pre-emulator-launch-script: |
             mkdir -p ~/.android
-            printf 'Vulkan = off\nGLDirectMem = on\n' > ~/.android/advancedFeatures.ini
+            printf 'Vulkan = off\nGLDirectMem = off\n' > ~/.android/advancedFeatures.ini
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash .github/scripts/run-muse-ci-capture.sh
+      - name: Collect runner health after emulator attempt
+        if: always()
+        run: |
+          mkdir -p ui-captures
+          {
+            echo "=== Host time ==="
+            date -u
+            echo "=== Host memory ==="
+            free -h
+            echo "=== Root disk ==="
+            df -h /
+            echo "=== Top memory processes ==="
+            ps -eo pid,comm,rss,%mem,args --sort=-rss | head -n 28
+            echo "=== Kernel OOM / emulator failure context ==="
+            (sudo dmesg -T | grep -Ei 'out of memory|oom|killed process|qemu|emulator' | tail -n 80) || true
+          } > ui-captures/muse-runner-host-health.txt 2>&1
+
       - name: Upload genuine runtime screenshots
         if: always()
         continue-on-error: true
@@ -118,6 +135,7 @@ jobs:
             ui-captures/muse-runtime-diagnostics.log
             ui-captures/muse-runtime-status.txt
             ui-captures/muse-last-frame.png
+            ui-captures/muse-runner-host-health.txt
           if-no-files-found: error
           retention-days: 7
 
