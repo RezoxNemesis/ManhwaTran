@@ -50,7 +50,9 @@ muse_capture_cleanup() {
     {
       echo "Capture exited: $result"
       timeout 8s adb get-state || true
+      timeout 8s adb shell 'echo muse-adb-heartbeat' || true
       timeout 8s adb shell pidof com.rezoxnemesis.muse || true
+      timeout 8s adb shell dumpsys meminfo com.rezoxnemesis.muse | head -n 28 || true
     } > ui-captures/muse-runtime-status.txt 2>&1
     (timeout 8s adb exec-out screencap -p       > ui-captures/muse-last-frame.png) 2>/dev/null || true
   fi
@@ -60,22 +62,29 @@ muse_capture_cleanup() {
 }
 trap muse_capture_cleanup EXIT
 
-(timeout 880s adb logcat -v threadtime -b main -b system -b crash   -s AndroidRuntime:E ActivityManager:W ActivityTaskManager:W libc:F DEBUG:E   > ui-captures/muse-runtime-diagnostics.log 2>&1) &
+(timeout 880s adb logcat -v threadtime -b main -b system -b crash \
+  -s AndroidRuntime:V ActivityManager:W ActivityTaskManager:W \
+  libc:E DEBUG:E lmkd:I OpenGLRenderer:W HWUI:W \
+  > ui-captures/muse-runtime-diagnostics.log 2>&1) &
 MUSE_DIAGNOSTICS_PID=$!
 
 ensure_adb_transport() {
-  if ! timeout 12s adb get-state 2>/dev/null | grep -Fq "device"; then
-    echo "Android emulator/ADB transport became unavailable; this is not evidence of a Muse app crash." >&2
+  # get-state can remain "device" after a frozen/crashed emulator.
+  # Require a shell round trip before labeling a missing PID an app failure.
+  if ! timeout 6s adb get-state 2>/dev/null | grep -Fxq "device" ||
+     ! timeout 8s adb shell 'echo muse-adb-heartbeat' 2>/dev/null |
+       tr -d '\r' | grep -Fxq "muse-adb-heartbeat"; then
+    echo "Emulator/ADB shell heartbeat unavailable (infrastructure failure, not proven Muse crash)." >&2
     exit 2
   fi
 }
 
 ensure_muse_process() {
   ensure_adb_transport
-  if ! timeout 12s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+  if ! timeout 8s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
     ensure_adb_transport
-    echo "Muse process exited while the Android transport is still healthy." >&2
-    timeout 8s adb logcat -d -v threadtime | tail -n 500 >&2 || true
+    echo "Muse PID missing with healthy ADB shell." >&2
+    timeout 8s adb logcat -d -b crash -v threadtime | tail -n 100 >&2 || true
     exit 1
   fi
 }
@@ -149,16 +158,20 @@ capture_route() {
     -n com.rezoxnemesis.muse/.MainActivity \
     --es com.rezoxnemesis.muse.extra.OPEN_ROUTE "$route"
   sleep 6
+  ensure_adb_transport
 
-  if ! timeout 12s adb get-state 2>/dev/null | grep -Fq "device"; then
-    echo "Android emulator/ADB transport failed while opening route: $route" >&2
-    exit 2
-  fi
-  if ! timeout 12s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+  # Confirm the PID twice while the transport remains responsive. Log the
+  # actual Android crash buffer if the process is missing, rather than
+  # treating a stale get-state response as evidence of an app crash.
+  if ! timeout 8s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+    sleep 2
     ensure_adb_transport
-    echo "Muse process exited while opening route: $route" >&2
-    timeout 8s adb logcat -d -v threadtime | tail -n 500 >&2 || true
-    exit 1
+    if ! timeout 8s adb shell pidof com.rezoxnemesis.muse >/dev/null 2>&1; then
+      echo "Muse process absent with responsive ADB after opening route: $route" >&2
+      timeout 8s adb logcat -d -b crash -v threadtime | tail -n 100 >&2 || true
+      timeout 8s adb shell dumpsys activity activities | tail -n 90 >&2 || true
+      exit 1
+    fi
   fi
 
   # Do not accept a splash screen as proof that a requested route rendered.

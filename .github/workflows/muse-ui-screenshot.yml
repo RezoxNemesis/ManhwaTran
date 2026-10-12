@@ -90,10 +90,12 @@ jobs:
       - name: Capture Muse reference screens from running APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          # Android 14 AOSP smoke image reduces Pixel/Google background load.
+          # API 35/36 device verification remains required for final acceptance.
+          api-level: 34
           arch: x86_64
           profile: pixel_4
-          target: google_apis
+          target: default
           disk-size: 2048M
           ram-size: 3072M
           disable-animations: false
