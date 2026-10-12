@@ -8,6 +8,7 @@ on:
       - feature/muse-living-atmosphere
       - feature/muse-living-worlds-v3
       - feature/muse-signature-experience-v4
+      - feature/muse-batch2-live-atmosphere-previews
   workflow_dispatch:
 
 permissions:
@@ -41,6 +42,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
+
+      - name: Validate capture script syntax
+        run: |
+          bash -n .github/scripts/capture-muse-ui.sh
+          bash -n .github/scripts/run-muse-ci-capture.sh
 
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
@@ -84,19 +90,39 @@ jobs:
       - name: Capture Muse reference screens from running APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          # Android 14 AOSP smoke image reduces Pixel/Google background load.
+          # API 35/36 device verification remains required for final acceptance.
+          api-level: 34
           arch: x86_64
           profile: pixel_4
-          target: google_apis
+          target: default
           disk-size: 2048M
           ram-size: 2048M
           disable-animations: false
           pre-emulator-launch-script: |
             mkdir -p ~/.android
-            printf 'Vulkan = off\nGLDirectMem = on\n' > ~/.android/advancedFeatures.ini
+            printf 'Vulkan = off\nGLDirectMem = off\n' > ~/.android/advancedFeatures.ini
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: bash .github/scripts/capture-muse-ui.sh
+          script: bash .github/scripts/run-muse-ci-capture.sh
+      - name: Collect runner health after emulator attempt
+        if: always()
+        run: |
+          mkdir -p ui-captures
+          {
+            echo "=== Host time ==="
+            date -u
+            echo "=== Host memory ==="
+            free -h
+            echo "=== Root disk ==="
+            df -h /
+            echo "=== Top memory processes ==="
+            ps -eo pid,comm,rss,%mem,args --sort=-rss | head -n 28
+            echo "=== Kernel OOM / emulator failure context ==="
+            (sudo dmesg -T | grep -Ei 'out of memory|oom|killed process|qemu|emulator' | tail -n 80) || true
+          } > ui-captures/muse-runner-host-health.txt 2>&1
+
       - name: Upload genuine runtime screenshots
+        if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -105,6 +131,11 @@ jobs:
             ui-captures/*.png
             ui-captures/muse-motion-demo.mp4
             ui-captures/muse-world-morph-v4.mp4
+            ui-captures/muse-lab-live-previews.mp4
+            ui-captures/muse-runtime-diagnostics.log
+            ui-captures/muse-runtime-status.txt
+            ui-captures/muse-last-frame.png
+            ui-captures/muse-runner-host-health.txt
           if-no-files-found: error
           retention-days: 7
 

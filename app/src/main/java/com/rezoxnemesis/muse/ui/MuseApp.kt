@@ -626,6 +626,8 @@ fun MuseApp(
                         resolvedVisualProfile = resolvedVisualProfile,
                         rainLevel = rainLevel,
                         visualIntensity = visualIntensity,
+                        visualSpectrum = visualSpectrum,
+                        isPlaying = playback.isPlaying,
                         onVisualModeChange = { next ->
                             visualMode = next
                             val editor = visualPreferences.edit()
@@ -7056,6 +7058,8 @@ private fun MuseLabScreen(
     resolvedVisualProfile: MuseVisualProfile,
     rainLevel: MuseRainLevel,
     visualIntensity: MuseVisualIntensity,
+    visualSpectrum: MuseAudioSpectrum,
+    isPlaying: Boolean,
     onVisualModeChange: (MuseVisualMode) -> Unit,
     onRainLevelChange: (MuseRainLevel) -> Unit,
     onVisualIntensityChange: (MuseVisualIntensity) -> Unit,
@@ -7122,6 +7126,10 @@ private fun MuseLabScreen(
                                 mode = mode,
                                 profile = profile,
                                 selected = visualMode == mode,
+                                rainLevel = rainLevel,
+                                visualIntensity = visualIntensity,
+                                isPlaying = isPlaying,
+                                audioEnergy = visualSpectrum.energy,
                                 onClick = { onVisualModeChange(mode) },
                             )
                         }
@@ -7320,6 +7328,10 @@ private fun MuseVisualSceneCard(
     mode: MuseVisualMode,
     profile: MuseVisualProfile,
     selected: Boolean,
+    rainLevel: MuseRainLevel,
+    visualIntensity: MuseVisualIntensity,
+    isPlaying: Boolean,
+    audioEnergy: Float,
     onClick: () -> Unit,
 ) {
     MuseGlassAction(
@@ -7334,20 +7346,20 @@ private fun MuseVisualSceneCard(
         },
         cornerRadius = 22.dp,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = profile.previewColors(),
-                    ),
-                )
-                .padding(12.dp),
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            MuseWorldScenePreview(
+                profile = profile,
+                rainLevel = rainLevel,
+                intensity = visualIntensity,
+                isPlaying = isPlaying,
+                audioEnergy = audioEnergy,
+                modifier = Modifier.fillMaxSize(),
+            )
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
